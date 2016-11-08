@@ -1,0 +1,1 @@
+/home/loli/Documents/Workspace/Lisp/CommonLisp/functions.lisp
