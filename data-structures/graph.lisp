@@ -25,7 +25,6 @@
 
 ;;; Indirect way-----------------------------------------------------------------------------------------------
 
-
 ;; doesn't update by itself for some reason... most likely due to how passing via value instead of by reference works
 ;; !!Abandon this one!!!!!!!
 (defun defnode%% (name hash &rest neighbors)
@@ -62,13 +61,16 @@
 
 
 ;;; Testing Indirect
+;; (time (defnode-ind 'A *nodes-indirect* 'B 'C 'D 'E))
 (defnode-ind 'A *nodes-indirect* 'B 'C 'D 'E)
 (defnode-ind 'B *nodes-indirect* 'A 'D 'F)
 (defnode-ind 'C *nodes-indirect*  'A 'F)
 (defnode-ind 'D *nodes-indirect*  'A 'B)
-(defnode-ind 'E *nodes-indirect*  'A)
+;; (time (defnode-ind 'D *nodes-indirect*  'A 'B))
 
 (gethash 'b (gethash 'A *nodes-indirect*))
+
+;; (time (gethash (gethash 'a (gethash (gethash 'b (gethash 'A *nodes-indirect*)) *nodes-indirect*)) *nodes-indirect*))
 
 ;;;  Closure style with proper nesting-------------------------------------------------------------------------
 (defun defnode-bi-or-uni (name hash bip &rest neighbors)
@@ -95,20 +97,105 @@
   (apply (curry defnode-bi-or-uni name hash nil) neighbors))
 
 
+
+(defun get-node (sym hash)
+  (let ((val (gethash sym hash)))
+    (when val
+      (funcall val))))
+
+(defun breadth-search-gen (start hash pred &key (key #'identity) limit)
+  "Searches the graph from the START node breadth-first until it hits the PREDicate the user specified to the value
+   of the KEY applied to the node.  The function can also check if a node is x nodes away if LIMIT is specified"
+  (let ((seen (make-hash-table))
+        (head) (tail)
+        (lim (if limit (+ 2 limit) -1))) ; ends the loop properly if one wants to see
+    ;; Nodes here are stored like this (b (b a)) to preserve path and are labeled node+
+    (flet ((queue (node+)               ; the queue ensured breadth-first behavior
+             (if (null head) 
+                 (setf head (list node+)
+                       tail head)
+                 (setf (cdr tail) (list node+)
+                       tail (cdr tail))))
+           (dequeue ()
+             (cond ((null head) nil)
+                   ((eq head tail) (prog1 (car head)
+                                     (setf head nil
+                                           tail head)))
+                   (t (pop head))))
+           (see           (node)        (setf (gethash node seen) t))
+           (seenp         (node)        (gethash node seen))
+           (end-condition (node+)       (or (funcall pred (funcall key (car node+)))))
+           (make-node+    (node node2+) (list node (cons node (cadr node2+)))))
+      (declare (inline queue dequeue see seenp end-condition make-node+))
+      (queue (list start (list start))) ; start the first node
+      (see start)
+      (loop :until (null head) :do
+         (let ((curr (dequeue)))
+           (when (end-condition curr)
+             (return-from breadth-search-gen (list (car curr) (nreverse (cadr curr)))))
+           (when (= lim 0) (return-from breadth-search-gen nil)) ; end prematurely if we can't hop any more nodes
+           (decf lim)
+           (loop :for sym being the hash-keys :of (get-node (car curr) hash) :do
+              (unless (seenp sym)
+                (queue (make-node+ sym curr))
+                (see sym))))))))
+
+;; QQ these don't work for breadth-search-gen
+(defmacro queue (node+ head tail)
+  `(if (null ,head) 
+      (setf ,head (list ,node+)
+            ,tail ,head)
+      (setf (cdr ,tail) (list ,node+)
+            ,tail (cdr ,tail))))
+
+(defmacro dequeue (head tail)
+  `(cond ((null ,head) nil)
+        ((eq ,head ,tail) (prog1 (car ,head)
+                          (setf ,head nil
+                                ,tail ,head)))
+        (t (pop ,head))))
+
+;; Garbage at the moment since the stack frame will blow up if the sample size is big enough
+(defun depth-search (start hash find  &key (key #'eq) (limit -1))
+  (let ((seen)
+        (ans))
+    (labels ((rec (node path lim seen)
+               (if (= lim 0)
+                   nil
+                   (maphash (lambda (x y)
+                              (when ans
+                                (return-from rec))
+                              (unless (member x seen)
+                                (if (funcall key find x)
+                                    (setf ans (list (car path) (reverse (cons find path))))
+                                    (progn
+                                      (rec (funcall y) (cons x path) (1- lim) (push x seen))))))
+                            node))))
+      (rec (get-node start hash) (list start) limit seen)
+      (list seen ans))))
+
+;; (maphash (lambda (x y) (princ x) (princ (funcall y))) (get-node 'a *nodes*))
+
+
+
 (defnode 'A *nodes* 'B 'C 'D 'E)
+;; (time (defnode 'A *nodes* 'B 'C 'D 'E))
 (defnode 'B *nodes* 'A 'D 'F)
 (defnode 'C *nodes*  'A 'F)
-(defnode 'D *nodes*  'A 'B)
-(defnode 'E *nodes*  'A)
-;; (defnode 'F *nodes*  'B)
+(defnode 'D *nodes*  'A 'B 'E 'G)
+;; (time (defnode 'D *nodes*  'A 'B))
+
 
 (gethash 'B (funcall (gethash 'A *nodes*)))
 (gethash 'B (funcall (gethash 'A *nodes*))) ; every node inside A is compiled
 
+;; (time (funcall (gethash 'a (funcall (gethash 'b (funcall (gethash 'a *nodes*)))))))
+
 (defnode 'B *nodes* 'A 'D)
 
-(funcall (gethash 'b (funcall (gethash 'a *nodes*))))
+;; (defun grab-node (term hash)
+;;   (let ((val (gethash term hash)))
+;;     (cond ((functionp val) (funcall val))       ;the closure version will show up as a function
+;;           ((hash-table-p val) val)              ; the indirect one can either grab the hash table 
+;;           ((symbolp val) (gethash val hash))))) ; or the symbol that leads to the hash
 
-
-(apropos 'setf 'cl)
-(mapcar #'documentation (apropos-list 'setf 'cl) '#1=(function . #1#))
