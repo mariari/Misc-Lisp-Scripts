@@ -4,6 +4,8 @@
 (defparameter *nodes-indirect* (make-hash-table))
 (defparameter *nodes%%* (make-hash-table))
 
+;; Helper Macros-----------------------------------------------------------------------------------------------
+
 (defmacro curry (fn . args)
   "Creates a partially applied function that takes 1 argument if it is a macro
    (a limitation of &rest closures in CL) and multiple if it is a function"
@@ -22,6 +24,21 @@
   "Creates a partially applied function that takes many argument"
   (lambda (&rest args2) (apply fn (append args args2))))
 
+(defmacro queue (node+ head tail)
+  (let ((node (gensym)))
+    `(let ((,node ,node+))
+       (if (null ,head) 
+           (setf ,head (list ,node)
+                 ,tail ,head)
+           (setf (cdr ,tail) (list ,node)
+                 ,tail (cdr ,tail))))))
+
+(defmacro dequeue (head tail)
+  `(cond ((null ,head) nil)
+        ((eq ,head ,tail) (prog1 (car ,head)
+                          (setf ,head nil
+                                ,tail ,head)))
+        (t (pop ,head))))
 
 ;;; Indirect way-----------------------------------------------------------------------------------------------
 
@@ -108,56 +125,32 @@
    of the KEY applied to the node.  The function can also check if a node is x nodes away if LIMIT is specified"
   (let ((seen (make-hash-table))
         (head) (tail)
-        (lim (if limit (+ 2 limit) -1))) ; ends the loop properly if one wants to see
+        (lim (if limit (+ 2 limit) -1)))
     ;; Nodes here are stored like this (b (b a)) to preserve path and are labeled node+
-    (flet ((queue (node+)               ; the queue ensured breadth-first behavior
-             (if (null head) 
-                 (setf head (list node+)
-                       tail head)
-                 (setf (cdr tail) (list node+)
-                       tail (cdr tail))))
-           (dequeue ()
-             (cond ((null head) nil)
-                   ((eq head tail) (prog1 (car head)
-                                     (setf head nil
-                                           tail head)))
-                   (t (pop head))))
-           (see           (node)        (setf (gethash node seen) t))
+    (flet ((see           (node)        (setf (gethash node seen) t))
            (seenp         (node)        (gethash node seen))
-           (end-condition (node+)       (or (funcall pred (funcall key (car node+)))))
-           (make-node+    (node node2+) (list node (cons node (cadr node2+)))))
-      (declare (inline queue dequeue see seenp end-condition make-node+))
-      (queue (list start (list start))) ; start the first node
+           (end-condition (node+)       (funcall pred (funcall key (car node+)))) ; node+ means the nodes are stored
+           (make-node+    (node node2+) (list node (cons node (cadr node2+)))))   ; like (b (b a)) to preserve path
+      (declare (inline see seenp end-condition make-node+))
+      (queue (list start (list start)) head tail) ; start the first node
       (see start)
       (loop :until (null head) :do
-         (let ((curr (dequeue)))
+         (let ((curr (dequeue head tail)))
            (when (end-condition curr)
              (return-from breadth-search-gen (list (car curr) (nreverse (cadr curr)))))
            (when (= lim 0) (return-from breadth-search-gen nil)) ; end prematurely if we can't hop any more nodes
            (decf lim)
-           (loop :for sym being the hash-keys :of (get-node (car curr) hash) :do
+           (loop :for sym :being the hash-keys :of (get-node (car curr) hash) :do
               (unless (seenp sym)
-                (queue (make-node+ sym curr))
+                (queue (make-node+ sym curr) head tail)
                 (see sym))))))))
 
-;; QQ these don't work for breadth-search-gen
-(defmacro queue (node+ head tail)
-  `(if (null ,head) 
-      (setf ,head (list ,node+)
-            ,tail ,head)
-      (setf (cdr ,tail) (list ,node+)
-            ,tail (cdr ,tail))))
-
-(defmacro dequeue (head tail)
-  `(cond ((null ,head) nil)
-        ((eq ,head ,tail) (prog1 (car ,head)
-                          (setf ,head nil
-                                ,tail ,head)))
-        (t (pop ,head))))
+(defun breadth-search (start hash target &key (key #'identity) limit)
+  (breadth-search-gen start hash (lambda (x) (equalp target x)) :key key :limit limit))
 
 ;; Garbage at the moment since the stack frame will blow up if the sample size is big enough
 (defun depth-search (start hash find  &key (key #'eq) (limit -1))
-  (let ((seen)
+  (let ((seen (list start))
         (ans))
     (labels ((rec (node path lim seen)
                (if (= lim 0)
