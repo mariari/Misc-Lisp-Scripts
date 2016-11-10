@@ -146,7 +146,7 @@
                 (see sym))))))))
 
 (defun breadth-search (start hash target &key (key #'identity) limit)
-  (breadth-search-gen start hash (lambda (x) (equalp target x)) :key key :limit limit))
+  (breadth-search-gen start hash (lambda (x) (eq target x)) :key key :limit limit))
 
 ;; Garbage at the moment since the stack frame will blow up if the sample size is big enough
 (defun depth-search (start hash find  &key (key #'eq) (limit -1))
