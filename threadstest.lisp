@@ -118,9 +118,8 @@
          (vals (apply
                 (curry mapcar (lambda (&rest x)
                                 (wait-on-semaphore mutex)
-                                (make-thread (lambda () (let ((val (apply fn x)))
-                                              (signal-semaphore mutex)
-                                              val))))
+                                (make-thread (lambda () (prog1 (apply fn x)
+                                                     (signal-semaphore mutex)))))
                        list)
                 more-lists)))
     (loop :while (/= (semaphore-count mutex) thread-lim))
@@ -130,3 +129,4 @@
 ;; works
 
 ;; (pmap-now (lambda (x) (declare (ignore x)) (sleep 1)) (range 20))
+;; (time (pmap-now (lambda (x y)  (+ 1 2 3 x y)) (range 20) (range 13)))
