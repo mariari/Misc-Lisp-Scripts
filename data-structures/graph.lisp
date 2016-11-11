@@ -36,30 +36,30 @@
 (defmacro dequeue (head tail)
   `(cond ((null ,head) nil)
         ((eq ,head ,tail) (prog1 (car ,head)
-                          (setf ,head nil
-                                ,tail ,head)))
+                          (psetf ,head nil
+                                ,tail nil)))
         (t (pop ,head))))
 
 ;;; Indirect way-----------------------------------------------------------------------------------------------
 
 ;; doesn't update by itself for some reason... most likely due to how passing via value instead of by reference works
 ;; !!Abandon this one!!!!!!!
-(defun defnode%% (name hash &rest neighbors)
-  (setf (gethash name hash)
+(defun defnode%% (name graph &rest neighbors)
+  (setf (gethash name graph)
         (let ((new-hash (make-hash-table)))
-          (mapc (lambda (x) (if #1=(gethash x hash)
+          (mapc (lambda (x) (if #1=(gethash x graph)
                            (setf (gethash x new-hash) #1#)
                            (setf (gethash x new-hash) (setf #1# t))))
                 neighbors)
           new-hash)))
 
 
-;; Just stores the symbol in the hash-table instead a reference to the top hash table
-(defun defnode-bi-or-uni-ind (name hash bip &rest neighbors)
-  (setf (gethash name hash)
+;; Just stores the symbol in the hash-table instead a reference to the top graph table
+(defun defnode-bi-or-uni-ind (name graph bip &rest neighbors)
+  (setf (gethash name graph)
         (let ((new-hash (make-hash-table)))
           (mapc (lambda (x)
-                  (unless #1=(gethash x hash)
+                  (unless #1=(gethash x graph)
                     (if bip
                         (let ((new-node (make-hash-table))) ; bi direct
                           (setf (gethash x new-node) name) 
@@ -69,11 +69,11 @@
                 neighbors)
           new-hash)))
 
-(defun defnode-ind (name hash &rest neighbors)
-  (apply (curry defnode-bi-or-uni-ind name hash t) neighbors))
+(defun defnode-ind (name graph &rest neighbors)
+  (apply (curry defnode-bi-or-uni-ind name graph t) neighbors))
 
-(defun defnode-uni-ind (name hash &rest neighbors)
-  (apply (curry defnode-bi-or-uni-ind name hash nil) neighbors))
+(defun defnode-uni-ind (name graph &rest neighbors)
+  (apply (curry defnode-bi-or-uni-ind name graph nil) neighbors))
 
 
 
@@ -90,37 +90,37 @@
 ;; (time (gethash (gethash 'a (gethash (gethash 'b (gethash 'A *nodes-indirect*)) *nodes-indirect*)) *nodes-indirect*))
 
 ;;;  Closure style with proper nesting-------------------------------------------------------------------------
-(defun defnode-bi-or-uni (name hash bip &rest neighbors)
-  (setf (gethash name hash)
+(defun defnode-bi-or-uni (name graph bip &rest neighbors)
+  (setf (gethash name graph)
         (let ((new-hash (make-hash-table))
               (compiled nil))
           (lambda (&optional (comp compiled))
             (unless comp
-              (mapc (lambda (x) (setf (gethash x new-hash) (gethash x hash))) neighbors) ; update the current node
+              (mapc (lambda (x) (setf (gethash x new-hash) (gethash x graph))) neighbors) ; update the current node
               (setf compiled t))
             new-hash)))
   (mapc (lambda (x)
-          (cond ((gethash x hash) (funcall (gethash x hash) nil)) ; update neighboring nodes to the current one if it exists
-                (bip (defnode-bi-or-uni x hash bip name))         ; else make a bi-directional node
-                (t (defnode-bi-or-uni x hash bip))))              ;            uni-directional node
+          (cond ((gethash x graph) (funcall (gethash x graph) nil)) ; update neighboring nodes to the current one if it exists
+                (bip (defnode-bi-or-uni x graph bip name))          ; else make a bi-directional node
+                (t (defnode-bi-or-uni x graph bip))))               ;            uni-directional node
         neighbors) 
-  (gethash name hash))
+  (gethash name graph))
 
 
-(defun defnode (name hash &rest neighbors)
-  (apply (curry defnode-bi-or-uni name hash t) neighbors))
+(defun defnode (name graph &rest neighbors)
+  (apply (curry defnode-bi-or-uni name graph t) neighbors))
 
-(defun defnode-uni (name hash &rest neighbors)
-  (apply (curry defnode-bi-or-uni name hash nil) neighbors))
+(defun defnode-uni (name graph &rest neighbors)
+  (apply (curry defnode-bi-or-uni name graph nil) neighbors))
 
 
-
-(defun get-node (sym hash)
-  (let ((val (gethash sym hash)))
+(defun get-node (sym graph)
+  (let ((val (gethash sym graph)))
     (when val
       (funcall val))))
 
-(defun breadth-search-gen (start hash pred &key (key #'identity) limit)
+
+(defun breadth-search-gen (start graph pred &key (key #'identity) limit)
   "Searches the graph from the START node breadth-first until it hits the PREDicate the user specified to the value
    of the KEY applied to the node.  The function can also check if a node is x nodes away if LIMIT is specified"
   (let ((seen (make-hash-table))
@@ -138,18 +138,18 @@
          (let ((curr (dequeue head tail)))
            (when (end-condition curr)
              (return-from breadth-search-gen (list (car curr) (nreverse (cadr curr)))))
-           (when (= lim 0) (return-from breadth-search-gen nil)) ; end prematurely if we can't hop any more nodes
+           (when (= lim 0) (return-from breadth-search-gen nil)) ; end prematurely if we hit our neighbor cap
            (decf lim)
-           (loop :for sym :being the hash-keys :of (get-node (car curr) hash) :do
+           (loop :for sym :being the hash-keys :of (get-node (car curr) graph) :do
               (unless (seenp sym)
                 (queue (make-node+ sym curr) head tail)
                 (see sym))))))))
 
-(defun breadth-search (start hash target &key (key #'identity) limit)
-  (breadth-search-gen start hash (lambda (x) (eq target x)) :key key :limit limit))
+(defun breadth-search (start graph target &key (key #'identity) limit)
+  (breadth-search-gen start graph (lambda (x) (eq target x)) :key key :limit limit))
 
 ;; Garbage at the moment since the stack frame will blow up if the sample size is big enough
-(defun depth-search (start hash find  &key (key #'eq) (limit -1))
+(defun depth-search (start graph find  &key (key #'eq) (limit -1))
   (let ((seen (list start))
         (ans))
     (labels ((rec (node path lim seen)
@@ -164,7 +164,7 @@
                                     (progn
                                       (rec (funcall y) (cons x path) (1- lim) (push x seen))))))
                             node))))
-      (rec (get-node start hash) (list start) limit seen)
+      (rec (get-node start graph) (list start) limit seen)
       (list seen ans))))
 
 ;; (maphash (lambda (x y) (princ x) (princ (funcall y))) (get-node 'a *nodes*))
@@ -186,9 +186,9 @@
 
 (defnode 'B *nodes* 'A 'D)
 
-;; (defun grab-node (term hash)
-;;   (let ((val (gethash term hash)))
+;; (defun grab-node (term graph)
+;;   (let ((val (gethash term graph)))
 ;;     (cond ((functionp val) (funcall val))       ;the closure version will show up as a function
-;;           ((hash-table-p val) val)              ; the indirect one can either grab the hash table 
-;;           ((symbolp val) (gethash val hash))))) ; or the symbol that leads to the hash
+;;           ((hash-table-p val) val)              ; the indirect one can either grab the graph table 
+;;           ((symbolp val) (gethash val graph))))) ; or the symbol that leads to the graph
 

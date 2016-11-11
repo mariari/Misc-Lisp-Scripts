@@ -17,8 +17,6 @@
 
 (in-package :shell)
 
-(defparameter *num-threads-offset* (+ (num-threads) (ignored-threads)))
-
 (run/ss `(pipe (echo (+ hel "lo,") world) (tr "hw" "HW") (sed -e "s/$/!/")))
 
 
@@ -74,6 +72,7 @@
   
   (defun reader ()
     (mapcar (lambda (x)
+              (thread-yield)
               (wait-on-semaphore lock)
               (print x)
               (signal-semaphore lock) x)
@@ -97,9 +96,37 @@
     count))
 
 
+(defun num-used-threads ()
+  (length (all-threads)))
+
+(defun num-open-threads ()
+  (- *num-threads-offset* (num-used-threads)))
+
+(defparameter *num-threads-offset* (+ (num-threads) (ignored-threads)))
+
 (defun pmapcar (fn list &rest more-lists)
   "works like mapcar except every process is wrapped around a new thread and the computation gets passed
    onto the user to evaluate when they wish"
-  (apply (curry mapcar (lambda (&rest x) (make-thread (lambda () (apply fn x)))) list) more-lists))
+  (apply (curry mapcar (lambda (&rest x)
+                         (make-thread (lambda () (apply fn x))))
+                       list)
+         more-lists))
 
-(defun pmap-now (fn list &rest more-lists))
+(defun pmap-now (fn list &rest more-lists)
+  (let* ((thread-lim (1- (num-open-threads)))
+         (mutex (make-semaphore :count thread-lim))
+         (vals (apply
+                (curry mapcar (lambda (&rest x)
+                                (wait-on-semaphore mutex)
+                                (make-thread (lambda () (let ((val (apply fn x)))
+                                              (signal-semaphore mutex)
+                                              val))))
+                       list)
+                more-lists)))
+    (loop :while (/= (semaphore-count mutex) thread-lim))
+    (mapcar #'join-thread vals)))
+
+;; What!??!?!
+;; works
+
+;; (pmap-now (lambda (x) (declare (ignore x)) (sleep 1)) (range 20))
