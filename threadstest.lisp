@@ -4,6 +4,7 @@
 (ql:quickload "inferior-shell")
 (asdf:load-system :uiop)
 (load "~/Documents/Workspace/Lisp/CommonLisp/functions.lisp")
+;; (load "./CL/functions.lisp") this file in the repo!!!
 
 (defpackage #:shell
   (:nicknames #:fun :times)
