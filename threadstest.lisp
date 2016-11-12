@@ -104,29 +104,41 @@
 
 (defparameter *num-threads-offset* (+ (num-threads) (ignored-threads)))
 
-(defun pmapcar (fn list &rest more-lists)
+(defun plmapcar (fn list &rest more-lists)
   "works like mapcar except every process is wrapped around a new thread and the computation gets passed
-   onto the user to evaluate when they wish"
+   onto the user to evaluate when they wish and evaluates (parallel lazy mapcar)"
   (apply (curry mapcar (lambda (&rest x)
                          (make-thread (lambda () (apply fn x))))
                        list)
          more-lists))
 
-(defun pmap-now (fn list &rest more-lists)
-  (let* ((thread-lim (1- (num-open-threads)))
-         (mutex (make-semaphore :count thread-lim))
-         (vals (apply
-                (curry mapcar (lambda (&rest x)
-                                (wait-on-semaphore mutex)
-                                (make-thread (lambda () (prog1 (apply fn x)
-                                                     (signal-semaphore mutex)))))
-                       list)
-                more-lists)))
-    (loop :while (/= (semaphore-count mutex) thread-lim))
-    (mapcar #'join-thread vals)))
+(macrolet ((pmap-gen (&optional result-type)
+             ;; mapcar is faster than map so inject mapcar instead of map if a result type is passed here
+             `(let* ((thread-lim (1- (num-open-threads)))
+                     (mutex (make-semaphore :count thread-lim))
+                     (vals (apply
+                            (curry ,@(if result-type
+                                         `(map result-type)
+                                         `(mapcar))
+                                   (lambda (&rest x)
+                                     (wait-on-semaphore mutex)
+                                     (make-thread (lambda () (prog1 (apply fn x)
+                                                          (signal-semaphore mutex)))))
+                                   list)
+                            more-lists)))
+                (loop :while (/= (semaphore-count mutex) thread-lim))
+                ,(if result-type
+                     `(map result-type #'join-thread vals)
+                     `(mapcar #'join-thread vals)))))
+
+  (defun pmap (result-type fn list &rest more-lists)
+    (pmap-gen result-type))
+
+  (defun pmapcar (fn list &rest more-lists)
+    (pmap-gen)))
 
 ;; What!??!?!
 ;; works
 
-;; (pmap-now (lambda (x) (declare (ignore x)) (sleep 1)) (range 20))
-;; (time (pmap-now (lambda (x y)  (+ 1 2 3 x y)) (range 20) (range 13)))
+;; (pmapcar (lambda (x) (declare (ignore x)) (sleep 1)) (range 20))
+;; (time (pmapcar (lambda (x y) (sleep .3)  (+ 1 2 3 x y)) (range 20) (range 13)))
