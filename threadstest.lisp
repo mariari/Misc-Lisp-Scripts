@@ -8,12 +8,13 @@
 (defpackage #:shell
   (:nicknames #:fun :times)
   (:use #:trivia)
-  (:use #:inferior-shell)
-  (:use #:uiop)
-  (:use #:functions)
-  (:use #:bordeaux-threads)
-  (:use #:bt-semaphore)
-  (:use #:common-lisp))
+  (:shadowing-import-from #:trivia #:<>)
+  (:use #:inferior-shell
+        #:uiop
+        #:functions
+        #:bordeaux-threads
+        #:bt-semaphore
+        #:common-lisp))
 
 (in-package :shell)
 
@@ -54,7 +55,7 @@
 (detect-os)
 ;; (uiop:read-little-endian)
 
-(time (mapcar (lambda (x) (make-thread (lambda () (mapcar (lambda (x) (+ x 1 2 3 4)) (list 1 2 3 4 5))))) (range 1000)))
+(time (mapcar (lambda (x) (make-thread (lambda () (mapcar (lambda (y) (+ x 1 2 3 4 y)) (list 1 2 3 4 5))))) (range 1000)))
 
 
 (time (make-thread (lambda ())))
@@ -87,22 +88,23 @@
 
 
 (defun ignored-threads (&optional extra-threads-list)
-  (let ((ignore (append extra-threads-list (list  "swank-indentation-cache-thread" "reader-thread" "control-thread" "Swank Sentinel" "main thread")))
-        (count 0)
-        (curr (all-threads)))
+  (let ((ignore (append extra-threads-list (list  "swank-indentation-cache-thread"
+                                                  "reader-thread" "control-thread"
+                                                  "Swank Sentinel" "main thread")))
+        (count 0))
     (mapc (lambda (x) (when (member (thread-name x) ignore :test #'equal)
                    (incf count)))
-          curr)
+          (all-threads))
     count))
 
 
 (defun num-used-threads ()
   (length (all-threads)))
 
+(defparameter *num-threads-offset* (+ (num-threads) (ignored-threads)))
+
 (defun num-open-threads ()
   (- *num-threads-offset* (num-used-threads)))
-
-(defparameter *num-threads-offset* (+ (num-threads) (ignored-threads)))
 
 (defun plmapcar (fn list &rest more-lists)
   "works like mapcar except every process is wrapped around a new thread and the computation gets passed
