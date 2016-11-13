@@ -2,12 +2,16 @@
 (ql:quickload "bt-semaphore")
 (ql:quickload "trivia")
 (ql:quickload "inferior-shell")
+(ql:quickload "alexandria")
 (asdf:load-system :uiop)
 (load "~/Documents/Workspace/Lisp/CommonLisp/functions.lisp")
 ;; (load "./CL/functions.lisp") this file in the repo!!!
 
 (defpackage #:shell
   (:nicknames #:fun :times)
+  (:use #:let-over-lambda)
+  (:import-from #:alexandria #:parse-body)
+  (:shadowing-import-from #:let-over-lambda #:when-match #:if-match #:symb)
   (:use #:trivia)
   (:shadowing-import-from #:trivia #:<>)
   (:use #:inferior-shell
@@ -139,6 +143,55 @@
 
   (defun pmapcar (fn list &rest more-lists)
     (pmap-gen)))
+
+;; Generate a macro that returns a function and injects a semaphore in it's place
+
+;; s! does semaphore wait before the p! variable/statement
+;; p! marks that part of the code for parallization
+
+;; Edited from LOL
+(defun s!-symbol-p (s)
+  (and (symbolp s)
+       (> (length (symbol-name s)) 2)
+       (string= (symbol-name s)
+                "S!"
+                :start1 0
+                :end1 2)))
+
+;; From LOL
+(defun symb (&rest args)
+  (values (intern (apply #'mkstr args))))
+
+;; from LOL
+
+(defun s!-symbol-to-function (s)
+  (symb (subseq (mkstr s) 2)))
+
+
+(defmacro defun-s! (name args &rest body)
+  (let ((g!lock (gensym "lock"))
+        (g!x    (gensym "x"))
+        (syms (remove-duplicates
+               (remove-if-not #'s!-symbol-p
+                              (flatten body)))))
+    (multiple-value-bind (body declarations docstring)
+        (parse-body body :documentation t)
+      `(defun ,name ,args
+         ,@(when docstring
+             (list docstring))
+         ,@declarations
+         (let ((,g!lock ,(make-semaphore :count (num-open-threads) :name "auto-sym"))) ; create the semaphore
+           (flet ,(mapcar (lambda (s)
+                            `(,s (&rest ,g!x)
+                                 (prog2
+                                     (wait-on-semaphore ,g!lock)
+                                     (apply #',(s!-symbol-to-function s) ,g!x)
+                                   (signal-semaphore ,g!lock))))
+                          syms)
+             ,@body))))))
+
+(defun-s! test (arg1 arg2)
+  (s!+ arg1 arg2))
 
 ;; What!??!?!
 ;; works
