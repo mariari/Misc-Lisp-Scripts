@@ -65,25 +65,6 @@
 
 (time (make-thread (lambda ())))
 
-(let ((lock (make-semaphore  :count 1 :name "test")))
-  (defun writer ()
-    (let ((curr (make-thread #'reader)))
-      (dotimes (i 10)
-        (wait-on-semaphore lock)
-        (sleep 1)
-        (format t "~%waiting ~d" i)
-        (sleep 1)
-        (signal-semaphore lock))
-      (join-thread curr)))
-  
-  (defun reader ()
-    (mapcar (lambda (x)
-              (thread-yield)
-              (wait-on-semaphore lock)
-              (print x)
-              (signal-semaphore lock) x)
-            (range 10))))
-
 
 (defun num-threads ()
   (os-cond ((os-unix-p)    (read-from-string (run/s `(nproc --all)))) ; works
@@ -169,6 +150,10 @@
 
 
 (defmacro defun-s! (name args &rest body)
+  "creates a defun with the extra functionality of stating s! in front of a function to make any
+   code within that functions scope happen between a (wait-on-semaphore) and a (signal-semaphore).
+   Note that you can overload (num-open-threads) before the function is declared to control the initial
+   semaphore value (flet ((num-open-threads () 1)) for 1"
   (let ((g!lock (gensym "lock"))
         (g!x    (gensym "x"))
         (syms (remove-duplicates
@@ -180,19 +165,59 @@
          ,@(when docstring
              (list docstring))
          ,@declarations
-         (let ((,g!lock ,(make-semaphore :count (num-open-threads) :name "auto-sym"))) ; create the semaphore
+         (let ((,g!lock (make-semaphore :count (num-open-threads) :name "auto-sym"))) ; semaphore creation to (num-open-threads)
            (flet ,(mapcar (lambda (s)
                             `(,s (&rest ,g!x)
                                  (prog2
                                      (wait-on-semaphore ,g!lock)
-                                     (apply #',(s!-symbol-to-function s) ,g!x)
-                                   (signal-semaphore ,g!lock))))
+                                     ;; (apply #',(s!-symbol-to-function s) ,g!x)    ; doesn't work for special forms or macros
+                                     ;;  This actually isn't too slow!!!
+                                     (eval (eval `(cons ',',(s!-symbol-to-function s) ',,g!x)))
+                                     (signal-semaphore ,g!lock))))
                           syms)
              ,@body))))))
 
 (defun-s! test (arg1 arg2)
   (s!+ arg1 arg2))
 
+;; A side by side comparison of writer-s! vs the same function with no g!
+(flet ((num-open-threads () 1))
+  (defun-s! writer-s! ()
+    (flet ((reader ()
+             (mapcar (lambda (x)
+                       (s!progn (sleep .3)
+                                (print x)) x)
+                     (range 10))))
+
+      (let ((curr (make-thread #'reader)))
+        (dotimes (i 11)
+          (s!progn
+           (sleep .1)
+           (format t "~%waiting ~d" i)
+           (force-output)
+           (sleep .1)))
+        (join-thread curr)))))
+
+(let ((lock (make-semaphore  :count 1 :name "test")))
+  (defun writer ()
+    (let ((curr (make-thread #'reader)))
+      (dotimes (i 11)
+        (wait-on-semaphore lock)
+        (sleep .1)
+        (format t "~%waiting ~d" i)
+        (force-output)
+        (sleep .1)
+        (signal-semaphore lock))
+      (join-thread curr)))
+  
+  (defun reader ()
+    (mapcar (lambda (x)
+              (thread-yield)
+              (wait-on-semaphore lock)
+              (sleep .3)
+              (print x)
+              (signal-semaphore lock) x)
+            (range 10))))
 ;; What!??!?!
 ;; works
 
