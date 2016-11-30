@@ -1,5 +1,6 @@
-(ql:quickload 'inferior-shell)
-(ql:quickload "optima")
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (ql:quickload 'inferior-shell)
+  (ql:quickload "optima"))
 
 (defpackage #:shell
   (:nicknames #:fun :times)

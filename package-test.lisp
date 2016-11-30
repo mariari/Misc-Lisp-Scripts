@@ -1,5 +1,6 @@
-(ql:quickload "optima")
-(ql:quickload "let-over-lambda")
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (ql:quickload "let-over-lambda")
+  (ql:quickload "optima"))
 
 (defpackage #:fun-times
   (:nicknames #:fun :times)

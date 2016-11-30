@@ -1,6 +1,7 @@
-(ql:quickload '(:fare-quasiquote-readtable
-                :trivia
-                :let-over-lambda))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (ql:quickload '(:fare-quasiquote-readtable
+                  :trivia
+                  :let-over-lambda)))
 
 (defpackage #:match
   ;; (:nicknames)
