@@ -1,9 +1,9 @@
 ; (load "~/Documents/Workspace/Lisp/CommonLisp/functions.lisp")
-
-(ql:quickload '(:fare-quasiquote-readtable
-                :trivia
-                ;; :let-over-lambda
-                ))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (ql:quickload '(:fare-quasiquote-readtable
+                  :trivia
+                  ;; :let-over-lambda
+                  )))
 
 (defpackage #:macros
   (:documentation  "Random assortment of macros that make my life easier")

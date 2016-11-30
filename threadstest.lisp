@@ -1,11 +1,13 @@
-(ql:quickload "bordeaux-threads")
-(ql:quickload "bt-semaphore")
-(ql:quickload "trivia")
-(ql:quickload "inferior-shell")
-(ql:quickload "alexandria")
-(asdf:load-system :uiop)
-(load "~/Documents/Workspace/Lisp/CommonLisp/functions.lisp")
-;; (load "./CL/functions.lisp") this file in the repo!!!
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (ql:quickload "bordeaux-threads")
+  (ql:quickload "bt-semaphore")
+  (ql:quickload "trivia")
+  (ql:quickload "inferior-shell")
+  (ql:quickload "alexandria")
+  (asdf:load-system :uiop)
+  ;; (load "~/Documents/Workspace/Lisp/CommonLisp/functions.lisp")
+  (load "./CL/functions.lisp"))
+
 
 (defpackage #:shell
   (:nicknames #:fun :times)
@@ -129,24 +131,23 @@
 
 ;; s! does semaphore wait before the p! variable/statement
 ;; p! marks that part of the code for parallization
-
-;; Edited from LOL
-(defun s!-symbol-p (s)
-  (and (symbolp s)
+(eval-when (:load-toplevel :compile-toplevel :execute)
+  (defun s!-symbol-p (s)
+    (and (symbolp s)
        (> (length (symbol-name s)) 2)
        (string= (symbol-name s)
                 "S!"
                 :start1 0
                 :end1 2)))
 
-;; From LOL
-(defun symb (&rest args)
-  (values (intern (apply #'mkstr args))))
+  ;; From LOL
+  (defun symb (&rest args)
+    (values (intern (apply #'mkstr args))))
 
-;; from LOL
+  ;; from LOL
 
-(defun s!-symbol-to-function (s)
-  (symb (subseq (mkstr s) 2)))
+  (defun s!-symbol-to-function (s)
+    (symb (subseq (mkstr s) 2))))
 
 
 (defmacro defun-s! (name args &rest body)
@@ -173,7 +174,7 @@
                                      ;; (apply #',(s!-symbol-to-function s) ,g!x)    ; doesn't work for special forms or macros
                                      ;;  This actually isn't too slow!!!
                                      (eval (eval `(cons ',',(s!-symbol-to-function s) ',,g!x)))
-                                     (signal-semaphore ,g!lock))))
+                                   (signal-semaphore ,g!lock))))
                           syms)
              ,@body))))))
 
