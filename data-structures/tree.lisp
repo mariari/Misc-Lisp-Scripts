@@ -1,4 +1,5 @@
-(ql:quickload "let-over-lambda")
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (ql:quickload "let-over-lambda"))
 (defstruct (tree! (:type list)) val left right)
 (defstruct (tree+ (:type list)) len tree) ; like tree! expect we keep track of the length so we can get the last element easily
 

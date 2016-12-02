@@ -106,17 +106,19 @@
              ;; mapcar is faster than map so inject mapcar instead of map if a result type is passed here
              `(let* ((thread-lim (1- (num-open-threads)))
                      (mutex (make-semaphore :count thread-lim))
-                     (vals (apply
-                            (curry ,@(if result-type
-                                         `(map result-type)
-                                         `(mapcar))
-                                   (lambda (&rest x)
-                                     (wait-on-semaphore mutex)
-                                     (make-thread (lambda () (prog1 (apply fn x)
-                                                          (signal-semaphore mutex)))))
-                                   list)
-                            more-lists)))
-                (loop :while (/= (semaphore-count mutex) thread-lim))
+                     (finished (make-semaphore :count 0))
+                     (vals (prog1 (apply
+                                   (curry ,@(if result-type
+                                                `(map result-type)
+                                                `(mapcar))
+                                          (lambda (&rest x)
+                                            (wait-on-semaphore mutex)
+                                            (make-thread (lambda () (prog1 (apply fn x)
+                                                                 (signal-semaphore mutex)))))
+                                          list)
+                                   more-lists)
+                             (signal-semaphore finished))))
+                (wait-on-semaphore finished)
                 ,(if result-type
                      `(map result-type #'join-thread vals)
                      `(mapcar #'join-thread vals)))))
@@ -224,3 +226,31 @@
 
 ;; (pmapcar (lambda (x) (declare (ignore x)) (sleep 1)) (range 20))
 ;; (time (pmapcar (lambda (x y) (sleep .3)  (+ 1 2 3 x y)) (range 20) (range 13)))
+
+
+;; For History--------------------------------------------------------------------------------------
+;; This is just a spinlock version of pmap and pmapcar
+(macrolet ((pmap-gen (&optional result-type)
+             ;; mapcar is faster than map so inject mapcar instead of map if a result type is passed here
+             `(let* ((thread-lim (1- (num-open-threads)))
+                     (mutex (make-semaphore :count thread-lim))
+                     (vals (apply
+                            (curry ,@(if result-type
+                                         `(map result-type)
+                                         `(mapcar))
+                                   (lambda (&rest x)
+                                     (wait-on-semaphore mutex)
+                                     (make-thread (lambda () (prog1 (apply fn x)
+                                                          (signal-semaphore mutex)))))
+                                   list)
+                            more-lists)))
+                (loop :while (/= (semaphore-count mutex) thread-lim))
+                ,(if result-type
+                     `(map result-type #'join-thread vals)
+                     `(mapcar #'join-thread vals)))))
+
+  (defun pmap* (result-type fn list &rest more-lists)
+    (pmap-gen result-type))
+
+  (defun pmapcar* (fn list &rest more-lists)
+    (pmap-gen)))
