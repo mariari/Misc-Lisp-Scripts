@@ -94,10 +94,6 @@
 (defun defnode-uni-ind (name graph &rest neighbors)
   (apply (curry defnode-bi-or-uni-ind name graph nil) neighbors))
 
-(defnode%%% 'a *nodes* 'b 'c 'd 'e)
-(defnode%%% 'b *nodes*  'd 'f)
-
-
 ;;; Testing Indirect
 ;; (time (defnode-ind 'A *nodes-indirect* 'B 'C 'D 'E))
 (defnode-ind 'A *nodes-indirect* 'B 'C 'D 'E)
@@ -122,8 +118,8 @@
             new-hash)))
   (mapc (lambda (x)
           (cond ((gethash x graph) (funcall (gethash x graph) nil)) ; update neighboring nodes to the current one if it exists
-                (bip (defnode-bi-or-uni x graph bip name))          ; else make a bi-directional node
-                (t (defnode-bi-or-uni x graph bip))))               ;            uni-directional node
+                (bip (defnode-bi-or-uni-clos x graph bip name))          ; else make a bi-directional node
+                (t (defnode-bi-or-uni-clos x graph bip))))               ;            uni-directional node
         neighbors) 
   (gethash name graph))
 
@@ -136,7 +132,6 @@
 
 
 ;; (maphash (lambda (x y) (princ x) (princ (funcall y))) (get-node 'a *nodes-clos*))
-
 
 (defnode-clos 'A *nodes-clos* 'B 'C 'D 'E)
 ;; (time (defnode-clos 'A *nodes-clos* 'B 'C 'D 'E))
