@@ -12,6 +12,7 @@
   (:use #:sb-ext
         #:macros
         #:common-lisp
+        #:macros
         #:trivia)
   (:export :ls :lsl
            :lss :range :fact

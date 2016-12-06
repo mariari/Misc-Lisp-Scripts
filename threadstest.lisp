@@ -1,7 +1,6 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (ql:quickload "bordeaux-threads")
   (ql:quickload "bt-semaphore")
-  (ql:quickload "trivia")
   (ql:quickload "inferior-shell")
   (ql:quickload "alexandria")
   (asdf:load-system :uiop)
@@ -14,19 +13,17 @@
   (:use #:let-over-lambda)
   (:import-from #:alexandria #:parse-body)
   (:shadowing-import-from #:let-over-lambda #:when-match #:if-match #:symb)
-  (:use #:trivia)
-  (:shadowing-import-from #:trivia #:<>)
   (:use #:inferior-shell
         #:uiop
         #:functions
         #:bordeaux-threads
         #:bt-semaphore
+        #:macros
         #:common-lisp))
 
 (in-package :shell)
 
 (run/ss `(pipe (echo (+ hel "lo,") world) (tr "hw" "HW") (sed -e "s/$/!/")))
-
 
 (defmacro curry (fn . args)
   "Creates a partially applied function that takes 1 argument if it is a macro

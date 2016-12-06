@@ -2,7 +2,7 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (ql:quickload '(:fare-quasiquote-readtable
                   :trivia
-                  ;; :let-over-lambda
+                  :let-over-lambda
                   )))
 
 (defpackage #:macros
@@ -11,10 +11,13 @@
   (:shadowing-import-from #:let-over-lambda #:when-match #:if-match)
   (:use #:trivia
         #:sb-ext
+        #:lol
         #:common-lisp)
   (:export #:once-only
            #:let1
-           #:sh-run-stream))
+           #:sh-run-stream
+           #:pointer-*
+           #:pointer-&))
 
 (in-package :macros)
 
@@ -40,6 +43,21 @@
                   ,arguments  :output ,output)
      ,@body))
 
+;; From LOL------------------------------------------------------------------------------------
+(defmacro! pointer-& (obj)
+  `(lambda (&optional (,g!set ',g!temp))
+     (if (eq ,g!set ',g!temp)
+         ,obj
+         (setf ,obj ,g!set))))
+
+(defun pointer-* (addr)
+  (funcall addr))
+
+(defsetf pointer-* (addr) (val)
+  `(funcall ,addr ,val))
+
+(defsetf pointer-& (addr) (val)
+  `(setf (pointer-* ,addr) ,val))
 ;; Unused for history -------------------------------------------------------------------------
 (defmacro once-only% ((&rest names) &body body)
   " USAGE: creates a gensym for the arguments given to the variables of the function,

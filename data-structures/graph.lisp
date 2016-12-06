@@ -1,8 +1,8 @@
 ;; Hash table version
 
-(defparameter *nodes* (make-hash-table))
+(defparameter *nodes-clos* (make-hash-table))
 (defparameter *nodes-indirect* (make-hash-table))
-(defparameter *nodes%%* (make-hash-table))
+(defparameter *nodes* (make-hash-table))
 
 ;; Helper Macros-----------------------------------------------------------------------------------------------
 
@@ -40,6 +40,26 @@
                                 ,tail nil)))
         (t (pop ,head))))
 
+;;; Pointers from lol-----------------------------------------------------------------------------------
+(defmacro pointer-& (obj)
+  "Simulates a pass by reference"
+  (let ((g!set (gensym))
+        (g!temp (gensym)))
+    `(lambda (&optional (,g!set ',g!temp))
+       (if (eq ,g!set ',g!temp)
+           ,obj
+           (setf ,obj ,g!set)))))
+
+(defun pointer-* (addr)
+  "Emulates a pass by value"
+  (funcall addr))
+
+(defsetf pointer-* (addr) (val)
+  `(funcall ,addr ,val))
+
+(defsetf pointer-& (addr) (val)
+  `(setf (pointer-* ,addr) ,val))
+
 ;;; Indirect way-----------------------------------------------------------------------------------------------
 
 ;; doesn't update by itself for some reason... most likely due to how passing via value instead of by reference works
@@ -52,7 +72,6 @@
                            (setf (gethash x new-hash) (setf #1# t))))
                 neighbors)
           new-hash)))
-
 
 ;; Just stores the symbol in the hash-table instead a reference to the top graph table
 (defun defnode-bi-or-uni-ind (name graph bip &rest neighbors)
@@ -75,6 +94,8 @@
 (defun defnode-uni-ind (name graph &rest neighbors)
   (apply (curry defnode-bi-or-uni-ind name graph nil) neighbors))
 
+(defnode%%% 'a *nodes* 'b 'c 'd 'e)
+(defnode%%% 'b *nodes*  'd 'f)
 
 
 ;;; Testing Indirect
@@ -89,8 +110,8 @@
 
 ;; (time (gethash (gethash 'a (gethash (gethash 'b (gethash 'A *nodes-indirect*)) *nodes-indirect*)) *nodes-indirect*))
 
-;;;  Closure style with proper nesting-------------------------------------------------------------------------
-(defun defnode-bi-or-uni (name graph bip &rest neighbors)
+;;;  Closure style with proper nesting Worse than the ptr way--------------------------------------------------
+(defun defnode-bi-or-uni-clos (name graph bip &rest neighbors)
   (setf (gethash name graph)
         (let ((new-hash (make-hash-table))
               (compiled nil))
@@ -107,17 +128,65 @@
   (gethash name graph))
 
 
+(defun defnode-clos (name graph &rest neighbors)
+  (apply (curry defnode-bi-or-uni-clos name graph t) neighbors))
+
+(defun defnode-uni-clos (name graph &rest neighbors)
+  (apply (curry defnode-bi-or-uni-clos name graph nil) neighbors))
+
+
+;; (maphash (lambda (x y) (princ x) (princ (funcall y))) (get-node 'a *nodes-clos*))
+
+
+(defnode-clos 'A *nodes-clos* 'B 'C 'D 'E)
+;; (time (defnode-clos 'A *nodes-clos* 'B 'C 'D 'E))
+(defnode-clos 'B *nodes-clos* 'A 'D 'F)
+(defnode-clos 'C *nodes-clos*  'A 'F)
+(defnode-clos 'D *nodes-clos*  'A 'B 'E 'G)
+;; (time (defnode-clos 'D *nodes-clos*  'A 'B))
+
+
+(gethash 'B (funcall (gethash 'A *nodes-clos*)))
+(gethash 'B (funcall (gethash 'A *nodes-clos*))) ; every node inside A is compiled
+
+;; (time (funcall (gethash 'a (funcall (gethash 'b (funcall (gethash 'a *nodes-clos*)))))))
+
+(defnode-clos 'B *nodes-clos* 'A 'D)
+
+
+;;; Pointer style from LOL (uses Closures)---------------------------------------------------------------------
+(defun defnode%%% (name graph &rest neighbors)
+  (setf (gethash name graph)
+        (let ((new-hash (make-hash-table)))
+          (mapc (lambda (x) (setf (gethash x new-hash) (pointer-& (gethash x graph)))) neighbors)
+          new-hash)))
+
+(defun defnode-bi-or-uni-ptr (name graph bip &rest neighbors)
+  (setf (gethash name graph)
+        (let ((new-hash (make-hash-table)))
+          (mapc (lambda (x)
+                  (unless #1=(gethash x graph)
+                          (if bip
+                              (let ((new-node (make-hash-table))) ; bi direct
+                                (setf (gethash x new-node) (pointer-& (gethash name graph))) 
+                                (setf #1# new-node))
+                              (setf #1# (make-hash-table))))
+                  (setf (gethash x new-hash) (pointer-& (gethash x graph))))
+                neighbors)
+          new-hash)))
+
 (defun defnode (name graph &rest neighbors)
-  (apply (curry defnode-bi-or-uni name graph t) neighbors))
+  (apply (curry defnode-bi-or-uni-ptr name graph t) neighbors))
 
 (defun defnode-uni (name graph &rest neighbors)
-  (apply (curry defnode-bi-or-uni name graph nil) neighbors))
+  (apply (curry defnode-bi-or-uni-ptr name graph nil) neighbors))
 
 
 (defun get-node (sym graph)
   (let ((val (gethash sym graph)))
-    (when val
-      (funcall val))))
+    (if (functionp val)
+        (funcall val)
+        val)))
 
 
 (defun breadth-search-gen (start graph pred &key (key #'identity) limit)
@@ -167,9 +236,6 @@
       (rec (get-node start graph) (list start) limit seen)
       (list seen ans))))
 
-;; (maphash (lambda (x y) (princ x) (princ (funcall y))) (get-node 'a *nodes*))
-
-
 
 (defnode 'A *nodes* 'B 'C 'D 'E)
 ;; (time (defnode 'A *nodes* 'B 'C 'D 'E))
@@ -179,10 +245,6 @@
 ;; (time (defnode 'D *nodes*  'A 'B))
 
 
-(gethash 'B (funcall (gethash 'A *nodes*)))
-(gethash 'B (funcall (gethash 'A *nodes*))) ; every node inside A is compiled
-
-;; (time (funcall (gethash 'a (funcall (gethash 'b (funcall (gethash 'a *nodes*)))))))
 
 (defnode 'B *nodes* 'A 'D)
 
