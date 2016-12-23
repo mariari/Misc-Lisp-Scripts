@@ -23,6 +23,7 @@
 
 (in-package :shell)
 
+
 (run/ss `(pipe (echo (+ hel "lo,") world) (tr "hw" "HW") (sed -e "s/$/!/")))
 
 (defmacro curry (fn . args)
@@ -149,7 +150,7 @@
     (symb (subseq (mkstr s) 2))))
 
 
-(defmacro defun-s! (name args &rest body)
+(defmacro defun-s!% (name args &rest body)
   "creates a defun with the extra functionality of stating s! in front of a function to make any
    code within that functions scope happen between a (wait-on-semaphore) and a (signal-semaphore).
    Note that you can overload (num-open-threads) before the function is declared to control the initial
@@ -176,6 +177,31 @@
                                    (signal-semaphore ,g!lock))))
                           syms)
              ,@body))))))
+
+
+(defmacro defun-s! (name args &rest body)
+  "creates a defun with the extra functionality of stating s! in front of a function to make any
+   code within that functions scope happen between a (wait-on-semaphore) and a (signal-semaphore).
+   Note that you can overload (num-open-threads) before the function is declared to control the initial
+   semaphore value (flet ((num-open-threads () 1)) for 1"
+  (let ((g!lock (gensym "lock")))
+    (multiple-value-bind (body declarations docstring)
+        (parse-body body :documentation t)
+      `(defun ,name ,args
+         ,@(when docstring
+             (list docstring))
+         ,@declarations
+         (let ((,g!lock (make-semaphore :count (num-open-threads) :name "auto-sym"))) ; semaphore creation to (num-open-threads)
+           ,@(mapcar (alambda (x) (if (and (not (null x)) (listp x))
+                                      (if (s!-symbol-p (car x))
+                                          `(prog2 (wait-on-semaphore ,g!lock)
+                                               ,(cons (s!-symbol-to-function (car x))
+                                                      (mapcar #'self (cdr x)))
+                                             (signal-semaphore ,g!lock))
+                                          (cons (car x)
+                                                (mapcar #'self (cdr x))))
+                                      x))
+                     body))))))
 
 (defun-s! test (arg1 arg2)
   (s!+ arg1 arg2))
