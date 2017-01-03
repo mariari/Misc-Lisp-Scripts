@@ -127,6 +127,7 @@
   (defun pmapcar (fn list &rest more-lists)
     (pmap-gen)))
 
+
 ;; Generate a macro that returns a function and injects a semaphore in it's place
 
 ;; s! does semaphore wait before the p! variable/statement
@@ -195,16 +196,18 @@
            ,@(mapcar (alambda (x) (if (and (not (null x)) (listp x))
                                       (if (s!-symbol-p (car x))
                                           `(prog2 (wait-on-semaphore ,g!lock)
-                                               ,(cons (s!-symbol-to-function (car x))
-                                                      (mapcar #'self (cdr x)))
+                                               ,(cons (s!-symbol-to-function (car x)) (mapcar #'self (cdr x)))
                                              (signal-semaphore ,g!lock))
-                                          (cons (car x)
-                                                (mapcar #'self (cdr x))))
+                                          (mapcar #'self x))
                                       x))
                      body))))))
 
 (defun-s! test (arg1 arg2)
   (s!+ arg1 arg2))
+
+(defun fact (iter)
+  (if (= iter 0)
+      (fact (1- iter))))
 
 ;; A side by side comparison of writer-s! vs the same function with no g!
 (flet ((num-open-threads () 1))
@@ -224,7 +227,7 @@
            (sleep .1)))
         (join-thread curr)))))
 
-(let ((lock (make-semaphore  :count 1 :name "test")))
+(let ((lock (make-semaphore :count 1 :name "test")))
   (defun writer ()
     (let ((curr (make-thread #'reader)))
       (dotimes (i 11)
