@@ -185,7 +185,8 @@
    code within that functions scope happen between a (wait-on-semaphore) and a (signal-semaphore).
    Note that you can overload (num-open-threads) before the function is declared to control the initial
    semaphore value (flet ((num-open-threads () 1)) for 1"
-  (let ((g!lock (gensym "lock")))
+  (let ((g!lock (gensym "lock"))
+        (g!y    (gensym)))
     (multiple-value-bind (body declarations docstring)
         (parse-body body :documentation t)
       `(defun ,name ,args
@@ -193,13 +194,23 @@
              (list docstring))
          ,@declarations
          (let ((,g!lock (make-semaphore :count (num-open-threads) :name "auto-sym"))) ; semaphore creation to (num-open-threads)
-           ,@(mapcar (alambda (x) (if (and (not (null x)) (listp x))
-                                      (if (s!-symbol-p (car x))
-                                          `(prog2 (wait-on-semaphore ,g!lock)
-                                               ,(cons (s!-symbol-to-function (car x)) (mapcar #'self (cdr x)))
-                                             (signal-semaphore ,g!lock))
-                                          (mapcar #'self x))
-                                      x))
+           ,@(mapcar (alambda (x)
+                       (if (and (not (null x)) (listp x))
+                           ;; Checking to see if the function is in the form (fn ...)
+                           (if (s!-symbol-p (car x))
+                               `(prog2 (wait-on-semaphore ,g!lock)
+                                    ,(cons (s!-symbol-to-function (car x))
+                                           (mapcar #'self (cdr x)))
+                                  (signal-semaphore ,g!lock))
+                               (mapcar #'self x))
+                           ;;  we are passing the s! function/macro to a HOF (cdr of a () set)
+                           (if (s!-symbol-p x)
+                               `(lambda (&rest ,g!y)
+                                  (prog2
+                                      (wait-on-semaphore ,g!lock)
+                                      (eval (eval `(cons ',',(s!-symbol-to-function x) ',,g!y)))
+                                    (signal-semaphore ,g!lock)))
+                               x)))
                      body))))))
 
 (defun-s! test (arg1 arg2)
