@@ -242,13 +242,13 @@
                                       ,(cons (s!-symbol-to-function a)
                                              (mapcar #'self b))
                                     (signal-semaphore ,g!lock)))
-                         ((list* _ _) (mapcar #'self x))
-                         ((guard a (s!-symbol-p a))
-                                 `(lambda (&rest ,g!y)
+                         ((guard a (s!-symbol-p a)) ; the s! symbol must be on the cdr of the list since we are not seeing it
+                                 `(lambda (&rest ,g!y)   ; at the start of a list but instead as an atom
                                     (prog2
                                         (wait-on-semaphore ,g!lock)
                                         (eval (eval `(cons ',',(s!-symbol-to-function x) ',,g!y)))
                                       (signal-semaphore ,g!lock))))
+                         ((list* _ _) (mapcar #'self x)) ; do this pattern matching again on the list
                          (a a)))
                      body))))))
 
