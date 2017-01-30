@@ -62,6 +62,17 @@
    #+CMU extensions:*command-line-words*
    nil))
 
+;; From Lisp
+(defun nrotate-left (list &aux (last (last list)))
+  "Rotate elements of list to the left, circularly."
+  (declare (type list list))
+  (if list
+      (setf (cdr last) list
+            list (cddr last)
+            (cddr last) nil))
+  list)
+
+
 ;;; Helper functions---------------------------------------------------------------------------
 (defun split-by-delim (delim seq)
     "Returns a list of substrings of seq"

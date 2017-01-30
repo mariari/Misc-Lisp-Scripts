@@ -1,3 +1,5 @@
+(ql:quickload 'trivia)
+
 (defun heap-sort (a &optional (func #'<) (count (length a)))
   "Heap sort, pass a function (#'< or #'>) to sort the final array default is max at end" 
   (macrolet ((ref (i) `(aref a ,i))
@@ -20,24 +22,126 @@
          do (swap 0 end) (sift 0 end))))
   a)
 
-(defun merge-sort (sequence)
-  
-  (if (= (length sequence) 1)
-      sequence
-      (let ((half (truncate (/ (length sequence) 2))))
-        (merge (type-of sequence)
-               (merge-sort (subseq sequence 0 half))
-               (merge-sort (subseq sequence half))
-               #'<))))
+(defun merge-sort (sequence &optional (f #'<))
+  "Does not have Side effects"
+  (let ((len (length sequence)))
+    (if (= len 1)
+        sequence
+        (let ((half (truncate (/ len 2))))
+          (merge (type-of sequence)
+                 (merge-sort (subseq sequence 0 half))
+                 (merge-sort (subseq sequence half))
+                 f)))))
+
+(defun insertion-sort (seq &optional (f #'>))
+  "Has Side effects"
+  (let ((key 0)
+        (i 0))
+    (loop for j :from 1 :to (1- (length seq))
+       :do (progn
+             (setf key (elt seq j))
+             (setf i (1- j))
+             (loop :while (and (funcall f i -1) (funcall f (elt seq i) key))
+                :do (progn
+                      (setf (elt seq (1+ i)) (elt seq i))
+                      (setf i (1- i))))
+             (setf (elt seq (1+ i)) key))))
+  seq)
 
 
-(defun my-merge-sort (sequence)
-  (labels (merge-them))
-  (if (= (length sequence) 1)
-      sequence
-      (let ((half (truncate (/ (length sequence) 2))))
-        ;; MERGE is a standard common-lisp function, which does just
-        ;; what we want.
-        (merge-them (subseq sequence 0 half)))))
+;; FROM ROSETTA CODE----------------------------------
+(defun span (predicate list)
+  (let ((tail (member-if-not predicate list)))
+    (values (ldiff list tail) tail)))
+ 
+(defun less-than (x)
+  (lambda (y) (< y x)))
+ 
+(defun insert (list elt)
+  (multiple-value-bind (left right)
+      (span (less-than elt) list)
+    (append left (list elt) right)))
+ 
+(defun insertion-sort%% (list)
+  (reduce #'insert list :initial-value nil))
+;;----------------------------------------------------
+
+(defun insertion-sort%%% (l &optional (pred '<))
+  "a variation on insertion sort where elements get appended to the front instead of checking in place
+   same O(n^2)"
+  (labels ((insert (x ys)
+             (trivia:match ys
+               ((sequence) (list x))
+               ((sequence y rst) (if (funcall pred x y)
+                                     (cons x ys)
+                                     (cons y (insert x rst)))))))
+    (coerce (reduce 'insert l :initial-value '()) (type-of l))))
+
+;; (defun insertion-sort% (deq &optional (f #'>)))
+
+(defun test (type)
+  (flet ((test-ab (seq name)
+           (format t "-----------------------------------------------------------------~a-----------------------------------------------------------------" name)
+           (print "----------------------------------------------------------------MERGE-SORT----------------------------------------------------------------")
+           (map 'list (lambda (x) (time (merge-sort x))) seq)
+           (print "--------------------------------------------------------------INSERTION-SORT--------------------------------------------------------------")
+           (map 'list (lambda (x) (time (insertion-sort x))) seq))
+         (make-seq (up-to)
+           (coerce  (loop for j from 1 to 10 collect (loop for i from 1 to up-to collect (random 1342))) type)))
+    (let* ((a4    (make-seq 4))
+           (a16   (make-seq 16))
+           (a32   (make-seq 32))
+           (a64   (make-seq 64))
+           (a256  (make-seq 256))
+           (a1024 (make-seq 1024)))
+      (test-ab a4 "a4")
+      (test-ab a16 "a16")
+      (test-ab a32 "a32")
+      (test-ab a64 "a64")
+      (test-ab a256 "a256")
+      (test-ab a1024 "a1024")
+      nil)))
+
+
+(defun test-arr ()
+  (test 'vector))
+
+(defun test-list ()
+  (test 'list))
+
+
+(defun test-worst (type)
+  (flet ((test-ab (seq name)
+           (format t "-----------------------------------------------------------------~a-----------------------------------------------------------------" name)
+           (print "----------------------------------------------------------------MERGE-SORT----------------------------------------------------------------")
+           (map 'list (lambda (x) (time (merge-sort x))) seq)
+           (print "--------------------------------------------------------------INSERTION-SORT--------------------------------------------------------------")
+           (map 'list (lambda (x) (time (insertion-sort x))) seq))
+         (make-seq (up-to)
+           (coerce  (loop for j from 1 to 3 collect (reverse (loop for i from 1 to up-to collect i))) type)))
+    (let* ((a4    (make-seq 4))
+           (a16   (make-seq 16))
+           (a32   (make-seq 32))
+           (a64   (make-seq 64))
+           (a256  (make-seq 256))
+           (a1024 (make-seq 1024)))
+      (test-ab a4 "a4")
+      (test-ab a16 "a16")
+      (test-ab a32 "a32")
+      (test-ab a64 "a64")
+      (test-ab a256 "a256")
+      (test-ab a1024 "a1024")
+      nil)))
+
+
+;; (test-worst 'list)
+;; (defun my-merge-sort (sequence)
+;;   (labels (merge-them))
+;;   (if (= (length sequence) 1)
+;;       sequence
+;;       (let ((half (truncate (/ (length sequence) 2))))
+;;         ;; MERGE is a standard common-lisp function, which does just
+;;         ;; what we want.
+;;         (merge-them (subseq sequence 0 half)))))
 
 
