@@ -248,4 +248,3 @@
 ;;     (cond ((functionp val) (funcall val))       ;the closure version will show up as a function
 ;;           ((hash-table-p val) val)              ; the indirect one can either grab the graph table 
 ;;           ((symbolp val) (gethash val graph))))) ; or the symbol that leads to the graph
-

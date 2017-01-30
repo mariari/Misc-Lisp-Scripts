@@ -3,6 +3,9 @@
   (ql:quickload "bt-semaphore")
   (ql:quickload "inferior-shell")
   (ql:quickload "alexandria")
+  (ql:quickload '(:fare-quasiquote-readtable
+                  :fare-quasiquote
+                  :trivia))
   (asdf:load-system :uiop)
   ;; (load "~/Documents/Workspace/Lisp/CommonLisp/functions.lisp")
   (load "./CL/functions.lisp"))
@@ -19,9 +22,12 @@
         #:bordeaux-threads
         #:bt-semaphore
         #:macros
+        #:trivia
         #:common-lisp))
 
 (in-package :shell)
+
+(named-readtables:in-readtable :fare-quasiquote)
 
 (run/ss `(pipe (echo (+ hel "lo,") world) (tr "hw" "HW") (sed -e "s/$/!/")))
 
@@ -126,6 +132,7 @@
   (defun pmapcar (fn list &rest more-lists)
     (pmap-gen)))
 
+
 ;; Generate a macro that returns a function and injects a semaphore in it's place
 
 ;; s! does semaphore wait before the p! variable/statement
@@ -148,8 +155,8 @@
   (defun s!-symbol-to-function (s)
     (symb (subseq (mkstr s) 2))))
 
-
-(defmacro defun-s! (name args &rest body)
+;; Poorest way to do it
+(defmacro defun-s!% (name args &rest body)
   "creates a defun with the extra functionality of stating s! in front of a function to make any
    code within that functions scope happen between a (wait-on-semaphore) and a (signal-semaphore).
    Note that you can overload (num-open-threads) before the function is declared to control the initial
@@ -177,8 +184,80 @@
                           syms)
              ,@body))))))
 
+
+;; Parser with if statements
+(defmacro defun-s!%% (name args &rest body)
+  "creates a defun with the extra functionality of stating s! in front of a function to make any
+   code within that functions scope happen between a (wait-on-semaphore) and a (signal-semaphore).
+   Note that you can overload (num-open-threads) before the function is declared to control the initial
+   semaphore value (flet ((num-open-threads () 1)) for 1"
+  (let ((g!lock (gensym "lock"))
+        (g!y    (gensym)))
+    (multiple-value-bind (body declarations docstring)
+        (parse-body body :documentation t)
+      `(defun ,name ,args
+         ,@(when docstring
+             (list docstring))
+         ,@declarations
+         (let ((,g!lock (make-semaphore :count (num-open-threads) :name "auto-sym"))) ; semaphore creation to (num-open-threads)
+           ,@(mapcar (alambda (x)
+                       (if (and (not (null x)) (listp x))
+                           ;; Checking to see if the function is in the form (fn ...)
+                           (if (s!-symbol-p (car x))
+                               `(prog2 (wait-on-semaphore ,g!lock)
+                                    ,(cons (s!-symbol-to-function (car x))
+                                           (mapcar #'self (cdr x)))
+                                  (signal-semaphore ,g!lock))
+                               (mapcar #'self x))
+                           ;;  we are passing the s! function/macro to a HOF (cdr of a () set)
+                           (if (s!-symbol-p x)
+                               `(lambda (&rest ,g!y)
+                                  (prog2
+                                      (wait-on-semaphore ,g!lock)
+                                      (eval (eval `(cons ',',(s!-symbol-to-function x) ',,g!y)))
+                                    (signal-semaphore ,g!lock)))
+                               x)))
+                     body))))))
+
+
+;; Parser with proper pattern matching
+(defmacro defun-s! (name args &rest body)
+  "creates a defun with the extra functionality of stating s! in front of a function to make any
+   code within that functions scope happen between a (wait-on-semaphore) and a (signal-semaphore).
+   Note that you can overload (num-open-threads) before the function is declared to control the initial
+   semaphore value (flet ((num-open-threads () 1)) for 1"
+  (let ((g!lock (gensym "lock"))
+        (g!y    (gensym)))
+    (multiple-value-bind (body declarations docstring)
+        (parse-body body :documentation t)
+      `(defun ,name ,args
+         ,@(when docstring
+             (list docstring))
+         ,@declarations
+         (let ((,g!lock (make-semaphore :count (num-open-threads) :name "auto-sym"))) ; semaphore creation to (num-open-threads)
+           ,@(mapcar (alambda (x)
+                       (match x
+                         ((guard (list* a b) (s!-symbol-p a))
+                                 `(prog2 (wait-on-semaphore ,g!lock)
+                                      ,(cons (s!-symbol-to-function a)
+                                             (mapcar #'self b))
+                                    (signal-semaphore ,g!lock)))
+                         ((guard a (s!-symbol-p a)) ; the s! symbol must be on the cdr of the list since we are not seeing it
+                                 `(lambda (&rest ,g!y)   ; at the start of a list but instead as an atom
+                                    (prog2
+                                        (wait-on-semaphore ,g!lock)
+                                        (eval (eval `(cons ',',(s!-symbol-to-function x) ',,g!y)))
+                                      (signal-semaphore ,g!lock))))
+                         ((list* _ _) (mapcar #'self x)) ; do this pattern matching again on the list
+                         (a a)))
+                     body))))))
+
 (defun-s! test (arg1 arg2)
   (s!+ arg1 arg2))
+
+(defun fact (iter)
+  (if (= iter 0)
+      (fact (1- iter))))
 
 ;; A side by side comparison of writer-s! vs the same function with no g!
 (flet ((num-open-threads () 1))
@@ -198,7 +277,7 @@
            (sleep .1)))
         (join-thread curr)))))
 
-(let ((lock (make-semaphore  :count 1 :name "test")))
+(let ((lock (make-semaphore :count 1 :name "test")))
   (defun writer ()
     (let ((curr (make-thread #'reader)))
       (dotimes (i 11)
