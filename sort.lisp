@@ -33,6 +33,17 @@
                  (merge-sort (subseq sequence half))
                  f)))))
 
+(defun insertion-sort% (l &optional (pred '<=))
+  "a variation on insertion sort where elements get appended to the front instead of checking in place
+   same O(n^2)"
+  (labels ((insert (x ys)
+             (trivia:match ys
+               ((sequence) (list x))
+               ((sequence y rst) (if (funcall pred x y)
+                                     (cons x ys)
+                                     (cons y (insert x rst)))))))
+    (coerce (reduce 'insert l :initial-value '()) (type-of l))))
+
 (defun insertion-sort (seq &optional (f #'>))
   "Has Side effects"
   (let ((key 0)
@@ -65,17 +76,6 @@
 (defun insertion-sort%% (list)
   (reduce #'insert list :initial-value nil))
 ;;----------------------------------------------------
-
-(defun insertion-sort%%% (l &optional (pred '<))
-  "a variation on insertion sort where elements get appended to the front instead of checking in place
-   same O(n^2)"
-  (labels ((insert (x ys)
-             (trivia:match ys
-               ((sequence) (list x))
-               ((sequence y rst) (if (funcall pred x y)
-                                     (cons x ys)
-                                     (cons y (insert x rst)))))))
-    (coerce (reduce 'insert l :initial-value '()) (type-of l))))
 
 ;; (defun insertion-sort% (deq &optional (f #'>)))
 

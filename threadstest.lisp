@@ -78,7 +78,7 @@
            (t              8)))         ; if it's not a supported OS, just put the cores to 8
 
 
-(defun ignored-threads (&optional extra-threads-list)
+(defun ignored-threads-imp (&optional extra-threads-list)
   (let ((ignore (append extra-threads-list (list  "swank-indentation-cache-thread"
                                                   "reader-thread" "control-thread"
                                                   "Swank Sentinel" "main thread")))
@@ -88,14 +88,22 @@
           (all-threads))
     count))
 
+(defun ignored-threads (&optional extra-threads-list)
+  (let ((ignore (append extra-threads-list (list  "swank-indentation-cache-thread"
+                                                  "reader-thread"  "control-thread"
+                                                  "Swank Sentinel" "main thread"))))
+    (reduce (lambda (x y) (if (member (thread-name y) ignore :test #'equal)
+                         (1+ x) x))
+            (all-threads) :initial-value 0)))
+
 
 (defun num-used-threads ()
   (length (all-threads)))
 
-(defparameter *num-threads-offset* (+ (num-threads) (ignored-threads)))
+(defconstant num-threads-offset (+ (num-threads) (ignored-threads)))
 
 (defun num-open-threads ()
-  (- *num-threads-offset* (num-used-threads)))
+  (- num-threads-offset (num-used-threads)))
 
 (defun plmapcar (fn list &rest more-lists)
   "works like mapcar except every process is wrapped around a new thread and the computation gets passed
@@ -254,10 +262,6 @@
 
 (defun-s! test (arg1 arg2)
   (s!+ arg1 arg2))
-
-(defun fact (iter)
-  (if (= iter 0)
-      (fact (1- iter))))
 
 ;; A side by side comparison of writer-s! vs the same function with no g!
 (flet ((num-open-threads () 1))
