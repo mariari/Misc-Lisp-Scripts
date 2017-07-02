@@ -3,21 +3,28 @@
 (defstruct (tree! (:type list)) val left right)
 (defstruct (tree+ (:type list)) len tree) ; like tree! expect we keep track of the length so we can get the last element easily
 
-
+;; Violates TCO, we should continuation style pass to fix this
+;; does not over flow even on 100,000+ nodes
+;; overflows after 200,000~ nodes
+;; NOTE the impure version also has this issue
 (defun make-tree!-nodes (&rest values)
-  (let* ((root (make-tree! :val (car values)))
+  (let* ((root        (make-tree! :val (car values)))
          (values-arry (coerce values 'vector))
-         (length (length values-arry)))
+         (length      (length values-arry)))
     (labels ((child (fn pos)
                (make-tree! :val (elt values-arry (funcall fn (* 2 pos)))))
              ;; pos will always be 1+ the actual place in the array
-             (rec (pos root)            
-               (unless (> pos (floor length 2))
-                 (rec (* 2 pos) (setf (tree!-left root) (child #'1- pos)))
-                 (when (< (* 2 pos) length)
-                   (rec (1+ (* 2 pos)) (setf (tree!-right root) (child #'identity pos)))))))
-      (rec 1 root) root)))
+             (rec (pos root)
+               (flet ((create-tree (right)
+                        (make-tree! :val   (tree!-val root)
+                                    :left  (rec (* 2 pos) (child #'1- pos))
+                                    :right right)))
+                 (cond ((> pos (floor length 2)) (make-tree! :val (tree!-val root)))
+                       ((<= length (* 2 pos))    (create-tree (tree!-right root)))
+                       (t                        (create-tree (rec (1+ (* 2 pos)) (child #'identity pos))))))))
+      (rec 1 root))))
 
+;; (create-tree (<*> (° rec 1+ (* 2)) (child #'identity) pos))  ; no applicative :((((
 
 (defun make-tree+-nodes (&rest values)
   (make-tree+ :len (length values) :tree (apply #'make-tree!-nodes values)))
@@ -26,18 +33,20 @@
 
 
 (defun tree+-insert (root ele)
-  (incf (tree+-len root))
-  (let* ((last-spot       (path-to-last-element root))
+  (let* ((root            (make-tree+ :len  (1+ (tree+-len root)) :tree (tree+-tree root)))
+         (last-spot       (path-to-last-element root))
          (spot-to-place   (car (last last-spot)))
-         (path-last-ele   (nbutlast last-spot)) ; can't flip order of this and spot- since this has side effects 
-         (child-to-append (tree+-traverse root path-last-ele)))
-    (macrolet ((place-child (fn)
-                 `(setf (,fn child-to-append) (make-tree! :val ele))))
+         (path-last-ele   (butlast last-spot))) ; can use nbutlast instead of butlast here to make the code slightly faster
+    (flet ((update-tree (f)
+             (tree+-traverse-update root path-last-ele f)))
       (if (= 0 spot-to-place)
-          (place-child tree!-left)
-          (place-child tree!-right))))
-  root)
+          (update-tree (lambda (node)
+                         (make-tree! :left (make-tree! :val ele) :right (tree!-right node)   :val (tree!-val node))))
+          (update-tree (lambda (node)
+                         (make-tree! :left (tree!-left node)     :right (make-tree! :val ele) :val (tree!-val node))))))))
 
+
+;; Last function left to replace
 (defun tree!-insert (tree val)
   (macrolet ((set-val (x)
                `(setf ,x (make-tree! :val val))))
@@ -48,13 +57,9 @@
                      (t                         (rec #2#)))))
       (rec tree) tree)))
 
-(time (reduce #'tree!-insert '(2 3 4 5 6) :initial-value (make-tree! :val 1)))
+;; (time (reduce #'tree!-insert '(2 3 4 5 6) :initial-value (make-tree! :val 1)))
 
-;; there is a slight bug with the tree+-insert code
-;; (time (reduce #'tree+-insert '(2 3 4 5 6) :initial-value (make-tree+-nodes 1)))
-;; (reduce #'tree+-insert '(2 3 4 5 6) :initial-value (make-tree+-nodes 1))
-
-
+(time (reduce #'tree+-insert '(2 3 4 5 6) :initial-value (make-tree+-nodes 1)))
 
 (defun tree!-to-list (tree)
   (reverse (breadthp-in-list tree (lambda (x) (not (null x))))))
@@ -74,13 +79,33 @@
   (cdr (num-to-base2-list (tree+-len root))))
 
 (defun tree+-traverse (root path)
-  (let ((c-child (tree+-tree root)))
-    (mapc (lambda (x)
-            (if (= 0 x)
-                (setf c-child (tree!-left  c-child))
-                (setf c-child (tree!-right c-child))))
-          path)
-    c-child))
+  "Given a binary path, finds the node in the tree+ (0 left, 1 right) where the location lies"
+  (make-tree+ :len  (tree+-len root)
+              :tree (tree!-traverse (tree+-tree root) path)))
+
+(defun tree+-traverse-update (root path f)
+  "Given a binary path, finds the node in the tree+ (0 left, 1 right) where the location lies"
+  (make-tree+ :len  (tree+-len root)
+              :tree (tree!-traverse-update (tree+-tree root) path f)))
+
+(defun tree!-traverse (root path)
+  "Given a binary path, finds the node in the tree! (0 left, 1 right) where the location lies"
+  (reduce (lambda (tree x) (if (= 0 x)
+                          (tree!-left tree)
+                          (tree!-right tree)))
+          path :initial-value root))
+
+;; replace with a reduce
+;; the reduce will also make this so it doesn't violate TCO
+(defun tree!-traverse-update (root path f)
+  "Given a binary path, updates the node in the tree! (0 left, 1 right) with the function given"
+  (cond ((null path)         (funcall f root))
+        ((= 0 (car path)) (make-tree! :val   (tree!-val root)
+                                      :left  (tree!-traverse-update (tree!-left root) (cdr path) f)
+                                      :right (tree!-right root)))
+        (t                (make-tree! :val   (tree!-val root)
+                                      :left  (tree!-left root)
+                                      :right (tree!-traverse-update (tree!-right root) (cdr path) f)))))
 
 (defun tree+-last-element (root)
   (tree+-traverse root (path-to-last-element root)))
@@ -133,23 +158,3 @@
         (t (depth-search (append (car l)
                                  (cdr l))
                          predicate))))
-
-
-;;HISTORY-------------------------------------------------------------------------------------------
-(defun make-tree!-nodes% (&rest values)
-  (let ((tree        (make-tree! :val (car values)))
-        (values-arry (coerce (cdr values) 'vector)))
-    (labels ((rec (root vals)
-               (cond ((= (length vals) 0) root)
-                     ((null #1=(tree!-left root)) ; use #1= instead of let because we want to save this
-                        (setf #1# (make-tree! :val (elt vals 0)))
-                        (rec root (subseq vals 1)))
-                     ((null #2=(tree!-right root)) ; structure for later and let only saves the let
-                      (let* ((split (ceiling (1- (length vals)) 2))
-                             (f (lambda (x &optional y) (subseq (subseq vals 1) x y)))
-                             (left-v  (funcall f 0 split))
-                             (right-v (funcall f split)))
-                          (setf #2# (make-tree! :val (elt vals 0))) 
-                          (rec  #1# left-v)
-                          (rec  #2# right-v))))))
-      (rec tree values-arry) tree)))

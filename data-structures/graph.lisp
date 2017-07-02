@@ -35,10 +35,10 @@
 
 (defmacro dequeue (head tail)
   `(cond ((null ,head) nil)
-        ((eq ,head ,tail) (prog1 (car ,head)
-                          (psetf ,head nil
-                                ,tail nil)))
-        (t (pop ,head))))
+         ((eq ,head ,tail) (prog1 (car ,head)
+                             (psetf ,head nil
+                                    ,tail nil)))
+         (t (pop ,head))))
 
 ;;; Pointers from lol-----------------------------------------------------------------------------------
 (defmacro pointer-& (obj)
@@ -78,7 +78,7 @@
   (setf (gethash name graph)
         (let ((new-hash (make-hash-table)))
           (mapc (lambda (x)
-                  (unless #1=(gethash x graph)
+                  (unless #1=(gethash x graph)              ; if the node we are setting does not exist
                     (if bip
                         (let ((new-node (make-hash-table))) ; bi direct
                           (setf (gethash x new-node) name) 
@@ -117,9 +117,9 @@
               (setf compiled t))
             new-hash)))
   (mapc (lambda (x)
-          (cond ((gethash x graph) (funcall (gethash x graph) nil)) ; update neighboring nodes to the current one if it exists
-                (bip (defnode-bi-or-uni-clos x graph bip name))          ; else make a bi-directional node
-                (t (defnode-bi-or-uni-clos x graph bip))))               ;            uni-directional node
+          (cond ((gethash x graph) (funcall (gethash x graph) nil))           ; update neighboring nodes to the current one if it exists
+                (bip               (defnode-bi-or-uni-clos x graph bip name)) ; else make a bi-directional node
+                (t                 (defnode-bi-or-uni-clos x graph bip))))    ; uni-directional node
         neighbors) 
   (gethash name graph))
 
@@ -160,15 +160,16 @@
   (setf (gethash name graph)
         (let ((new-hash (make-hash-table)))
           (mapc (lambda (x)
-                  (unless #1=(gethash x graph)
+                  (unless #1=(gethash x graph)                    ; if the node we are setting does not exist
                           (if bip
                               (let ((new-node (make-hash-table))) ; bi direct
                                 (setf (gethash x new-node) (pointer-& (gethash name graph))) 
                                 (setf #1# new-node))
                               (setf #1# (make-hash-table))))
-                  (setf (gethash x new-hash) (pointer-& (gethash x graph))))
+                  (setf (gethash x new-hash) (pointer-& (gethash x graph)))) ; set the newhash to it
                 neighbors)
           new-hash)))
+
 
 (defun defnode (name graph &rest neighbors)
   (apply (curry defnode-bi-or-uni-ptr name graph t) neighbors))
@@ -188,7 +189,8 @@
   "Searches the graph from the START node breadth-first until it hits the PREDicate the user specified to the value
    of the KEY applied to the node.  The function can also check if a node is x nodes away if LIMIT is specified"
   (let ((seen (make-hash-table))
-        (head) (tail)
+        (head)
+        (tail)
         (lim (if limit (+ 2 limit) -1)))
     ;; Nodes here are stored like this (b (b a)) to preserve path and are labeled node+
     (flet ((see           (node)        (setf (gethash node seen) t))
@@ -201,10 +203,12 @@
       (loop :until (null head) :do
          (let ((curr (dequeue head tail)))
            (when (end-condition curr)
-             (return-from breadth-search-gen (list (car curr) (nreverse (cadr curr)))))
-           (when (= lim 0) (return-from breadth-search-gen nil)) ; end prematurely if we hit our neighbor cap
+             (return-from breadth-search-gen (list (car curr)
+                                                   (nreverse (cadr curr)))))
+           (when (= lim 0)
+             (return-from breadth-search-gen nil)) ; end prematurely if we hit our neighbor cap
            (decf lim)
-           (loop :for sym :being the hash-keys :of (get-node (car curr) graph) :do
+           (loop :for sym :being :the hash-keys :of (get-node (car curr) graph) :do
               (unless (seenp sym)
                 (queue (make-node+ sym curr) head tail)
                 (see sym))))))))

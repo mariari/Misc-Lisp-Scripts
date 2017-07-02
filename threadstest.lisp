@@ -31,6 +31,7 @@
 
 (run/ss `(pipe (echo (+ hel "lo,") world) (tr "hw" "HW") (sed -e "s/$/!/")))
 
+
 (defmacro curry (fn . args)
   "Creates a partially applied function that takes 1 argument if it is a macro
    (a limitation of &rest closures in CL) and multiple if it is a function"
@@ -95,6 +96,19 @@
     (reduce (lambda (x y) (if (member (thread-name y) ignore :test #'equal)
                          (1+ x) x))
             (all-threads) :initial-value 0)))
+
+(defun ignored-threads-func2 (&optional extra-threads-list)
+  (let ((ignore (append extra-threads-list (list  "swank-indentation-cache-thread"
+                                                  "reader-thread"  "control-thread"
+                                                  "Swank Sentinel" "main thread"))))
+    (length (remove-if-not (lambda (x) (member (thread-name x) ignore :test #'equal))
+                           (all-threads)))))
+
+(defun ignored-threads-func1 (&optional extra-threads-list)
+  (let ((ignore (append extra-threads-list (list  "swank-indentation-cache-thread"
+                                                  "reader-thread"  "control-thread"
+                                                  "Swank Sentinel" "main thread"))))
+    (length (intersection ignore (mapcar 'thread-name (all-threads)) :test 'equal))))
 
 
 (defun num-used-threads ()
