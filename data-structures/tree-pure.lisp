@@ -53,8 +53,8 @@
     (labels ((rec (root)
                (cond ((null #1=(tree!-left  root)) (set-val #1#))
                      ((null #2=(tree!-right root)) (set-val #2#))
-                     ((= (random 2) 1)          (rec #1#))
-                     (t                         (rec #2#)))))
+                     ((= (random 2) 1)             (rec #1#))
+                     (t                            (rec #2#)))))
       (rec tree) tree)))
 
 ;; (time (reduce #'tree!-insert '(2 3 4 5 6) :initial-value (make-tree! :val 1)))
@@ -114,7 +114,7 @@
   "takes a predicate and returns a list of all elements that match"
   (flet ((f (l acc)
            (breadthp-in-list l pred acc)))
-    (cond ((null l)                  (reverse acc))
+    (cond ((null l)               (reverse acc))
           ((listp (car l))        (f (append (cdr l) (car l)) acc))
           ((funcall pred (car l)) (f (cdr l)                  (cons (car l) acc)))
           (t                      (f (cdr l)                  acc)))))
@@ -122,13 +122,14 @@
 ;; this is a slower version of the code above
 ;; note that this function goes in depth first order, but gives the answer
 ;; in Breadth-first arrangement
-(defun breadthp-in-list% (l pred)
+;; Doesn't give back in the proper order
+(defun breadthp-in-list% (l pred &optional (acc nil))
   "takes a predicate and returns a list of all elements that match"
   (reduce (lambda (y xs)
-            (cond ((listp y)        (append xs (breadthp-in-list% y pred)))
+            (cond ((listp y)        (breadthp-in-list% y pred xs))
                   ((funcall pred y) (cons y xs))
                   (t                xs)))
-          l :initial-value nil :from-end t))
+          l :initial-value acc :from-end t))
 ;;--------------------------------------------------------------------------------------------------
 
 ;; From PAIP

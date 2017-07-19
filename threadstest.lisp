@@ -84,8 +84,9 @@
                                                   "reader-thread" "control-thread"
                                                   "Swank Sentinel" "main thread")))
         (count 0))
-    (mapc (lambda (x) (when (member (thread-name x) ignore :test #'equal)
-                   (incf count)))
+    (mapc (lambda (x)
+            (when (member (thread-name x) ignore :test #'equal)
+              (incf count)))
           (all-threads))
     count))
 
@@ -93,8 +94,9 @@
   (let ((ignore (append extra-threads-list (list  "swank-indentation-cache-thread"
                                                   "reader-thread"  "control-thread"
                                                   "Swank Sentinel" "main thread"))))
-    (reduce (lambda (x y) (if (member (thread-name y) ignore :test #'equal)
-                         (1+ x) x))
+    (reduce (lambda (x y)
+              (if (member (thread-name y) ignore :test #'equal)
+                  (1+ x) x))
             (all-threads) :initial-value 0)))
 
 (defun ignored-threads-func2 (&optional extra-threads-list)
@@ -132,17 +134,16 @@
              `(let* ((thread-lim (1- (num-open-threads)))
                      (mutex (make-semaphore :count thread-lim))
                      (finished (make-semaphore :count 0))
-                     (vals (prog1 (apply
-                                   (curry ,@(if result-type
-                                                `(map result-type)
-                                                `(mapcar))
-                                          (lambda (&rest x)
-                                            (wait-on-semaphore mutex)
-                                            (make-thread (lambda () (prog1 (apply fn x)
-                                                                 (signal-semaphore mutex)))))
-                                          list)
-                                   more-lists)
-                             (signal-semaphore finished))))
+                     (vals (prog1 (apply (curry ,@(if result-type
+                                                      `(map result-type)
+                                                      `(mapcar))
+                                                (lambda (&rest x)
+                                                  (wait-on-semaphore mutex)
+                                                  (make-thread (lambda () (prog1 (apply fn x)
+                                                                            (signal-semaphore mutex)))))
+                                                list)
+                                         more-lists)
+                                  (signal-semaphore finished))))
                 (wait-on-semaphore finished)
                 ,(if result-type
                      `(map result-type #'join-thread vals)
@@ -202,7 +203,7 @@
                                      ;; (apply #',(s!-symbol-to-function s) ,g!x)    ; doesn't work for special forms or macros
                                      ;;  This actually isn't too slow!!!
                                      (eval (eval `(cons ',',(s!-symbol-to-function s) ',,g!x)))
-                                   (signal-semaphore ,g!lock))))
+                                     (signal-semaphore ,g!lock))))
                           syms)
              ,@body))))))
 
@@ -237,7 +238,7 @@
                                   (prog2
                                       (wait-on-semaphore ,g!lock)
                                       (eval (eval `(cons ',',(s!-symbol-to-function x) ',,g!y)))
-                                    (signal-semaphore ,g!lock)))
+                                      (signal-semaphore ,g!lock)))
                                x)))
                      body))))))
 
@@ -269,7 +270,7 @@
                                     (prog2
                                         (wait-on-semaphore ,g!lock)
                                         (eval (eval `(cons ',',(s!-symbol-to-function x) ',,g!y)))
-                                      (signal-semaphore ,g!lock))))
+                                        (signal-semaphore ,g!lock))))
                          ((list* _ _) (mapcar #'self x)) ; do this pattern matching again on the list
                          (a a)))
                      body))))))

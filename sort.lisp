@@ -21,7 +21,7 @@
       (loop for end from (1- count) downto 1
          do (swap 0 end) (sift 0 end))))
   a)
-
+cl
 (defun merge-sort (sequence &optional (f #'<))
   "Does not have Side effects"
   (let ((len (length sequence)))
@@ -52,7 +52,7 @@
        :do (progn
              (setf key (elt seq j))
              (setf i (1- j))
-             (loop :while (and (funcall f i -1) (funcall f (elt seq i) key))
+             (loop :while (and (> i -1) (funcall f (elt seq i) key))
                 :do (progn
                       (setf (elt seq (1+ i)) (elt seq i))
                       (setf i (1- i))))

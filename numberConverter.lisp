@@ -94,7 +94,7 @@
   "Converts a list into a string with no spaces"
   (remove #\Space (string-trim '(#\( #\)) (princ-to-string list)))) ; turns out using coerce on chars is better than this on numbers and chars 
 
-;; wanna just cheat
+;; wanna just cheat-----------------------------------------------------------------------------
 (defun convert% (string)
   (flet ((parse (redix)
            (parse-integer string :start 2 :radix redix)))
