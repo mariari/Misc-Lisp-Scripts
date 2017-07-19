@@ -32,7 +32,8 @@
     [((list* a b))           a]
     [(a)                     a]))
 
-
+;; Note we should also make a version that does not save the hash-table between calls
+;; as this can eventually eat our memory!
 (define-macro (defmemo fn-list . body)
   "defines a memoized function, NOTE: it does support ((f a) b)
    syntax and only memorizes the answer for a and NOΤ b"
@@ -50,7 +51,7 @@
                                        ,memo-b                   ; we also let to remove multiple eval
                                        (apply ,name ,memo-b)))
                           (hash-ref ,table
-                                    (list ,@b)))]
+                                    ,memo-b))]
                       [(list* a b) (map self x)]
                       [a a]))
                 body)))))
@@ -59,7 +60,7 @@
 (defmemo (mfib n)
   (if (< n 1)
       1
-      (+ (mfib (- n 1) (mfib (- n 3))) (mfib (- n 2)))))
+      (+ (mfib (- n 1)) (mfib (- n 2)))))
 
 (define (fib n)
   (if (< n 1)
