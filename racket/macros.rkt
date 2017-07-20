@@ -21,20 +21,21 @@
 
 (require (for-syntax racket/match 'a))
 
-(define/match (fn-name fn-list)
-    [((list* (list* a c) b)) (fn-name a)]
-    [((list* a b))           a]
-    [(a)                     a])
-
 (begin-for-syntax
   (define/match (fn-name fn-list)
-    [((list* (list* a c) b)) (fn-name a)]
-    [((list* a b))           a]
+    [((list* (list* a _) _)) (fn-name a)]
+    [((list* a _))           a]
     [(a)                     a]))
+(begin-for-syntax
+ (define/match (args-list fn-list)
+   [((list* (list* a _) _)) (args-list (car fn-list))]
+   [((list* a b))           b]
+   [(a)                     '()]))
+
 
 ;; Note we should also make a version that does not save the hash-table between calls
 ;; as this can eventually eat our memory!
-(define-macro (defmemo fn-list . body)
+(define-macro (defmemo-old fn-list . body)
   "defines a memoized function, NOTE: it does support ((f a) b)
    syntax and only memorizes the answer for a and NOΤ b"
   (let ((name  (fn-name fn-list))
@@ -56,12 +57,37 @@
                       [a a]))
                 body)))))
 
+;; Better expansion and allows for curry to work
+(define-macro (defmemo fn-list . body)
+  "defines a memoized function, NOTE: it does support ((f a) b)
+   syntax and only memorizes the answer for a and NOΤ b"
+  (let ((name  (fn-name fn-list))
+        (table (gensym))
+        (memo-b (gensym)))
+    `(splicing-let ((,table (make-hash)))
+       (define ,fn-list
+         (let ((,memo-b (list ,@(args-list fn-list))))
+           (unless (hash-has-key? ,table ,memo-b)
+               (hash-set! ,table
+                          ,memo-b
+                          ,@body))
+           (hash-ref ,table
+                     ,memo-b))))))
 
 (defmemo (mfib n)
   (if (< n 1)
       1
       (+ (mfib (- n 1)) (mfib (- n 2)))))
 
+(defmemo-old (mfib% n)
+  (if (< n 1)
+      1
+      (+ (mfib% (- n 1)) (mfib% (- n 2)))))
+
+(defmemo (fact n)
+  (if (>= 0 n)
+      1
+      (* n (fact (- n 1)))))
 (define (fib n)
   (if (< n 1)
       1
