@@ -30,8 +30,9 @@
 (begin-for-syntax
  (define/match (args-list fn-list)
    [((list* (list* a _) _)) (args-list (car fn-list))]
-   [((list* a b))           (map (lambda (x) (if (list? x) (car x) x)) b)] ; removes the given optional arg 
-   [(a)                     '()]))
+   [((list* _ b))           (map (match-lambda ((list* a _) a)
+                                               (a           a)) b)] ; removes the given optional arg
+   [(_)                     null]))
 
 
 ;; Note we should also make a version that does not save the hash-table between calls
@@ -39,21 +40,21 @@
 (define-macro (defmemo-old fn-list . body)
   "defines a memoized function, NOTE: it does support ((f a) b)
    syntax and only memorizes the answer for a and NOΤ b"
-  (let ((name  (fn-name fn-list))
-        (table (gensym))
-        (memo-b (gensym)))
+  (let* ((name     (fn-name fn-list))
+         (table    (gensym))
+         (memo-b   (gensym))
+         (eq-name? (λ (x) (equal? name x))))
     `(splicing-let ((,table (make-hash)))
        (define ,fn-list
          ,@(map (aλ (x)
-                    (match x
-                      [(list* (? (λ (x) (equal? name x)) fn) b)
-                       `(let ((,memo-b (list ,@(map self b))))   ; we evaluate b because we
-                          (unless (hash-has-key? ,table ,memo-b) ; want the answers and not
-                            (hash-set! ,table                    ; unevaluated form 
-                                       ,memo-b                   ; we also let to remove multiple eval
-                                       (apply ,name ,memo-b)))
-                          (hash-ref ,table
-                                    ,memo-b))]
+                    (match x                                                               ; we evaluate b
+                      [(list* (? eq-name? fn) b) `(let ((,memo-b (list ,@(map self b))))   ; because we want the
+                                                    (unless (hash-has-key? ,table ,memo-b) ; answers of the expr
+                                                      (hash-set! ,table                    ; not the uneval form
+                                                                 ,memo-b                   ; also let to remove
+                                                                 (apply ,name ,memo-b)))   ; multiple eval
+                                                    (hash-ref ,table
+                                                              ,memo-b))]
                       [(list* a b) (map self x)]
                       [a a]))
                 body)))))
@@ -113,7 +114,7 @@
 (defmemo (mfib-tco n [tco 1])
   (if (< n 1)
       tco
-      (mfib-tco (- n 1) (+ tco (mfib-tco (- n 2) 1)))))
+      (mfib-tco (- n 1) (+ tco (mfib-tco (- n 2))))))
 
 
 (defmemo-old (mfib% n)
