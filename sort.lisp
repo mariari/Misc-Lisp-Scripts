@@ -21,7 +21,8 @@
       (loop for end from (1- count) downto 1
          do (swap 0 end) (sift 0 end))))
   a)
-cl
+
+
 (defun merge-sort (sequence &optional (f #'<))
   "Does not have Side effects"
   (let ((len (length sequence)))
@@ -38,25 +39,25 @@ cl
    same O(n^2)"
   (labels ((insert (x ys)
              (trivia:match ys
-               ((sequence) (list x))
+               ((sequence)       (list x))
                ((sequence y rst) (if (funcall pred x y)
                                      (cons x ys)
                                      (cons y (insert x rst)))))))
-    (coerce (reduce 'insert l :initial-value '()) (type-of l))))
+    (coerce (reduce 'insert l :initial-value '())
+            (type-of l))))
 
 (defun insertion-sort (seq &optional (f #'>))
   "Has Side effects"
   (let ((key 0)
         (i 0))
-    (loop for j :from 1 :to (1- (length seq))
-       :do (progn
-             (setf key (elt seq j))
-             (setf i (1- j))
-             (loop :while (and (> i -1) (funcall f (elt seq i) key))
-                :do (progn
-                      (setf (elt seq (1+ i)) (elt seq i))
-                      (setf i (1- i))))
-             (setf (elt seq (1+ i)) key))))
+    (dotimes (j (1- (length seq)))
+      (setf key (elt seq (1+ j)))
+      (setf i j)
+      (loop :while (and (> i -1) (funcall f (elt seq i) key))
+            :do (progn
+                  (setf (elt seq (1+ i)) (elt seq i))
+                  (setf i (1- i))))
+      (setf (elt seq (1+ i)) key)))
   seq)
 
 
