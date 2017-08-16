@@ -68,10 +68,9 @@
         (memo-b (gensym)))
     `(splicing-let ((,table (make-hash)))
        (define ,fn-list
-         (let ((,memo-b (list ,@(args-list fn-list))))
-           (hash-ref! ,table
-                      ,memo-b
-                      (λ () ,@body)))))))
+         (hash-ref! ,table
+                    (list ,@(args-list fn-list))
+                    (λ () ,@body))))))
 
 ;; would just call defmmeo inside, but racket has a weird macro system that makes me
 ;; have to define a package to call
@@ -80,26 +79,11 @@
   "defines a memoized function, NOTE: it does support ((f a) b)
    syntax and only memorizes the answer for a and NOΤ b
    does not save hash between computation calls"
-  (let ((table (gensym))
-        (memo-b (gensym)))
-    `(define ,fn-list
-       (let ((,table (make-hash)))
-         (define ,fn-list
-           (let ((,memo-b (list ,@(args-list fn-list))))
-             (hash-ref! ,table
-                        ,memo-b
-                        (λ () ,@body))))
-         ,fn-list))))
-
-(define-macro (defmemol% fn-list . body)
-  "defines a memoized function, NOTE: it does support ((f a) b)
-   syntax and only memorizes the answer for a and NOΤ b
-   does not save hash between computation calls"
   `(define ,fn-list
-     (defmemol ,fn-list ,@body)
+     (defmemo ,fn-list ,@body)
      ,fn-list))
 
-(defmemol% (mfib n)
+(defmemol (mfib n)
   (if (< n 1)
       1
       (+ (mfib (- n 1)) (mfib (- n 2)))))
@@ -128,3 +112,29 @@
   (if (< n 1)
       1
       (+ (fib (- n 1)) (fib (- n 2)))))
+
+
+;; HYGENIC VERSION BY ITTALLICS
+
+(require racket/match)
+
+(define-syntax-rule (def-memo (fn arg ...) body ...)
+  (define fn
+    (let ([memo (make-hash)])
+      (λ (arg ...)
+        (let ([args (list arg ...)])
+          (hash-ref! memo
+                     args
+                     (λ () body ...)))))))
+
+(define-syntax-rule (def-memo-local (fn arg ...) body ...)
+  (define (fn arg ...)
+    (def-memo (fn arg ...) body ...)
+    (fn arg ...)))
+
+;; (def-memo-local (fib n)
+;;   (if (< n 2) n
+;;       (+ (fib (- n 1))
+;;          (fib (- n 2)))))
+
+(map mfib (range 15))
