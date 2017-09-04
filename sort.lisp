@@ -39,10 +39,9 @@
    same O(n^2)"
   (labels ((insert (x ys)
              (trivia:match ys
-               ((sequence)       (list x))
-               ((sequence y rst) (if (funcall pred x y)
-                                     (cons x ys)
-                                     (cons y (insert x rst)))))))
+               ((sequence)                                       (list x))
+               ((trivia:guard (sequence y _) (funcall pred x y)) (cons x ys))
+               ((sequence y rst)                                 (cons y (insert x rst))))))
     (coerce (reduce 'insert l :initial-value '())
             (type-of l))))
 
@@ -56,9 +55,11 @@
       (loop :while (and (> i -1) (funcall f (elt seq i) key))
             :do (progn
                   (setf (elt seq (1+ i)) (elt seq i))
-                  (setf i (1- i))))
+                  (decf i)))
       (setf (elt seq (1+ i)) key)))
   seq)
+
+
 
 
 ;; FROM ROSETTA CODE----------------------------------

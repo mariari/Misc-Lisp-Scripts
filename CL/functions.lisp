@@ -39,12 +39,15 @@
                     (directory-namestring (car (directory i))))
                   dir)
           (list "./"))
-    (get-output-stream-string stream)))
+      (get-output-stream-string stream)))
 
-
-(defun range (max &optional (min 0) (step 1))
-  (loop for x from min to max by step
-     collect x))
+(defun range (first &optional (second nil) (step 1))
+  (macrolet ((for (second word first)
+               `(loop :for x :from ,second ,word ,first by step
+                   collect x)))
+    (cond ((and second (> second first)) (for first to     second))
+          (second                        (for first downto second))
+          (t                             (for 0     to     first)))))
 
 (declaim (inline range))
 

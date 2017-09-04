@@ -36,3 +36,29 @@
     (the fixnum (+ x 10)))
 
   )
+
+(locally (declare (optimize (speed 3) (space 2) (safety 0) (debug 0) (compilation-speed 0)))
+
+  (defun reverse% (lis)
+    (labels ((rec (lis1 lis2)
+               (if (null lis1)
+                   lis2
+                   (rec (cdr lis1)
+                        (cons (car lis1) lis2)))))
+      (rec lis '())))
+
+
+  (defun reverse%%% (lis &optional (acc nil))
+    (if (null lis)
+        acc
+        (reverse%%% (cdr lis) (cons (car lis) acc))))
+
+
+  (defun reverse%% (lis)
+    (reduce (lambda (x y) (cons y x)) lis :initial-value '()))
+  
+  (defun list-reverse (list)
+    (do ((new-list ()))
+        ((endp list) new-list)
+      (push (pop list) new-list)))
+  )

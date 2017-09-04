@@ -48,10 +48,10 @@
    `(or (list 'string ,length)
         (and 'string (<> ,length '*))))
 
-(match (list 1 2 3 4 5)
-  ((guard (list* a b)
-          (evenp a)
-          a)))
+;; (match (list 1 2 3 4 5)
+;;   ((guard (list* a b)
+;;           (evenp a)
+;;           a)))
 
 (match (list 2 5)
   ((guard (list x y)     ; subpattern

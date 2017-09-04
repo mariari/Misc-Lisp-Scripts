@@ -55,13 +55,14 @@
         (t     10))
       base))
 
-(defun range (max &optional (min 0) (step 1))
-  (flet ((compute (first second)
-           (loop for x from first to second by step
-              collect x)))
-    (if (> min max)
-        (compute max min)
-        (reverse (compute min max)))))
+
+(defun range (first &optional (second nil) (step 1))
+  (macrolet ((for (second word first)
+               `(loop :for x :from ,second ,word ,first by step
+                   collect x)))
+    (cond ((and second (> second first)) (for first to     second))
+          (second                        (for first downto second))
+          (t                             (for 0     to     first)))))
 
 ;;; Useless functions that helped me learn but are now useless-----------------------------------
 

@@ -12,6 +12,6 @@
 
 (run/ss `(pipe (echo (+ hel "lo,") world) (tr "hw" "HW") (sed -e "s/$/!/")))
 
-(run/ss `(echo stuff is here ,(+ 2 3 45) (tr "hw" "HW")))
+(run/ss `(echo stuff is here ,(+ 2 3 45)))
 
 (run/ss `(pipe (ls "~/") (grep "he")))

@@ -94,7 +94,7 @@
 (defmemo (mfib-cps n [cps identity])
   (if (< n 1)
       (cps 1)
-    (mfib-cps (- n 1) (compose cps (curry + (mfib-cps (- n 2)))))))
+      (mfib-cps (- n 1) (compose cps (curry + (mfib-cps (- n 2)))))))
 
 ;; 1680 cpu time
 (defmemo (mfib-tco n [tco 1])
