@@ -47,7 +47,7 @@
 
 
 ;; Last function left to replace
-(defun tree!-insert (tree val)
+(defun tree!-insert% (tree val)
   (macrolet ((set-val (x)
                `(setf ,x (make-tree! :val val))))
     (labels ((rec (root)
@@ -57,7 +57,22 @@
                      (t                            (rec #2#)))))
       (rec tree) tree)))
 
-;; (time (reduce #'tree!-insert '(2 3 4 5 6) :initial-value (make-tree! :val 1)))
+(defun tree!-insert (tree val)
+  (labels ((rec (root)
+             (cond ((null (tree!-left  root)) (make-tree! :val   (tree!-val root)
+                                                          :left  (make-tree! :val val)))
+                   ((null (tree!-right root)) (make-tree! :val   (tree!-val root)
+                                                          :left  (tree!-left root)
+                                                          :right (make-tree! :val val)))
+                   ((= (random 2) 1)          (make-tree! :val   (tree!-val root)
+                                                          :left  (tree!-insert (tree!-left root) val)
+                                                          :right (tree!-right root)))
+                   (t                         (make-tree! :val   (tree!-val root)
+                                                          :left  (tree!-left root)
+                                                          :right (tree!-insert (tree!-right root) val))))))
+    (rec tree)))
+
+(time (reduce #'tree!-insert '(2 3 4 5 6) :initial-value (make-tree! :val 1)))
 
 (time (reduce #'tree+-insert '(2 3 4 5 6) :initial-value (make-tree+-nodes 1)))
 
@@ -90,16 +105,17 @@
 
 (defun tree!-traverse (root path)
   "Given a binary path, finds the node in the tree! (0 left, 1 right) where the location lies"
-  (reduce (lambda (tree x) (if (= 0 x)
-                          (tree!-left tree)
-                          (tree!-right tree)))
+  (reduce (lambda (tree x)
+            (if (= 0 x)
+                (tree!-left tree)
+                (tree!-right tree)))
           path :initial-value root))
 
 ;; replace with a reduce
 ;; the reduce will also make this so it doesn't violate TCO
 (defun tree!-traverse-update (root path f)
   "Given a binary path, updates the node in the tree! (0 left, 1 right) with the function given"
-  (cond ((null path)         (funcall f root))
+  (cond ((null path)      (funcall f root))
         ((= 0 (car path)) (make-tree! :val   (tree!-val root)
                                       :left  (tree!-traverse-update (tree!-left root) (cdr path) f)
                                       :right (tree!-right root)))
@@ -119,14 +135,11 @@
           ((funcall pred (car l)) (f (cdr l)                  (cons (car l) acc)))
           (t                      (f (cdr l)                  acc)))))
 
-;; this is a slower version of the code above
-;; note that this function goes in depth first order, but gives the answer
-;; in Breadth-first arrangement
-;; Doesn't give back in the proper order
-(defun breadthp-in-list% (l pred &optional (acc nil))
+;; note that this function goes in depth first order
+(defun depthp-in-list (l pred &optional (acc nil))
   "takes a predicate and returns a list of all elements that match"
   (reduce (lambda (y xs)
-            (cond ((listp y)        (breadthp-in-list% y pred xs))
+            (cond ((listp y)        (dethp-in-list y pred xs))
                   ((funcall pred y) (cons y xs))
                   (t                xs)))
           l :initial-value acc :from-end t))
