@@ -244,19 +244,14 @@
 (defun depth-search% (start graph find &key (key #'eq) (limit -1))
   (labels ((rec (node node-list lim seen path)
              (cond ((funcall key find node) (cons find path))
-                   ((= lim 0) nil)
-                   (t
-                    (let* ((new-seen  (push node seen))
-                           (new-nodes (reduce (lambda (acc x)
-                                                (if (member x seen) ; O(n) bad!
-                                                    acc ; don't add a seen node to a moves list
-                                                    (cons (list x (cons node path) (1- lim))
-                                                          acc)))
-                                              (hash-keys (get-node node graph)) :initial-value node-list))
-                           (new-node (car new-nodes)))
-                      (if (null new-nodes)
-                          nil
-                          (rec (car new-node) (cdr new-nodes) (caddr new-node) new-seen (cadr new-node))))))))
+                   ((or (null node) (= lim 0))  nil)
+                   (t (let* ((new-seen  (push node seen))
+                             (new-nodes (reduce (lambda (acc x) (cons (list x (cons node path) (1- lim)) acc))
+                                                (remove-if (lambda (x) (member x seen)) ; O(n) :(
+                                                           (hash-keys (get-node node graph)))
+                                                :initial-value node-list))
+                             (new-node (car new-nodes)))
+                        (rec (car new-node) (cdr new-nodes) (caddr new-node) new-seen (cadr new-node)))))))
     (reverse (rec start '() limit '() '()))))
 
 (defnode 'A *nodes* 'B 'C 'D 'E)
