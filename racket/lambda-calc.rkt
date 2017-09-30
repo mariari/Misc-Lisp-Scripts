@@ -79,14 +79,16 @@
       (factorial-cps (- x 1) (∘ cps (curry * x)))))
 
 
+((∘ (∘ identity (curry * 3)) (curry * 2)) 1)
+
 (define fact-cps-y-comb
   ((λ (x) (x x))
    (λ (f)
-      (λ (x)
-         (λ (k)
-            (if (= 1 x)
-                (k x)
-                (((f f) (- x 1)) (λ (y) (k (* x y))))))))))
+     (λ (x)
+       (λ (k)
+         (if (= 1 x)
+             (k x)
+             (((f f) (- x 1)) (λ (y) (k (* x y))))))))))
 
 
 ((fact-cps-y-comb 4) (λ (x) x))
@@ -95,10 +97,10 @@
 ((((λ (x) (x x))
    (λ (f)
      (λ (x)
-        (λ (k)
-           (if (= 1 x)
-               (k x)
-               (((f f) (- x 1)) (λ (y) (k (* x y)))))))))
+       (λ (k)
+         (if (= 1 x)
+             (k x)
+             (((f f) (- x 1)) (λ (y) (k (* x y)))))))))
   4)
  (λ (x) x))
 

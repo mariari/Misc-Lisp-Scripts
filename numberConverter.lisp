@@ -34,17 +34,17 @@
 
 (defun mod-number (num redix)
   "Returns a list of characters from moding the number given"
-  (labels ((f (return numbers)
+  (labels ((f (numbers acc)
              (if (= numbers 0)
-                 return
+                 acc
                  (let ((mod-num (mod numbers redix)))
-                   (f (cons (if (> mod-num 9)
+                   (f (floor numbers redix)
+                      (cons (if (> mod-num 9)
                                 ;;  Offset of 87 Makes 10 an a and so on 
                                 (code-char (+ 87 mod-num))
                                 (digit-char      mod-num)) ; we make this a char so we can coerce it 
-                            return)
-                      (floor numbers redix))))))
-    (f nil num)))
+                            acc))))))
+    (f num nil)))
 
 (defun r-check (str &optional (base 10))
   (if (or (> (length str) 1) (= base 10))

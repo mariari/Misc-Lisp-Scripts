@@ -62,3 +62,26 @@
         ((endp list) new-list)
       (push (pop list) new-list)))
   )
+
+
+
+(let ((var 2))
+  (defun fun1 (x)
+    (+ x var))
+    
+  (defun fun2 (x)
+    (+ x var)))
+
+
+(defun reverse* (lis)
+  
+  
+  (labels ((_reverse* (lis lis2)
+             (if (null lis)
+                 lis2
+                 (_reverse* (cdr lis)
+                            (cons (if (listp (car lis))
+                                      (_reverse* (car lis) '())
+                                      (car lis))
+                                  lis2)))))
+    (_reverse* lis '())))

@@ -138,3 +138,17 @@
 ;;          (fib (- n 2)))))
 
 (map mfib (range 15))
+
+
+(defmemo (x n)
+  (cond ((= n 1) 1)
+        ((= n 2) 2)
+        ((< n 0) 0)
+        (else (/ (+ (x (- n 1))
+                    (x (- n 2)))
+                 2))))
+(defmemol (s n)
+  (if (= n 1)
+      1
+      (sqrt (+ 1 (s (- n 1))))))
+;;  converges to phi
