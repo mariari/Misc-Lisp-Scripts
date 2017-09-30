@@ -63,7 +63,7 @@
 ;;; Indirect way-----------------------------------------------------------------------------------------------
 
 ;; doesn't update by itself for some reason... most likely due to how passing via value instead of by reference works
-;; !!Abandon this one!!!!!!!
+;; !!Abandon this one!!
 (defun defnode%% (name graph &rest neighbors)
   (setf (gethash name graph)
         (let ((new-hash (make-hash-table)))
@@ -217,7 +217,7 @@
   (breadth-search-gen start graph (lambda (x) (eq target x)) :key key :limit limit))
 
 ;; Garbage at the moment since the stack frame will blow up if the sample size is big enough
-(defun depth-search (start graph find  &key (key #'eq) (limit -1))
+(defun depth-search (start graph find &key (key #'eq) (limit -1))
   (let ((seen (list start))
         (ans))
     (labels ((rec (node path lim seen)
@@ -229,12 +229,35 @@
                               (unless (member x seen)
                                 (if (funcall key find x)
                                     (setf ans (list (car path) (reverse (cons find path))))
-                                    (progn
-                                      (rec (funcall y) (cons x path) (1- lim) (push x seen))))))
+                                    (rec (funcall y) (cons x path) (1- lim) (push x seen)))))
                             node))))
       (rec (get-node start graph) (list start) limit seen)
       (list seen ans))))
 
+;; dirty imperative code!
+(defun hash-keys (hash)
+  (loop for key being the hash-keys of hash collect key))
+
+;; this is more inline to my current style of problem solving...
+;; NOTE :: replace the (member seen) with a functional queue later!
+;; node is stored as (val (list) lim)
+(defun depth-search% (start graph find &key (key #'eq) (limit -1))
+  (labels ((rec (node node-list lim seen path)
+             (cond ((funcall key find node) (cons find path))
+                   ((= lim 0) nil)
+                   (t
+                    (let* ((new-seen  (push node seen))
+                           (new-nodes (reduce (lambda (acc x)
+                                                (if (member x seen) ; O(n) bad!
+                                                    acc ; don't add a seen node to a moves list
+                                                    (cons (list x (cons node path) (1- lim))
+                                                          acc)))
+                                              (hash-keys (get-node node graph)) :initial-value node-list))
+                           (new-node (car new-nodes)))
+                      (if (null new-nodes)
+                          nil
+                          (rec (car new-node) (cdr new-nodes) (caddr new-node) new-seen (cadr new-node))))))))
+    (reverse (rec start '() limit '() '()))))
 
 (defnode 'A *nodes* 'B 'C 'D 'E)
 ;; (time (defnode 'A *nodes* 'B 'C 'D 'E))
