@@ -116,7 +116,7 @@
 (defun num-used-threads ()
   (length (all-threads)))
 
-(defconstant num-threads-offset (+ (num-threads) (ignored-threads)))
+(defparameter num-threads-offset (+ (num-threads) (ignored-threads)))
 
 (defun num-open-threads ()
   (- num-threads-offset (num-used-threads)))
@@ -278,10 +278,14 @@
 (defun-s! test (arg1 arg2)
   (s!+ arg1 arg2))
 
+
+(defmacro zlambda (args &body body)
+  (labels ((self (,@args) ,@body))
+    #'self))
 ;; A side by side comparison of writer-s! vs the same function with no g!
 (flet ((num-open-threads () 1))
   (defun-s! writer-s! ()
-    (flet ((reader ()
+    '(flet ((reader ()
              (mapcar (lambda (x)
                        (s!progn (sleep .3)
                                 (print x)) x)
