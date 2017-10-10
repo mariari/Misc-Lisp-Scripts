@@ -227,10 +227,11 @@
                        (if (and (not (null x)) (listp x))
                            ;; Checking to see if the function is in the form (fn ...)
                            (if (s!-symbol-p (car x))
-                               `(prog2 (wait-on-semaphore ,g!lock)
+                               `(prog2
+                                    (wait-on-semaphore ,g!lock)
                                     ,(cons (s!-symbol-to-function (car x))
                                            (mapcar #'self (cdr x)))
-                                  (signal-semaphore ,g!lock))
+                                    (signal-semaphore ,g!lock))
                                (mapcar #'self x))
                            ;;  we are passing the s! function/macro to a HOF (cdr of a () set)
                            (if (s!-symbol-p x)
@@ -279,9 +280,6 @@
   (s!+ arg1 arg2))
 
 
-(defmacro zlambda (args &body body)
-  (labels ((self (,@args) ,@body))
-    #'self))
 ;; A side by side comparison of writer-s! vs the same function with no g!
 (flet ((num-open-threads () 1))
   (defun-s! writer-s! ()

@@ -12,16 +12,16 @@
       nil
       (cons xs (suffixes (cdr xs)))))
 
-(defun suffixes% (xs &optional (cps #'identity))
+(defun suffixes-cps (xs &optional (cps #'identity))
   (if (null xs)
       (funcall cps xs)
-      (suffixes% (cdr xs) (lambda (x) (funcall cps (cons xs x))))))
+      (suffixes-cps (cdr xs) (lambda (x) (funcall cps (cons xs x))))))
 
-(defun suffixes%% (xs &optional (acc '()))
+(defun suffixes-tco (xs &optional (acc '()))
   (if (null xs)
       (reverse acc)
-      (suffixes%% (cdr xs) (cons xs acc))))
+      (suffixes-tco (cdr xs) (cons xs acc))))
 
-(room)
-;; (time (suffixes%% (range 100)))
+;; (room)
+;; (time (suffixes-tco (range 100)))
 ;; (print (sb-kernel::dynamic-usage))

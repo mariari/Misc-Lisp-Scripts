@@ -247,14 +247,14 @@
                       (let ((next (car nodes-list)))
                         (rec (car next) (cdr nodes-list) (caddr next) (push node seen) (cadr next)))))
                (cond ((null node-list)           '())
-                     ((funcall key find node) (cons find path))
+                     ((funcall key find node) (reverse (cons find path)))
                      ((or (null node) (= lim 0))  (recurse node-list))
                      (t        ; fold all valid neighbors onto the node-list and then recurse on it
                       (recurse (reduce (lambda (acc x) (cons (list x (cons node path) (1- lim)) acc))
                                        (remove-if (lambda (x) (member x seen)) ; O(n) :(
                                                   (hash-keys (get-node node graph)))
                                        :initial-value node-list)))))))
-    (reverse (rec start '(()) limit '() '()))))
+    (rec start '(()) limit '() '())))
 
 (defnode 'A *nodes* 'B 'C 'D 'E)
 ;; (time (defnode 'A *nodes* 'B 'C 'D 'E))
