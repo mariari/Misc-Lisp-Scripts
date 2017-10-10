@@ -109,15 +109,13 @@
   (let ((designators '(("0y" . 2)
                        ("0o" . 8)
                        ("0x" . 16))))
-    (cond ((string= "" string) 0)
-          ((every #'digit-char-p string)
-           (parse-integer string))
-          ((> (length string) 2)
-           (parse-integer string
-                          :start 2
-                          :radix (cdr (assoc (subseq string 0 2)
-                                             designators
-                                             :test #'string=))))
+    (cond ((string= "" string)           0)
+          ((every #'digit-char-p string) (parse-integer string))
+          ((> (length string) 2)         (parse-integer string
+                                                        :start 2
+                                                        :radix (cdr (assoc (subseq string 0 2)
+                                                                           designators
+                                                                           :test #'string=))))
           (t (error (format nil "Illegal base designation in ~a" string))))))
 
 ;; (defun convert% (num)

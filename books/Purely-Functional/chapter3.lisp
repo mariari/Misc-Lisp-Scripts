@@ -117,6 +117,33 @@
                    (t
                     (ins-tree (link t1 t2) (bi-merge (cdr ts1) (cdr ts2)))))))))
 
+(defun bi-merge% (ts1 ts2)
+  (match (list ts1 ts2)
+    ((list '() ts2) ts2)
+    ((list ts1 '()) ts1)
+    ((list (list* (node (node-rank r1)) tr1)
+           (list* (node (node-rank r2)) tr2))
+     (cond ((< r1 r2) (cons (car ts1) (bi-merge tr1 ts2)))
+           ((> r1 r2) (cons (car ts2) (bi-merge ts1 tr2)))
+           (t (ins-tree (link (car ts1) (car ts2)) (bi-merge tr1 tr2)))))))
+
+(defun remove-min-tree (ts &optional (compare #'<=))
+  (if (null (cdr ts))
+      (list (car ts) '())
+      (match (list (remove-min-tree (cdr ts)) ts)
+        ((list (list* min? ts2)
+               (list* t1 ts1))
+         (if (funcall compare (node-rank t1) (node-rank min?))
+             (list t1 ts1)
+             (list min? (cons t1 ts2)))))))
+
+(defun bi-find-min (ts)
+  (node-rank (car (remove-min-tree ts))))
+
+(defun delete-min (ts)
+  (match (remove-min-tree ts)
+    ((list min rest) (bi-merge (reverse (node-tre-list min)) rest))))
+
 (defparameter *linked* (link (link (create-node 0 1 '())
                                    (create-node 0 2 '()))
                              (link (create-node 0 3 '())
