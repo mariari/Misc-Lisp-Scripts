@@ -69,10 +69,10 @@
                                           (make-heap :value 2))))
 
 ;; Binomial Heaps *************************************************************************************************
-
-(defstruct Node (rank 0 :type Integer)
-                val
-                (tre-list '() :type list))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defstruct Node (rank 0 :type Integer)
+                  val
+                  (tre-list '() :type list)))
 
 (defun create-node (rank val tre-list)
   (make-node :rank rank :val val :tre-list tre-list))
@@ -86,11 +86,11 @@
 (defun link% (t1 t2 &optional (compare #'<=))
   "Link trees of equal rank"
   (match (list t1 t2)
-    ((list (node (node-rank r1) (node-val v1) (node-tre-list c1))
-           (node (node-rank _) (node-val v2) (node-tre-list c2)))
+    ((list (node :val v1 :tre-list c1 :node-rank r)
+           (node :val v2 :tre-list c2))
      (if (funcall compare v1 v2)
-         (create-node (1+ r1) v1 (cons t2 c1))
-         (create-node (1+ r1) v2 (cons t1 c2))))))
+         (create-node (1+ r) v1 (cons t2 c1))
+         (create-node (1+ r) v2 (cons t1 c2))))))
 
 (defstruct binomial (tree '() :type list))
 
@@ -100,7 +100,7 @@
         ((< (node-rank t1) (node-rank (car ts)))
          (cons t1 ts))
         (t
-         (ins-t1ree (link (car ts) t1) (cdr ts)))))
+         (ins-tree (link (car ts) t1) (cdr ts)))))
 
 
 (defun insert (x ts)
@@ -123,9 +123,9 @@
     ((list ts1 '()) ts1)
     ((list (list* (node (node-rank r1)) tr1)
            (list* (node (node-rank r2)) tr2))
-     (cond ((< r1 r2) (cons (car ts1) (bi-merge tr1 ts2)))
-           ((> r1 r2) (cons (car ts2) (bi-merge ts1 tr2)))
-           (t (ins-tree (link (car ts1) (car ts2)) (bi-merge tr1 tr2)))))))
+     (cond ((< r1 r2) (cons (car ts1) (bi-merge% tr1 ts2)))
+           ((> r1 r2) (cons (car ts2) (bi-merge% ts1 tr2)))
+           (t (ins-tree (link (car ts1) (car ts2)) (bi-merge% tr1 tr2)))))))
 
 (defun remove-min-tree (ts &optional (compare #'<=))
   (if (null (cdr ts))
@@ -144,9 +144,9 @@
   (match (remove-min-tree ts)
     ((list min rest) (bi-merge (reverse (node-tre-list min)) rest))))
 
-(defparameter *linked* (link (link (create-node 0 1 '())
-                                   (create-node 0 2 '()))
-                             (link (create-node 0 3 '())
-                                   (create-node 0 5 '()))))
+(defparameter *linked* (link% (link% (create-node 0 1 '())
+                                     (create-node 0 2 '()))
+                              (link% (create-node 0 3 '())
+                                     (create-node 0 5 '()))))
 
 (defparameter *nodes* (insert 4 (insert 1 (insert 2 (insert 3 '())))))
