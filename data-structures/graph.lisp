@@ -1,4 +1,8 @@
 ;; Hash table version
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (ql:quickload '(:fset))
+  (rename-package 'fset 'fset '(:f)))
+
 
 (defparameter *nodes-clos* (make-hash-table))
 (defparameter *nodes-indirect* (make-hash-table))
@@ -241,25 +245,52 @@
 ;; this is more inline to my current style of problem solving...
 ;; NOTE :: replace the (member seen) with a functional queue later!
 ;; node is stored as (val (list) lim)
+;; I use a fset data structure to get better time complexity
+;; but fset seems to be incredibly slow and thus should be written with an impure hash table as below
 (defun depth-search% (start graph find &key (key #'eq) (limit -1))
   (labels ((rec (node node-list lim seen path)
              (flet ((recurse (nodes-list)
                       (let ((next (car nodes-list)))
-                        (rec (car next) (cdr nodes-list) (caddr next) (push node seen) (cadr next)))))
-               (cond ((null node-list)           '())
+                        (rec (car next) (cdr nodes-list) (caddr next) (f:with seen node) (cadr next))))
+                    (add (acc x)
+                      (cons (list x (cons node path) (1- lim)) acc)))
+               (cond ((null node-list)          '())
                      ((funcall key find node) (reverse (cons find path)))
                      ((or (null node) (= lim 0))  (recurse node-list))
-                     (t        ; fold all valid neighbors onto the node-list and then recurse on it
-                      (recurse (reduce (lambda (acc x) (cons (list x (cons node path) (1- lim)) acc))
-                                       (remove-if (lambda (x) (member x seen)) ; O(n) :(
-                                                  (hash-keys (get-node node graph)))
-                                       :initial-value node-list)))))))
-    (rec start '(()) limit '() '())))
+                     (t                       (recurse (reduce #'add
+                                                               (remove-if (lambda (x) (f:contains? seen x))
+                                                                          (hash-keys (get-node node graph)))
+                                                               :initial-value node-list)))))))
+    (rec start '(()) limit (f:empty-set) '())))
+
+
+;; This is a faster version of the code above
+;; Furthermore the time complexity on gethash is O(1) so it's just superior in general
+;; Except if you care about purity (like I do)
+(defun depth-search%% (start graph find &key (key #'eq) (limit -1))
+  (let ((seen (make-hash-table)))
+    (labels ((rec (node node-list lim path)
+               (flet ((recurse (nodes-list)
+                        (let ((next (car nodes-list)))
+                          (setf (gethash node seen) t)
+                          (rec (car next) (cdr nodes-list) (caddr next) (cadr next))))
+                      (add (acc x)
+                        (cons (list x (cons node path) (1- lim)) acc)))
+                 (cond ((null node-list)          '())
+                       ((funcall key find node) (reverse (cons find path)))
+                       ((or (null node) (= lim 0))  (recurse node-list))
+                       (t                       (recurse (reduce #'add
+                                                                 (remove-if (lambda (x) (gethash x seen))
+                                                                            (hash-keys (get-node node graph)))
+                                                                 :initial-value node-list)))))))
+      (rec start '(()) limit '()))))
 
 (defnode 'A *nodes* 'B 'C 'D 'E)
 ;; (time (defnode 'A *nodes* 'B 'C 'D 'E))
 (defnode 'B *nodes* 'A 'D 'F)
 (defnode 'C *nodes*  'A 'F)
+(defnode 'D *nodes*  'A 'B 'E 'G)
+(defnode 'D *nodes*  'A 'B 'E 'G)
 (defnode 'D *nodes*  'A 'B 'E 'G)
 ;; (time (defnode 'D *nodes*  'A 'B))
 

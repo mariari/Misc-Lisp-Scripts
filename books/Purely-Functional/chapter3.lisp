@@ -1,20 +1,8 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (ql:quickload "bordeaux-threads")
-  (ql:quickload "bt-semaphore")
-  (ql:quickload "inferior-shell")
-  (ql:quickload "alexandria")
-  (ql:quickload '(:fare-quasiquote-readtable
-                  :fare-quasiquote
-                  :trivia))
-  (asdf:load-system :uiop))
-
-(defpackage #:pure-data
-  (:use #:uiop
-        #:trivia
-        #:common-lisp))
-
-
-(in-package :pure-data)
+  (ql:quickload '(:trivia
+                  :fset))
+  (rename-package 'fset 'fset '(:f))
+  (use-package 'trivia))
 ;; Leftist heaps **************************************************************************************************
 
 (defparameter empty-heap 'empty)
@@ -86,11 +74,11 @@
 (defun link% (t1 t2 &optional (compare #'<=))
   "Link trees of equal rank"
   (match (list t1 t2)
-    ((list (node :val v1 :tre-list c1 :node-rank r)
-           (node :val v2 :tre-list c2))
-     (if (funcall compare v1 v2)
-         (create-node (1+ r) v1 (cons t2 c1))
-         (create-node (1+ r) v2 (cons t1 c2))))))
+         ((list (node :val v1 :tre-list c1 :node-rank r)
+                (node :val v2 :tre-list c2))
+          (if (funcall compare v1 v2)
+              (create-node (1+ r) v1 (cons t2 c1))
+              (create-node (1+ r) v2 (cons t1 c2))))))
 
 (defstruct binomial (tree '() :type list))
 
@@ -119,30 +107,32 @@
 
 (defun bi-merge% (ts1 ts2)
   (match (list ts1 ts2)
-    ((list '() ts2) ts2)
-    ((list ts1 '()) ts1)
-    ((list (list* (node (node-rank r1)) tr1)
-           (list* (node (node-rank r2)) tr2))
-     (cond ((< r1 r2) (cons (car ts1) (bi-merge% tr1 ts2)))
-           ((> r1 r2) (cons (car ts2) (bi-merge% ts1 tr2)))
-           (t (ins-tree (link (car ts1) (car ts2)) (bi-merge% tr1 tr2)))))))
+    ((list '() _) ts2)
+    ((list _ '()) ts1)
+    ((list (list* (Node :node-rank r1) tr1)
+           (list* (Node :node-rank r2) tr2))
+     (cond
+       ((< r1 r2) (cons (car ts1) (bi-merge% tr1 ts2)))
+       ((> r1 r2) (cons (car ts2) (bi-merge% ts1 tr2)))
+       (t
+        (ins-tree (link (car ts1) (car ts2)) (bi-merge% tr1 tr2)))))))
 
 (defun remove-min-tree (ts &optional (compare #'<=))
   (if (null (cdr ts))
       (list (car ts) '())
       (match (list (remove-min-tree (cdr ts)) ts)
-        ((list (list* min? ts2)
-               (list* t1 ts1))
-         (if (funcall compare (node-rank t1) (node-rank min?))
-             (list t1 ts1)
-             (list min? (cons t1 ts2)))))))
+             ((list (list* min? ts2)
+                    (list* t1 ts1))
+              (if (funcall compare (node-rank t1) (node-rank min?))
+                  (list t1 ts1)
+                  (list min? (cons t1 ts2)))))))
 
 (defun bi-find-min (ts)
   (node-rank (car (remove-min-tree ts))))
 
 (defun delete-min (ts)
   (match (remove-min-tree ts)
-    ((list min rest) (bi-merge (reverse (node-tre-list min)) rest))))
+         ((list min rest) (bi-merge (reverse (node-tre-list min)) rest))))
 
 (defparameter *linked* (link% (link% (create-node 0 1 '())
                                      (create-node 0 2 '()))

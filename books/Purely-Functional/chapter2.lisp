@@ -1,4 +1,3 @@
-
 (defun range (first &optional (second nil) (step 1))
   (macrolet ((for (second word first)
                `(loop :for x :from ,second ,word ,first by step
