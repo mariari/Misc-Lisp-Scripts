@@ -1,25 +1,31 @@
-;; I don't have the environment, so I'll just use lambda to delay evaluation!
+
 ;; lambda the ultimate lazy
 
-(defmacro delay (n) `(lambda () ,n))
+;; This struct allows me to tell whether the structure is lazy or an actual function the user wants!
+(defstruct lazy (expr (lambda () #'identity) :type function))
 
-(defun force (n) (funcall n))
+(defmacro delay (n) `(make-lazy :expr (lambda () ,n)))
 
+(defun force (n) (funcall (lazy-expr n)))
 
 (defmacro scons (x xs)
-  `(cons ,x (delay ,xs)))
+  `(cons (delay ,x) (delay ,xs)))
+
+(defun scar (lis)
+  (let ((first (car lis)))
+    (if (lazy-p first)
+        (setf (car lis) (force first))
+        first)))
+
+(defun scdr (lis)
+  (let ((rest (cdr lis)))
+    (if (lazy-p rest)
+        (setf (cdr lis) (force rest))
+        rest)))
 
 (defun sterms (n)
   (scons (/ 1 (expt n 2))
          (sterms (1+ n))))
-
-(defun scar (lis) (car lis))
-
-(defun scdr (lis)
-  (if (functionp (cdr lis))
-      (setf (cdr lis) (force (cdr lis)))
-      (cdr lis)))
-
 
 (defparameter *test2* (cons-stream 1 (cons-stream 2 nil)))
 
@@ -27,10 +33,31 @@
 
 (defparameter *sterms* (sterms 1))
 
+;; the first 100 values of sterm are evaluated
+(reduce (lambda (acc _)
+          (declare (ignore _))
+          (scar acc)
+          (scdr acc))
+        (loop for i from 0 to 100 collect i) ; should just put range into my auto load file :(
+        :initial-value *sterms*)
+
 ;; time to add a match pattern to this
 
+;; My third way to do this, the problem is that it forces the head every time*******************************************
+(defmacro delay% (n) `(lambda () ,n))
 
+(defun force% (n) (funcall n))
 
+(defmacro scons%%% (x xs)
+  `(cons ,x (delay ,xs)))
+
+(defun scar%%% (lis)
+  (car lis))
+
+(defun scdr%%% (lis)
+  (if (functionp (cdr lis))
+      (setf (cdr lis) (force (cdr lis)))
+      (cdr lis)))
 
 ;; First attempt at lazyness********************************************************************************************
 (defun terms (n)
