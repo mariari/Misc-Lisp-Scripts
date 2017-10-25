@@ -26,7 +26,7 @@
 (defun-match cdrl (dequeue)
   ((Dequeue :size-f 0 :size-e 0)
    dequeue)                               ; just return the empty dequeue, instead of returning an error
-  ((Dequeue :size-f 0 :size-e e :end end) ; if this case happens, then we need to reverse the end list to get the front list
+  ((Dequeue :size-f 0 :size-e e :end end) ; if the front is empty, we need to reverse the end list to get the front list
    (let* ((front-size (1- (ceiling (/ e 2)))) ; we remove the first element of the front
           (end-size   (floor (/ e 2))) ; the size of the elements that stay inside of end
           (splited    (split-at end-size end))
@@ -42,24 +42,14 @@
                  :front  (cdr front)
                  :end    end)))
 
-(defun-match cdrr (dequeue)
-  ((Dequeue :size-f 0 :size-e 0)
-   dequeue)                                   ; just return the empty dequeue, instead of returning an error
-  ((Dequeue :size-f f :size-e 0 :front front) ; if the end is empty, we have to reverse the front to get our end list
-   (let* ((end-size   (1- (ceiling (/ f 2))))       ; we remove the first element of the front
-          (front-size (floor (/ f 2)))            ; the size of the elements that stay inside of end
-          (splited    (split-at front-size front))
-          (front-list (car splited))
-          (end-list   (cadr splited)))
-     (make-dequeue :size-e end-size
-                   :size-f front-size
-                   :front  front-list
-                   :end    (cdr (reverse end-list)))))
-  ((Dequeue :size-f f :size-e e :front front :end end)
-   (make-dequeue :size-e (1- e)
-                 :size-f f
-                 :front  front
-                 :end    (cdr end))))
+(flet ((flip (dequeue)
+         (make-dequeue :size-e (dequeue-size-f dequeue)
+                       :size-f (dequeue-size-e dequeue)
+                       :front  (dequeue-end    dequeue)
+                       :end    (dequeue-front  dequeue))))
+  (defun cdrr (dequeue)
+    (let ((removed (cdrl (flip dequeue)))) ; remove the right most thing by removing the left thing in the flipped
+      (flip removed))))
 
 
 (defun split-at (x lis &optional acc)
