@@ -27,13 +27,15 @@
   ((Dequeue :size-f 0 :size-e 0)
    dequeue)                               ; just return the empty dequeue, instead of returning an error
   ((Dequeue :size-f 0 :size-e e :end end) ; if this case happens, then we need to reverse the end list to get the front list
-   (let ((front-size (1- (ceiling (/ e 2))))    ; we remove the first element of the front
-         (end-size   (floor (/ e 2))))        ; the size of the elements that stay inside of end
-     (let-match1 (list end-list front-list) (split-at end-size end)
-       (make-dequeue :size-e end-size
-                     :size-f front-size
-                     :front  (cdr (reverse front-list))
-                     :end    end-list))))
+   (let* ((front-size (1- (ceiling (/ e 2)))) ; we remove the first element of the front
+          (end-size   (floor (/ e 2))) ; the size of the elements that stay inside of end
+          (splited    (split-at end-size end))
+          (end-list   (car splited))
+          (front-list (cadr splited)))
+     (make-dequeue :size-e end-size
+                   :size-f front-size
+                   :front  (cdr (reverse front-list))
+                   :end    end-list)))
   ((Dequeue :size-f f :size-e e :front front :end end)
    (make-dequeue :size-e e
                  :size-f (1- f)
@@ -44,13 +46,15 @@
   ((Dequeue :size-f 0 :size-e 0)
    dequeue)                                   ; just return the empty dequeue, instead of returning an error
   ((Dequeue :size-f f :size-e 0 :front front) ; if the end is empty, we have to reverse the front to get our end list
-   (let ((end-size   (1- (ceiling (/ f 2))))        ; we remove the first element of the front
-         (front-size (floor (/ f 2))))            ; the size of the elements that stay inside of end
-     (let-match1 (list front-list end-list) (split-at front-size front)
-       (make-dequeue :size-e end-size
-                     :size-f front-size
-                     :front  front-list
-                     :end    (cdr (reverse end-list))))))
+   (let* ((end-size   (1- (ceiling (/ f 2))))       ; we remove the first element of the front
+          (front-size (floor (/ f 2)))            ; the size of the elements that stay inside of end
+          (splited    (split-at front-size front))
+          (front-list (car splited))
+          (end-list   (cadr splited)))
+     (make-dequeue :size-e end-size
+                   :size-f front-size
+                   :front  front-list
+                   :end    (cdr (reverse end-list)))))
   ((Dequeue :size-f f :size-e e :front front :end end)
    (make-dequeue :size-e (1- e)
                  :size-f f

@@ -11,8 +11,8 @@
 ;; return a nil value if the queue is empty because that's the CL way, any other language throw an error
 (defun-match dequeue (queue)
   ((Queue :q '()    :d '())          (list nil queue))
-  ((Queue :q queued :d '())          (let-match1 (cons x xs) (reverse queued)
-                                       (list x (make-queue :d xs))))
+  ((Queue :q queued :d '())          (let ((rev (reverse queued)))
+                                       (list (car rev) (make-queue :d (cdr rev)))))
   ((Queue :q queued :d (list* x xs)) (list x (make-queue :q queued :d xs))))
 
 (defun empty-p (queue)
@@ -29,8 +29,7 @@
                                          (cadr (dequeue (enqueue-many (make-queue) 2 3 4 5 6))))))
 
 ;;; A queue with 3 lists***********************************************************************************************
-
 ;; we will first have to implement lazyness in CL.. IΕ after I read more of okasaki's book
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defstruct t-queue (q '() :type list) (d '() :type list) (d '() :type list)))
+;; (eval-when (:compile-toplevel :load-toplevel :execute)
+;;   (defstruct t-queue (q '() :type list) (d '() :type list) (d '() :type list)))
