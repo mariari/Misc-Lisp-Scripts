@@ -27,8 +27,8 @@
   ((Dequeue :size-f 0 :size-e 0)
    dequeue)                               ; just return the empty dequeue, instead of returning an error
   ((Dequeue :size-f 0 :size-e e :end end) ; if the front is empty, we need to reverse the end list to get the front list
-   (let* ((front-size (1- (ceiling (/ e 2)))) ; we remove the first element of the front
-          (end-size   (floor (/ e 2))) ; the size of the elements that stay inside of end
+   (let* ((front-size (1- (ceiling (/ e 2))))   ; we remove the first element of the front
+          (end-size   (floor (/ e 2)))        ; the size of the elements that stay inside of end
           (splited    (split-at end-size end))
           (end-list   (car splited))
           (front-list (cadr splited)))
@@ -45,13 +45,27 @@
 (flet ((flip (dequeue)
          (make-dequeue :size-e (dequeue-size-f dequeue)
                        :size-f (dequeue-size-e dequeue)
-                       :front  (dequeue-end    dequeue)
-                       :end    (dequeue-front  dequeue))))
+                       :end    (dequeue-front  dequeue)
+                       :front  (dequeue-end    dequeue))))
+  ;; we can get away without having to rewrite cdrl by just flipping what the end and back is of the dequeue
+  ;; calling cdrl on it then flipping it back, this works because these operations are symmetric
   (defun cdrr (dequeue)
-    (let ((removed (cdrl (flip dequeue)))) ; remove the right most thing by removing the left thing in the flipped
-      (flip removed))))
+    "does the cdr on the right side of the dequeue."
+    (flip (cdrl (flip dequeue)))))
 
+(defun add-manyl (dequeue &rest list)
+  (reduce #'consl list :from-end t :initial-value dequeue))
 
+(defun add-seql (seq dequeue)
+  (apply #'add-manyl dequeue seq))
+
+(defun add-manyr (dequeue &rest list)
+  (reduce #'consr list :from-end t :initial-value dequeue))
+
+(defun add-seqr (seq dequeue)
+  (apply #'add-manyr dequeue seq))
+
+;; Helper functions*****************************************************************************************************
 (defun split-at (x lis &optional acc)
   (if (or (zerop x) (null lis))
       (list (reverse acc) lis)
