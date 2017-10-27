@@ -27,13 +27,14 @@
   (scons (/ 1 (expt n 2))
          (sterms (1+ n))))
 
-(defparameter *test2* (cons-stream 1 (cons-stream 2 nil)))
+(defparameter *test2* (scons 1 (scons 2 nil)))
 
 (scdr (scdr *test2*))
 
 (defparameter *sterms* (sterms 1))
 
 ;; the first 100 values of sterm are evaluated
+;; this function is just iterate in disguise and an end point
 (reduce (lambda (acc _)
           (declare (ignore _))
           (scar acc)
