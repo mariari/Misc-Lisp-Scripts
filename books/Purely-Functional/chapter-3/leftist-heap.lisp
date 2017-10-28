@@ -6,9 +6,12 @@
 
 ;; Leftist heaps **************************************************************************************************
 
-(defparameter empty-heap 'empty)
+(defconstant empty-heap :empty)
 
-(defstruct heap (rank 1) value (left empty-heap) (right empty-heap))
+(defstruct heap (rank 1)
+                value
+                (left empty-heap :type (or heap symbol))
+                (right empty-heap :type (or heap symbol)))
 
 
 (defun heap-empty-p (heap)

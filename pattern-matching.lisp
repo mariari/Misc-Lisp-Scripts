@@ -70,3 +70,7 @@
            (car temp) (guard1 a (oddp a))
            (cadr temp) (guard1 b (evenp b)))
    (vector a b)))
+
+
+(match (list 1 (list 1 2) 2)
+           ((cons _ (list (or (list a 3) (list 1 a)) 2)) a))

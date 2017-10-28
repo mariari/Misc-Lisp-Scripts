@@ -37,18 +37,18 @@
   ((Dequeue :size-f 0 :size-e 0)
    dequeue)                                   ; just return the empty dequeue, instead of returning an error
   ((Dequeue :size-f f :size-e 0 :front front) ; if the front is empty, we need to reverse the end list to get the front list
-   (let ((new-dequeue (split-list-into-dequeue front f)))
-     (make-dequeue :size-e (1- (dequeue-size-e new-dequeue))
-                   :size-f (dequeue-size-f new-dequeue)
-                   :end    (cdr (dequeue-end new-dequeue))
-                   :front  (dequeue-front new-dequeue))))
+   (let ((deq (split-list-into-dequeue front f)))
+     (make-dequeue :size-e (1- (dequeue-size-e deq))
+                   :size-f (dequeue-size-f deq)
+                   :end    (cdr (dequeue-end deq))
+                   :front  (dequeue-front deq))))
+  ((Dequeue :size-f f :size-e 1 :front front)   ; if we cdrr on an end of length 1 then we violate the precondition that
+   (split-list-into-dequeue front f))           ; we violated the precondition that neither list should be non-nil
   ((Dequeue :size-f f :size-e e :front front :end end)
-   (if (= 1 e)                           ; if we cdrr on an end of length 1 then we violate the precondition that
-       (split-list-into-dequeue front f) ; the neither list should be non-null 
-       (make-dequeue :size-e (1- e)
-                     :size-f f
-                     :front  front
-                     :end    (cdr end)))))
+   (make-dequeue :size-e (1- e)
+                 :size-f f
+                 :front  front
+                 :end    (cdr end))))
 
 (defun cdrl (dequeue)
   "does the cdr on the left side of the dequeue."
