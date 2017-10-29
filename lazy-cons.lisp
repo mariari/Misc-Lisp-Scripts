@@ -23,6 +23,31 @@
         (setf (cdr lis) (force rest))
         rest)))
 
+(defun sreverse (lis &optional acc)
+  (let ((first (scar lis)))
+    (if first
+        (sreverse (scdr lis) (scons first acc))
+        acc)))
+
+(defun make-strict (lis)
+  (if (scar lis)
+      (cons (car lis) (make-strict (scdr lis)))
+      '()))
+
+(defun sfoldl (f acc lis)
+  (if (scar lis)
+      (sfoldl f (funcall f acc (scar lis)) (scdr lis))
+      acc))
+
+(declaim (ftype (function (function list &optional list) *) sfilter))
+(defun sfilter (pred lis &optional acc)
+  (cond ((null lis)
+         (sreverse acc))
+        ((funcall pred (scar lis))
+         (sfilter pred (scdr lis) (scons (scar lis) acc)))
+        (t
+         (sfilter pred (scdr lis) acc))))
+
 (defun sterms (n)
   (scons (/ 1 (expt n 2))
          (sterms (1+ n))))

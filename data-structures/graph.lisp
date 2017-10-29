@@ -38,10 +38,12 @@
                  ,tail (cdr ,tail))))))
 
 (defmacro dequeue (head tail)
-  `(cond ((null ,head) nil)
-         ((eq ,head ,tail) (prog1 (car ,head)
-                             (psetf ,head nil
-                                    ,tail nil)))
+  `(cond ((null ,head)
+          nil)
+         ((eq ,head ,tail)
+          (prog1 (car ,head)
+                 (psetf ,head nil
+                        ,tail nil)))
          (t (pop ,head))))
 
 ;;; Pointers from lol-----------------------------------------------------------------------------------
@@ -85,7 +87,7 @@
                   (unless #1=(gethash x graph)              ; if the node we are setting does not exist
                     (if bip
                         (let ((new-node (make-hash-table))) ; bi direct
-                          (setf (gethash x new-node) name) 
+                          (setf (gethash x new-node) name)
                           (setf #1# new-node))
                         (setf   #1# (make-hash-table)))) ;uni direct
                   (setf (gethash x new-hash) x))
@@ -244,6 +246,9 @@
 (defun hash-keys (hash)
   (loop for key being the hash-keys of hash collect key))
 
+(defun hash-values (hash)
+  (loop for value being the hash-values of hash collect value))
+
 ;; These versions are slower than the old version, take more memory, but won't blow up stack frames
 ;; this is more inline to my current style of problem solving...
 ;; node is stored as (val (list) lim)
@@ -253,16 +258,15 @@
   (labels ((rec (node node-list lim seen path)
              (flet ((recurse (nodes-list)
                       (let ((next (car nodes-list)))
-                        (rec (car next) (cdr nodes-list) (caddr next) (f:with seen node) (cadr next))))
-                    (add (acc x)
-                      (cons (list x (cons node path) (1- lim)) acc)))
+                        (rec (car next) (cdr nodes-list) (caddr next) (f:with seen node) (car (cdr next)))))
+                    (prune (lis)   (remove-if (lambda (x) (f:contains? seen x)) lis))
+                    (add   (acc x) (cons (list x (cons node path) (1- lim)) acc)))
+
                (cond ((null node-list)          '())
-                     ((funcall key find node) (reverse (cons find path)))
-                     ((or (null node) (= lim 0))  (recurse node-list))
-                     (t                       (recurse (reduce #'add
-                                                               (remove-if (lambda (x) (f:contains? seen x))
-                                                                          (hash-keys (get-node node graph)))
-                                                               :initial-value node-list)))))))
+                     ((funcall key find node)    (reverse (cons find path)))
+                     ((or (null node) (= lim 0)) (recurse node-list))
+                     (t                          (recurse (reduce #'add (prune (hash-keys (get-node node graph)))
+                                                                  :initial-value node-list)))))))
     (rec start '(()) limit (f:empty-set) '())))
 
 ;; This is a faster version of the code above
@@ -278,12 +282,12 @@
                       (add (acc x)
                         (cons (list x (cons node path) (1- lim)) acc)))
                  (cond ((null node-list)          '())
-                       ((funcall key find node) (reverse (cons find path)))
-                       ((or (null node) (= lim 0))  (recurse node-list))
-                       (t                       (recurse (reduce #'add
-                                                                 (remove-if (lambda (x) (gethash x seen))
-                                                                            (hash-keys (get-node node graph)))
-                                                                 :initial-value node-list)))))))
+                       ((funcall key find node)    (reverse (cons find path)))
+                       ((or (null node) (= lim 0)) (recurse node-list))
+                       (t                          (recurse (reduce #'add
+                                                                    (remove-if (lambda (x) (gethash x seen))
+                                                                               (hash-keys (get-node node graph)))
+                                                                    :initial-value node-list)))))))
       (rec start '(()) limit '()))))
 
 ;; a linked list version to test speed against
@@ -295,12 +299,12 @@
                     (add (acc x)
                       (cons (list x (cons node path) (1- lim)) acc)))
                (cond ((null node-list)          '())
-                     ((funcall key find node) (reverse (cons find path)))
-                     ((or (null node) (= lim 0))  (recurse node-list))
-                     (t                       (recurse (reduce #'add
-                                                               (remove-if (lambda (x) (member x seen))
-                                                                          (hash-keys (get-node node graph)))
-                                                               :initial-value node-list)))))))
+                     ((funcall key find node)    (reverse (cons find path)))
+                     ((or (null node) (= lim 0)) (recurse node-list))
+                     (t                          (recurse (reduce #'add
+                                                                  (remove-if (lambda (x) (member x seen))
+                                                                             (hash-keys (get-node node graph)))
+                                                                  :initial-value node-list)))))))
     (rec start '(()) limit '() '())))
 
 (defnode 'A *nodes* 'B 'C 'D 'E)
@@ -311,13 +315,33 @@
 (defnode 'D *nodes*  'A 'B 'E 'G)
 (defnode 'D *nodes*  'A 'B 'E 'G)
 ;; (time (defnode 'D *nodes*  'A 'B))
-(loop for i from 0 to 1000 :do (apply #'defnode i *nodes* (loop for i from 0 to (random 100) collect (random 1000))))
-
+(loop for i from 0 to 1000
+      :do (apply #'defnode i *nodes* (loop for i from 0 to (random 100) collect (random 1000))))
 
 (defnode 'B *nodes* 'A 'D)
 
 ;; (defun grab-node (term graph)
 ;;   (let ((val (gethash term graph)))
 ;;     (cond ((functionp val) (funcall val))       ;the closure version will show up as a function
-;;           ((hash-table-p val) val)              ; the indirect one can either grab the graph table 
+;;           ((hash-table-p val) val)              ; the indirect one can either grab the graph table
 ;;           ((symbolp val) (gethash val graph))))) ; or the symbol that leads to the graph
+
+
+;; lazy edition
+;; (defun depth-searchl% (start graph find &key (key #'eq) (limit -1))
+;;   (labels ((rec (node node-list lim seen path)
+;;              (flet ((recurse (nodes-list)
+;;                       (let ((next (scar nodes-list)))
+;;                         (rec (car next) (scdr nodes-list) (caddr next) (f:with seen node) (scar (cdr next)))))
+;;                     (prune (lis)   (remove-if (lambda (x) (f:contains? seen x)) lis))
+;;                     (add   (acc x) (scons (list x (scons node path) (1- lim)) acc)))
+
+;;                (cond ((null node-list)          '())
+;;                      ((funcall key find node)    (sreverse (scons find path)))
+;;                      ((or (null node) (= lim 0)) (recurse node-list))
+;;                      (t                          (recurse (sfoldl #'add node-list
+;;                                                                   (prune (hash-keys (get-node node graph))))))))))
+;;     (rec start '(()) limit (f:empty-set) '())))
+
+;; (time (defparameter *result* (make-strict (depth-searchl% 1 *nodes* 21))))
+;; (time (defparameter *result* (depth-search% 1 *nodes* 21)))

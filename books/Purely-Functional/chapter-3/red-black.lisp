@@ -1,7 +1,5 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (ql:quickload '(:trivia
-                  :fset))
-  (rename-package 'fset 'fset '(:f))
+  (ql:quickload :trivia)
   (use-package 'trivia))
 
 ;;;; Red and Black tree********************************************************************************************
@@ -18,7 +16,7 @@
   `(member ,+red+ ,+black+))
 
 (deftype red-black ()
-  `(or (member :rb-Empty)
+  `(or (eql :rb-Empty)
       (satisfies rb-tree-p)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -52,6 +50,7 @@
 ;;                x = left-ele
 ;;                y = main-ele
 ;;                z = right-ele
+(declaim (ftype (FUNCTION (color red-black T red-black) (VALUES RB-TREE &OPTIONAL)) balance))
 (defun balance (color left val right)
   (match (list color left val right)
     ((cons +black+
@@ -86,13 +85,13 @@
 (defun rb-insert (val tree)
   (labels ((ins (tree)
              (match tree
-               (+empty+ (make-rb-tree :col +red+ :elem val))
+               (+empty+                       (make-rb-tree :col +red+ :elem val))
                ((rb-tree col left elem right) (cond ((< val elem) (balance col (ins left) elem right))
                                                     ((> val elem) (balance col left       elem (ins right)))
-                                                    (t            tree))))))
+                                                    (t             tree))))))
     (match (ins tree)
       ((rb-tree left elem right)
-       (make-rb-tree :left left :elem elem :right right)))))
+       (make-rb-tree :left left :elem elem :right right))))) ; make the same tree, but have the first node be black
 
 
 (defun rb-insert-many (tree &rest list)
@@ -113,4 +112,5 @@
                                   (t-right *manual-tree-test*)))
 
 (defparameter *tree* (rb-insert 1 (rb-insert 2 (rb-insert 3 +empty+))))
+
 ;; (time (rb-insert-seq (loop for i from 0 to 1000 collect (random 1000)) +empty+))
