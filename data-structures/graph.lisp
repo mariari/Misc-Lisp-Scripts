@@ -31,7 +31,7 @@
 (defmacro queue (node+ head tail)
   (let ((node (gensym)))
     `(let ((,node ,node+))
-       (if (null ,head) 
+       (if (null ,head)
            (setf ,head (list ,node)
                  ,tail ,head)
            (setf (cdr ,tail) (list ,node)
@@ -124,7 +124,7 @@
           (cond ((gethash x graph) (funcall (gethash x graph) nil))           ; update neighboring nodes to the current one if it exists
                 (bip               (defnode-bi-or-uni-clos x graph bip name)) ; else make a bi-directional node
                 (t                 (defnode-bi-or-uni-clos x graph bip))))    ; uni-directional node
-        neighbors) 
+        neighbors)
   (gethash name graph))
 
 
@@ -167,7 +167,7 @@
                   (unless #1=(gethash x graph)                    ; if the node we are setting does not exist
                           (if bip
                               (let ((new-node (make-hash-table))) ; bi direct
-                                (setf (gethash x new-node) (pointer-& (gethash name graph))) 
+                                (setf (gethash x new-node) (pointer-& (gethash name graph)))
                                 (setf #1# new-node))
                               (setf #1# (make-hash-table))))
                   (setf (gethash x new-hash) (pointer-& (gethash x graph)))) ; set the newhash to it
@@ -200,9 +200,12 @@
     (flet ((see           (node)        (setf (gethash node seen) t))
            (seenp         (node)        (gethash node seen))
            (end-condition (node+)       (funcall pred (funcall key (car node+)))) ; node+ means the nodes are stored
-           (make-node+    (node node2+) (list node (cons node (cadr node2+)))))   ; like (b (b a)) to preserve path
+           (make-node+    (node node2+) (list node (cons node (cadr node2+))))) ; like (b (b a)) to preserve path
       (declare (inline see seenp end-condition make-node+))
       (queue (list start (list start)) head tail) ; start the first node
+
+      (SETF HEAD (LIST (LIST START (LIST START)))
+            TAIL HEAD)
       (see start)
       (loop :until (null head) :do
          (let ((curr (dequeue head tail)))
@@ -221,29 +224,28 @@
   (breadth-search-gen start graph (lambda (x) (eq target x)) :key key :limit limit))
 
 ;; Garbage at the moment since the stack frame will blow up if the sample size is big enough
+;; oddly enough faster than the fset version but not the hash table version of depth-search%
+;; something in this code makes it fast and does less bytes consed
 (defun depth-search (start graph find &key (key #'eq) (limit -1))
-  (let ((seen (list start))
-        (ans))
-    (labels ((rec (node path lim seen)
+  (let ((seen (make-hash-table)))
+    (setf (gethash start seen) t)
+    (labels ((rec (node path lim)
                (if (= lim 0)
                    nil
                    (maphash (lambda (x y)
-                              (when ans
-                                (return-from rec))
-                              (unless (member x seen)
+                              (unless (gethash x seen)
+                                (setf (gethash x seen) t)
                                 (if (funcall key find x)
-                                    (setf ans (list (car path) (reverse (cons find path))))
-                                    (rec (funcall y) (cons x path) (1- lim) (push x seen)))))
+                                    (return-from depth-search (reverse (cons find path)))
+                                    (rec (funcall y) (cons x path) (1- lim)))))
                             node))))
-      (rec (get-node start graph) (list start) limit seen)
-      (list seen ans))))
+      (rec (get-node start graph) (list start) limit))))
 
-;; dirty imperative code!
 (defun hash-keys (hash)
   (loop for key being the hash-keys of hash collect key))
 
+;; These versions are slower than the old version, take more memory, but won't blow up stack frames
 ;; this is more inline to my current style of problem solving...
-;; NOTE :: replace the (member seen) with a functional queue later!
 ;; node is stored as (val (list) lim)
 ;; I use a fset data structure to get better time complexity
 ;; but fset seems to be incredibly slow and thus should be written with an impure hash table as below
@@ -262,7 +264,6 @@
                                                                           (hash-keys (get-node node graph)))
                                                                :initial-value node-list)))))))
     (rec start '(()) limit (f:empty-set) '())))
-
 
 ;; This is a faster version of the code above
 ;; Furthermore the time complexity on gethash is O(1) so it's just superior in general
@@ -285,6 +286,23 @@
                                                                  :initial-value node-list)))))))
       (rec start '(()) limit '()))))
 
+;; a linked list version to test speed against
+(defun depth-search%%% (start graph find &key (key #'eq) (limit -1))
+  (labels ((rec (node node-list lim seen path)
+             (flet ((recurse (nodes-list)
+                      (let ((next (car nodes-list)))
+                        (rec (car next) (cdr nodes-list) (caddr next) (cons node seen) (cadr next))))
+                    (add (acc x)
+                      (cons (list x (cons node path) (1- lim)) acc)))
+               (cond ((null node-list)          '())
+                     ((funcall key find node) (reverse (cons find path)))
+                     ((or (null node) (= lim 0))  (recurse node-list))
+                     (t                       (recurse (reduce #'add
+                                                               (remove-if (lambda (x) (member x seen))
+                                                                          (hash-keys (get-node node graph)))
+                                                               :initial-value node-list)))))))
+    (rec start '(()) limit '() '())))
+
 (defnode 'A *nodes* 'B 'C 'D 'E)
 ;; (time (defnode 'A *nodes* 'B 'C 'D 'E))
 (defnode 'B *nodes* 'A 'D 'F)
@@ -293,7 +311,7 @@
 (defnode 'D *nodes*  'A 'B 'E 'G)
 (defnode 'D *nodes*  'A 'B 'E 'G)
 ;; (time (defnode 'D *nodes*  'A 'B))
-
+(loop for i from 0 to 1000 :do (apply #'defnode i *nodes* (loop for i from 0 to (random 100) collect (random 1000))))
 
 
 (defnode 'B *nodes* 'A 'D)
