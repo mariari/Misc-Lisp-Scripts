@@ -6,12 +6,10 @@
 ;;; invariant 1: no red node has a red child.
 ;;; invariant 2: Every path from the root to an empty node contains the same number of black nodes
 
+(defconstant +red+ :red)
+(defconstant +black+ :black)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-    (defconstant +red+ :red)
-  (defconstant +black+ :black)
-
-  (defconstant +empty+ :rb-Empty))
+(defconstant +empty+ :rb-Empty)
 
 (deftype color ()
   "colors for a red-black tree"
