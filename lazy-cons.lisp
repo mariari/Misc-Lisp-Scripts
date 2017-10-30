@@ -69,6 +69,12 @@
 
 ;; time to add a match pattern to this
 
+(defun insert (x lis)
+  (cond ((null lis)        (scons x '()))
+        ((<= x (scar lis)) (scons x lis))
+        (t                 (scons (scar lis) (insert x (scdr lis))))))
+
+
 ;; My third way to do this, the problem is that it forces the head every time*******************************************
 (defmacro delay% (n) `(lambda () ,n))
 

@@ -4,6 +4,8 @@
   (rename-package 'fset 'fset '(:f))
   (use-package 'trivia))
 
+(setf *ARITY-CHECK-BY-TEST-CALL* nil)
+
 ;; Binomial Heaps *************************************************************************************************
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defstruct Node (rank 0 :type Integer)

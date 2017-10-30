@@ -1,3 +1,4 @@
+(setf *ARITY-CHECK-BY-TEST-CALL* nil)
 
 ;; we can view all r operations as a flipped version of the l operations
 ;; so instead of implementing a left and right, we can just implement a single direction and use that

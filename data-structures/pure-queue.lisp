@@ -1,3 +1,5 @@
+(setf *ARITY-CHECK-BY-TEST-CALL* nil)
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (ql:quickload '(:trivia))
   (use-package 'trivia))
