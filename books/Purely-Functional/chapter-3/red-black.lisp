@@ -34,7 +34,7 @@
 
 (defun rb-member (ele tree)
   (match tree
-    (+empty+ nil)
+    (:rb-empty nil)
     ((guard (rb-tree left elem)  (< ele elem)) (rb-member ele left))
     ((guard (rb-tree right elem) (> ele elem)) (rb-member ele right))
     (_ t)))
@@ -84,7 +84,7 @@
 (defun rb-insert (val tree)
   (labels ((ins (tree)
              (match tree
-               (+empty+                       (make-rb-tree :col +red+ :elem val))
+               (:rb-empty                    (make-rb-tree :col +red+ :elem val))
                ((rb-tree col left elem right) (cond ((< val elem) (balance col (ins left) elem right))
                                                     ((> val elem) (balance col left       elem (ins right)))
                                                     (t             tree))))))
