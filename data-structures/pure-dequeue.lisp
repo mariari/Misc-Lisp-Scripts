@@ -21,7 +21,8 @@
   (let ((size-f (dequeue-size-f dequeue)))
     (if (and (zerop (dequeue-size-e dequeue))
            (>= size-f 2))
-        (split-list-into-dequeue (cons val (dequeue-front dequeue)) (1+ size-f))
+        (split-into-dequeue (cons val (dequeue-front dequeue))
+                            (1+ size-f))
         (make-dequeue :size-e (dequeue-size-e dequeue)
                       :size-f (1+ (dequeue-size-f dequeue))
                       :end    (dequeue-end dequeue)
@@ -34,22 +35,24 @@
 ;; break this middle splitting to be its own function and then just call it
 ;; or maybe just call cdrl grab the value and put it back onto the part, either one works really
 
+
+; if we cdrr on an end of length 1 then we violate the precondition that
+; we violated the precondition that neither list should be non-nil
+; just return the empty dequeue, instead of returning an error
 (defun-match cdrr (dequeue)
-  ((Dequeue :size-f 0 :size-e 0)
-   dequeue)                                   ; just return the empty dequeue, instead of returning an error
-  ((Dequeue :size-f f :size-e 0 :front front) ; if the front is empty, we need to reverse the end list to get the front list
-   (let ((deq (split-list-into-dequeue front f)))
-     (make-dequeue :size-e (1- (dequeue-size-e deq))
-                   :size-f (dequeue-size-f deq)
-                   :end    (cdr (dequeue-end deq))
-                   :front  (dequeue-front deq))))
-  ((Dequeue :size-f f :size-e 1 :front front)   ; if we cdrr on an end of length 1 then we violate the precondition that
-   (split-list-into-dequeue front f))           ; we violated the precondition that neither list should be non-nil
-  ((Dequeue :size-f f :size-e e :front front :end end)
-   (make-dequeue :size-e (1- e)
-                 :size-f f
-                 :front  front
-                 :end    (cdr end))))
+  ((Dequeue :size-f 0 :size-e 0)                        dequeue)
+  ((Dequeue :size-f f :size-e 0 :front front)          (let-match1 (dequeue size-e size-f front end)
+                                                                   (split-into-dequeue front f)
+                                                         (make-dequeue :size-e (1- size-e)
+                                                                       :end    (cdr end)
+                                                                       :size-f size-f
+                                                                       :front  front)))
+  ((Dequeue :size-f f :size-e 1 :front front)          (split-into-dequeue front f))
+  ((Dequeue :size-f f :size-e e :front front :end end) (make-dequeue :size-e (1- e)
+                                                                     :size-f f
+                                                                     :front  front
+                                                                     :end    (cdr end))))
+
 
 (defun cdrl (dequeue)
   "does the cdr on the left side of the dequeue."
@@ -70,16 +73,16 @@
 
 ;;; adding many things
 (defun add-manyl (dequeue &rest list)
-  (reduce #'consl list :from-end t :initial-value dequeue))
+  (add-seql list dequeue))
 
 (defun add-seql (seq dequeue)
-  (apply #'add-manyl dequeue seq))
+  (reduce #'consl seq :from-end t :initial-value dequeue))
 
 (defun add-manyr (dequeue &rest list)
-  (reduce #'consr list :from-end t :initial-value dequeue))
+  (add-seqr list dequeue))
 
 (defun add-seqr (seq dequeue)
-  (apply #'add-manyr dequeue seq))
+  (reduce #'consr seq :from-end t :initial-value dequeue))
 
 ;; helper functions*****************************************************************************************************
 (defun split-at (x lis &optional acc)
@@ -93,7 +96,7 @@
                 :end    (dequeue-front  dequeue)
                 :front  (dequeue-end    dequeue)))
 
-(defun split-list-into-dequeue (list length)
+(defun split-into-dequeue (list length)
   "splits a list into a queue of two equal parts with the front getting 1 more element than the back"
   (let* ((end-size   (ceiling (/ length 2)))        ; the first half of the elements ceilinged if even
          (front-size (floor (/ length 2)))        ; the second half of the elements floored if odd

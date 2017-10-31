@@ -43,13 +43,26 @@
 
 (defun range (first &optional (second nil) (step 1))
   (macrolet ((for (second word first)
-               `(loop :for x :from ,second ,word ,first by step
+               `(loop :for x :from ,second ,word ,first :by step
                    collect x)))
     (cond ((and second (> second first)) (for first to     second))
           (second                        (for first downto second))
           (t                             (for 0     to     first)))))
 
-(declaim (inline range))
+
+(defun range-v (first &optional (second) (step 1))
+  "returns a vector range, which is slightly faster than range"
+  (unless second
+    (setf second first)
+    (setf first 0))       ; the default behavior if second isn't given is [0..first]
+  (decf first step)       ; this causes it to start at the right place
+  (let ((current first))
+    (map 'vector (lambda (x)
+                   (declare (ignore x))
+                   (incf current step))
+         (make-array (1+ (abs (ceiling (/ (- first second) step))))))))
+
+(declaim (inline range range-v))
 
 (defun fact (n &optional (bot 1))
   (nlet-tail fact ((n n) (acc 1))
@@ -59,8 +72,8 @@
 
 ;; taken from http://cl-cookbook.sourceforge.net/os.html#accessing-command-line
 (defun my-command-line ()
-  (or 
-   #+SBCL *posix-argv*  
+  (or
+   #+SBCL *posix-argv*
    #+LISPWORKS system:*line-arguments-list*
    #+CMU extensions:*command-line-words*
    nil))
