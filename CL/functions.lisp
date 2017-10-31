@@ -50,17 +50,21 @@
           (t                             (for 0     to     first)))))
 
 
+
 (defun range-v (first &optional (second) (step 1))
   "returns a vector range, which is slightly faster than range"
   (unless second
-    (setf second first)
-    (setf first 0))       ; the default behavior if second isn't given is [0..first]
-  (decf first step)       ; this causes it to start at the right place
-  (let ((current first))
+    (setf second first      ; the default behavior if second isn't given is [0..first]
+          first  0))        ; this causes it to start at the right place  (when (> second first)
+  (let ((current (- first step))
+        (vec-length (1+ (abs (ceiling (/ (- first second) step))))))
+    (when (< second first)
+      (incf current (* 2 step))   ; we need to start at first so we have to undo our move in the direction
+      (setf step (- step)))       ; it's more costly to divide by a negative number so do this after vec-length
     (map 'vector (lambda (x)
                    (declare (ignore x))
                    (incf current step))
-         (make-array (1+ (abs (ceiling (/ (- first second) step))))))))
+         (make-array vec-length))))
 
 (declaim (inline range range-v))
 

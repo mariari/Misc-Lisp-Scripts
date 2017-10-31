@@ -21,10 +21,10 @@
   (equalp (make-queue) queue))
 
 (defun enqueue-many (queue &rest enq)
-  (reduce (lambda (acc-queue x) (enqueue x acc-queue)) enq :initial-value queue))
+  (enqueue-seq enq queue))
 
 (defun enqueue-seq (seq queue)
-  (apply #'enqueue-many queue seq))
+  (reduce (lambda (acc-queue x) (enqueue x acc-queue)) seq :initial-value queue))
 
 (defparameter *queue-test* (dequeue
                             (enqueue-seq '(3 34 4 5 6 7 8)
