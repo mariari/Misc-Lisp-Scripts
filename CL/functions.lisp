@@ -50,24 +50,22 @@
           (t                             (for 0     to     first)))))
 
 
-
+;; we abs second - first as we want floor to always go down, not up
+(declaim (ftype (function (fixnum &optional fixnum fixnum) (simple-array fixnum (*))) range-v))
 (defun range-v (first &optional (second 0) (step 1))
-  "returns a vector range, which is slightly faster than range
-   the range must be of size integer, or else make-vector will complain"
-  (declare (type fixnum step first second))
-  (let* ((length   (1+ (abs
-                        (if (< first second) ; floor excludes an improper value from joining
-                            (ceiling (- first second) step)
-                            (floor (- first second) step)))))
-         (vec      (make-array length :element-type 'fixnum)))
-    (dotimes (i length vec)
+  "returns a range in a vector, much faster than range, but only supports fixnums"
+  (let ((vec (make-array (1+ (floor (abs (- second first)) step))
+                         :element-type 'fixnum)))
+    (dotimes (i (length vec) vec)
       (declare (type fixnum i))
       (setf (aref vec i) (if (< first second)
                              (+ first (* step i))
                              (- first (* step i)))))))
 
+(time (defparameter *x* (range-v 0 1000000 10)))
 
-(print (range-v 20 5 3))
+(print (range-v 0 10 3))
+
 
 (declaim (inline range range-v))
 
