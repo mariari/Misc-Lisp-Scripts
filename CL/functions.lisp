@@ -51,20 +51,26 @@
 
 
 ;; we abs second - first as we want floor to always go down, not up
-(declaim (ftype (function (fixnum &optional fixnum fixnum) (simple-array fixnum (*))) range-v))
-(defun range-v (first &optional (second 0) (step 1))
+(declaim (ftype (function (fixnum &optional (or fixnum null) fixnum) (simple-array fixnum (*))) range-v))
+(defun range-v (first &optional (second) (step 1))
   "returns a range in a vector, much faster than range, but only supports fixnums"
-  (let ((vec (make-array (1+ (floor (abs (- second first)) step))
-                         :element-type 'fixnum)))
-    (dotimes (i (length vec) vec)
-      (declare (type fixnum i))
-      (setf (aref vec i) (if (< first second)
-                             (+ first (* step i))
-                             (- first (* step i)))))))
+  (flet ((compute (first second)
+           (declare (type fixnum first second))
+           (let ((vec (make-array (1+ (floor (abs (- second first)) step))
+                                  :element-type 'fixnum)))
+             (dotimes (i (length vec) vec)
+               (declare (type fixnum i))
+               (setf (aref vec i) (if (< first second)
+                                      (+ first (the fixnum (* step i)))
+                                      (- first (the fixnum (* step i)))))))))
+    (declare (inline compute))
+    (if second
+        (compute first second)
+        (compute 0     first))))
 
-(time (defparameter *x* (range-v 0 1000000 10)))
+;; (time (defparameter *x* (range-v 0 100000 1)))
 
-(print (range-v 0 10 3))
+;; (print (range-v 10))
 
 
 (declaim (inline range range-v))
