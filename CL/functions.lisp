@@ -51,20 +51,23 @@
 
 
 
-(defun range-v (first &optional (second) (step 1))
-  "returns a vector range, which is slightly faster than range"
-  (unless second
-    (setf second first      ; the default behavior if second isn't given is [0..first]
-          first  0))        ; this causes it to start at the right place  (when (> second first)
-  (let ((current (- first step))
-        (vec-length (1+ (abs (ceiling (/ (- first second) step))))))
-    (when (< second first)
-      (incf current (* 2 step))   ; we need to start at first so we have to undo our move in the direction
-      (setf step (- step)))       ; it's more costly to divide by a negative number so do this after vec-length
-    (map 'vector (lambda (x)
-                   (declare (ignore x))
-                   (incf current step))
-         (make-array vec-length))))
+(defun range-v (first &optional (second 0) (step 1))
+  "returns a vector range, which is slightly faster than range
+   the range must be of size integer, or else make-vector will complain"
+  (declare (type fixnum step first second))
+  (let* ((length   (1+ (abs
+                        (if (< first second) ; floor excludes an improper value from joining
+                            (ceiling (- first second) step)
+                            (floor (- first second) step)))))
+         (vec      (make-array length :element-type 'fixnum)))
+    (dotimes (i length vec)
+      (declare (type fixnum i))
+      (setf (aref vec i) (if (< first second)
+                             (+ first (* step i))
+                             (- first (* step i)))))))
+
+
+(print (range-v 20 5 3))
 
 (declaim (inline range range-v))
 
@@ -117,3 +120,21 @@
 (progn
   (setf image (coerce (loop for i = (round (random (expt 2 24))) repeat 1000 collecting i) 'vector))
   nil)
+
+
+;; this version is a lot slower than range-v
+(defun range-v% (first &optional (second 0) (step 1))
+  "returns a vector range, which is slightly faster than range"
+  (declare (type fixnum step))
+  (let* ((length   (1+ (abs
+                        (if (< first second) ; floor excludes an improper value from joining
+                            (ceiling (- first second) step)
+                            (floor (- first second) step)))))
+         (vec      (make-array length :element-type 'Integer))
+         (new-step (if (< second first)
+                         (- step)
+                         step))
+         (current  (- first new-step)))
+    (declare (type fixnum new-step))
+    (dotimes (i (length vec) vec)
+      (setf (aref vec i) (incf current new-step)))))
