@@ -13,7 +13,7 @@
         #:macros
         #:trivia)
   (:export :ls :lsl
-           :lss :range :fact :range-v :range-v%
+           :lss :range :fact :range-v :nrotate-left
            :my-command-line :split-by-delim))
 
 (in-package :functions)

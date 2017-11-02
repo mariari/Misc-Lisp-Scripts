@@ -11,6 +11,7 @@
 
 
 (defpackage #:shell
+  (:nicknames #:fun :sh)
   (:use #:let-over-lambda)
   (:import-from #:alexandria #:parse-body)
   (:shadowing-import-from #:let-over-lambda #:when-match #:if-match #:symb)
@@ -22,13 +23,18 @@
         #:bt-semaphore
         #:macros
         #:trivia
-        #:common-lisp))
+        #:common-lisp)
+  (:export :pmapcar
+           :pmap
+           :plmapcar
+           :defun-s!
+           :my-command-line :split-by-delim))
 
 (in-package :shell)
 
 (named-readtables:in-readtable :fare-quasiquote)
 
-(run/ss `(pipe (echo (+ hel "lo,") world) (tr "hw" "HW") (sed -e "s/$/!/")))
+
 
 
 (defmacro curry (fn . args)
@@ -48,27 +54,6 @@
 (defun curryf (fn &rest args)
   "Creates a partially applied function that takes many argument"
   (lambda (&rest args2) (apply fn (append args args2))))
-
-;; (run/ss `(pipe (ls) (grep "he")))
-;; (run/ss `(grep ))
-
-;; (run/ss `(pipe (echo ,(lss "~/")) (grep "he")))
-
-;; (time (split-by-delim #\linefeed (run/ss `(pipe (echo ,(lss "~/")) (grep ".") (sed -e "s/o/0/g")))))
-;; (time (split-by-delim #\linefeed (run/ss `(pipe (ls /home/loli/) (grep ".") (sed -e "s/o/0/g")))))
-;; (time (run/lines `(pipe (ls /home/loli/) (grep ".") (sed -e "s/o/0/g"))))
-
-(let ((stream (make-string-output-stream)))
-  (run-program "ls ~" :output stream)
-  (get-output-stream-string stream))
-
-(detect-os)
-;; (uiop:read-little-endian)
-
-;; (time (mapcar (lambda (x) (make-thread (lambda () (mapcar (lambda (y) (+ x 1 2 3 4 y)) (list 1 2 3 4 5))))) (range 1000)))
-
-
-;; (time (make-thread (lambda ())))
 
 
 (defun num-threads ()
@@ -320,6 +305,30 @@
 ;; What!??!?!
 ;; works
 
+;;; The testing part of the file!-------------------------------------------------------------------
+
+;; (run/ss `(pipe (ls) (grep "he")))
+;; (run/ss `(grep ))
+
+;; (run/ss `(pipe (echo ,(lss "~/")) (grep "he")))
+
+;; (run/ss `(pipe (echo (+ hel "lo,") world) (tr "hw" "HW") (sed -e "s/$/!/")))
+
+;; (time (split-by-delim #\linefeed (run/ss `(pipe (echo ,(lss "~/")) (grep ".") (sed -e "s/o/0/g")))))
+;; (time (split-by-delim #\linefeed (run/ss `(pipe (ls /home/loli/) (grep ".") (sed -e "s/o/0/g")))))
+;; (time (run/lines `(pipe (ls /home/loli/) (grep ".") (sed -e "s/o/0/g"))))
+
+;; (let ((stream (make-string-output-stream)))
+;;   (run-program "ls ~" :output stream)
+;;   (get-output-stream-string stream))
+
+;; (detect-os)
+;; (uiop:read-little-endian)
+
+;; (time (mapcar (lambda (x) (make-thread (lambda () (mapcar (lambda (y) (+ x 1 2 3 4 y)) (list 1 2 3 4 5))))) (range 1000)))
+
+
+;; (time (make-thread (lambda ())))
 ;; (pmapcar (lambda (x) (declare (ignore x)) (sleep 1)) (range 20))
 ;; (time (pmapcar (lambda (x y) (sleep .3)  (+ 1 2 3 x y)) (range 20) (range 13)))
 
