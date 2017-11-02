@@ -2,10 +2,10 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (ql:quickload '(:fare-quasiquote-readtable
                   :trivia
-                  :let-over-lambda
-                  )))
+                  :let-over-lambda)))
 
 (defpackage #:macros
+  (:nicknames #:m)
   (:documentation  "Random assortment of macros that make my life easier")
   (:use #:let-over-lambda)
   (:shadowing-import-from #:let-over-lambda #:when-match #:if-match)

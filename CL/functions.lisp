@@ -3,11 +3,8 @@
                   :trivia
                   :let-over-lambda)))
 
-;; this is a poor hack just use asdf when you learn it!
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (load "~/Documents/Workspace/Lisp/CommonLisp/macros.lisp"))
-
 (defpackage #:functions
+  (:nicknames #:f)
   (:documentation "Random assortment of functions that make my life easier")
   (:use #:let-over-lambda)
   (:shadowing-import-from #:let-over-lambda #:when-match #:if-match)
@@ -49,7 +46,7 @@
     (cond ((and second (> second first)) (for first to     second))
           (second                        (for first downto second))
           (t                             (for 0     to     first)))))
-
+;; (declaim (inline range))
 
 ;; we abs second - first as we want floor to always go down, not up
 (declaim (ftype (function (fixnum &optional (or fixnum null) fixnum) (simple-array fixnum (*))) range-v))
@@ -66,13 +63,11 @@
         (compute first second)
         (compute 0     first))))
 
+(declaim (inline range-v))
+;; (time (defparameter *x* (range-v 0 100000 1)))
 
-(time (defparameter *x* (range-v 0 100000 1)))
 
 ;; (print (range-v 10))
-
-
-(declaim (inline range range-v))
 
 (defun fact (n &optional (bot 1))
   (nlet-tail fact ((n n) (acc 1))

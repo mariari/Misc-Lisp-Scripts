@@ -1,5 +1,6 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (ql:quickload "let-over-lambda"))
+
 (defstruct (tree! (:type list)) val left right)
 (defstruct (tree+ (:type list)) len tree) ; like tree! expect we keep track of the length so we can get the last element easily
 
@@ -11,7 +12,7 @@
     (labels ((child (fn pos)
                (make-tree! :val (elt values-arry (funcall fn (* 2 pos)))))
              ;; pos will always be 1+ the actual place in the array
-             (rec (pos root)            
+             (rec (pos root)
                (unless (> pos (floor length 2))
                  (rec (* 2 pos) (setf (tree!-left root) (child #'1- pos)))
                  (when (< (* 2 pos) length)

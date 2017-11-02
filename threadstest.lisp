@@ -5,15 +5,12 @@
   (ql:quickload "alexandria")
   (ql:quickload '(:fare-quasiquote-readtable
                   :fare-quasiquote
+                  :let-over-lambda
                   :trivia))
-  (asdf:load-system :uiop)
-  ;; all these loads are poor hacks, use ASDF
-  ;; (load "~/Documents/Workspace/Lisp/CommonLisp/functions.lisp")
-  (load "./CL/functions.lisp"))
+  (asdf:load-system :uiop))
 
 
 (defpackage #:shell
-  (:nicknames #:fun :times)
   (:use #:let-over-lambda)
   (:import-from #:alexandria #:parse-body)
   (:shadowing-import-from #:let-over-lambda #:when-match #:if-match #:symb)
@@ -57,9 +54,9 @@
 
 ;; (run/ss `(pipe (echo ,(lss "~/")) (grep "he")))
 
-(time (split-by-delim #\linefeed (run/ss `(pipe (echo ,(lss "~/")) (grep ".") (sed -e "s/o/0/g")))))
-(time (split-by-delim #\linefeed (run/ss `(pipe (ls /home/loli/) (grep ".") (sed -e "s/o/0/g")))))
-(time (run/lines `(pipe (ls /home/loli/) (grep ".") (sed -e "s/o/0/g"))))
+;; (time (split-by-delim #\linefeed (run/ss `(pipe (echo ,(lss "~/")) (grep ".") (sed -e "s/o/0/g")))))
+;; (time (split-by-delim #\linefeed (run/ss `(pipe (ls /home/loli/) (grep ".") (sed -e "s/o/0/g")))))
+;; (time (run/lines `(pipe (ls /home/loli/) (grep ".") (sed -e "s/o/0/g"))))
 
 (let ((stream (make-string-output-stream)))
   (run-program "ls ~" :output stream)
@@ -68,10 +65,10 @@
 (detect-os)
 ;; (uiop:read-little-endian)
 
-(time (mapcar (lambda (x) (make-thread (lambda () (mapcar (lambda (y) (+ x 1 2 3 4 y)) (list 1 2 3 4 5))))) (range 1000)))
+;; (time (mapcar (lambda (x) (make-thread (lambda () (mapcar (lambda (y) (+ x 1 2 3 4 y)) (list 1 2 3 4 5))))) (range 1000)))
 
 
-(time (make-thread (lambda ())))
+;; (time (make-thread (lambda ())))
 
 
 (defun num-threads ()
@@ -172,13 +169,13 @@
                 :end1 2)))
 
   ;; From LOL
-  (defun symb (&rest args)
+  (defun my-symb (&rest args)
     (values (intern (apply #'mkstr args))))
 
   ;; from LOL
 
   (defun s!-symbol-to-function (s)
-    (symb (subseq (mkstr s) 2))))
+    (my-symb (subseq (mkstr s) 2))))
 
 ;; Poorest way to do it
 (defmacro defun-s!% (name args &rest body)
@@ -283,22 +280,22 @@
 
 
 ;; A side by side comparison of writer-s! vs the same function with no g!
-(flet ((num-open-threads () 1))
-  (defun-s! writer-s! ()
-    '(flet ((reader ()
-             (mapcar (lambda (x)
-                       (s!progn (sleep .3)
-                                (print x)) x)
-                     (range 10))))
+;; (flet ((num-open-threads () 1))
+;;   (defun-s! writer-s! ()
+;;     '(flet ((reader ()
+;;              (mapcar (lambda (x)
+;;                        (s!progn (sleep .3)
+;;                                 (print x)) x)
+;;                      (range 10))))
 
-      (let ((curr (make-thread #'reader)))
-        (dotimes (i 11)
-          (s!progn
-           (sleep .1)
-           (format t "~%waiting ~d" i)
-           (force-output)
-           (sleep .1)))
-        (join-thread curr)))))
+;;       (let ((curr (make-thread #'reader)))
+;;         (dotimes (i 11)
+;;           (s!progn
+;;            (sleep .1)
+;;            (format t "~%waiting ~d" i)
+;;            (force-output)
+;;            (sleep .1)))
+;;         (join-thread curr)))))
 
 (let ((lock (make-semaphore :count 1 :name "test")))
   (defun writer ()
