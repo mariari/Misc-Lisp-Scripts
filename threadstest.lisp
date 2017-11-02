@@ -7,6 +7,7 @@
                   :fare-quasiquote
                   :trivia))
   (asdf:load-system :uiop)
+  ;; all these loads are poor hacks, use ASDF
   ;; (load "~/Documents/Workspace/Lisp/CommonLisp/functions.lisp")
   (load "./CL/functions.lisp"))
 
@@ -16,8 +17,9 @@
   (:use #:let-over-lambda)
   (:import-from #:alexandria #:parse-body)
   (:shadowing-import-from #:let-over-lambda #:when-match #:if-match #:symb)
-  (:use #:inferior-shell
-        #:uiop
+  (:use #:inferior-shell)
+  (:shadowing-import-from #:inferior-shell #:<>)
+  (:use #:uiop
         #:functions
         #:bordeaux-threads
         #:bt-semaphore
@@ -309,7 +311,7 @@
         (sleep .1)
         (signal-semaphore lock))
       (join-thread curr)))
-  
+
   (defun reader ()
     (mapcar (lambda (x)
               (thread-yield)

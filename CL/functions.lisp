@@ -3,19 +3,20 @@
                   :trivia
                   :let-over-lambda)))
 
-(load "~/Documents/Workspace/Lisp/CommonLisp/macros.lisp")
+;; this is a poor hack just use asdf when you learn it!
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (load "~/Documents/Workspace/Lisp/CommonLisp/macros.lisp"))
 
 (defpackage #:functions
   (:documentation "Random assortment of functions that make my life easier")
   (:use #:let-over-lambda)
   (:shadowing-import-from #:let-over-lambda #:when-match #:if-match)
   (:use #:sb-ext
-        #:macros
         #:common-lisp
         #:macros
         #:trivia)
   (:export :ls :lsl
-           :lss :range :fact
+           :lss :range :fact :range-v :range-v%
            :my-command-line :split-by-delim))
 
 (in-package :functions)
@@ -55,20 +56,18 @@
 (defun range-v (first &optional (second) (step 1))
   "returns a range in a vector, much faster than range, but only supports fixnums"
   (flet ((compute (first second)
-           (declare (type fixnum first second))
-           (let ((vec (make-array (1+ (floor (abs (- second first)) step))
-                                  :element-type 'fixnum)))
+           (let ((vec      (make-array (1+ (floor (abs (- second first)) step))
+                                       :element-type 'fixnum))
+                 (new-step (if (> first second) (- step) step))) ; we will go down if first > second else up
              (dotimes (i (length vec) vec)
-               (declare (type fixnum i))
-               (setf (aref vec i) (if (< first second)
-                                      (+ first (the fixnum (* step i)))
-                                      (- first (the fixnum (* step i)))))))))
+               (setf (aref vec i) (+ first (the fixnum (* new-step i))))))))
     (declare (inline compute))
     (if second
         (compute first second)
         (compute 0     first))))
 
-;; (time (defparameter *x* (range-v 0 100000 1)))
+
+(time (defparameter *x* (range-v 0 100000 1)))
 
 ;; (print (range-v 10))
 
@@ -130,10 +129,7 @@
 (defun range-v% (first &optional (second 0) (step 1))
   "returns a vector range, which is slightly faster than range"
   (declare (type fixnum step))
-  (let* ((length   (1+ (abs
-                        (if (< first second) ; floor excludes an improper value from joining
-                            (ceiling (- first second) step)
-                            (floor (- first second) step)))))
+  (let* ((length   (1+ (1+ (floor (abs (- second first)) step))))
          (vec      (make-array length :element-type 'Integer))
          (new-step (if (< second first)
                          (- step)
