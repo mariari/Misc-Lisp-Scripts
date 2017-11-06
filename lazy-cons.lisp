@@ -34,11 +34,6 @@
       (cons (scar lis) (make-strict (scdr lis)))
       '()))
 
-(defun make-strict% (lis)
-  (if (scar lis)
-      (cons (scar lis) (make-strict% (scdr lis)))
-      '()))
-
 (defun sappend (xs ys)
   (if (null xs)
       ys
@@ -51,11 +46,13 @@
 
 (declaim (ftype (function (function list &optional list) *) sfilter-bad))
 (defun sfilter-bad (pred lis &optional acc)
+  "don't use this version of filter, it is strict"
   (cond ((null lis)                (sreverse acc))
         ((funcall pred (scar lis)) (sfilter-bad pred (scdr lis) (scons (scar lis) acc)))
         (t                         (sfilter-bad pred (scdr lis) acc))))
 
 (defun sfilter (pred lis)
+  "filters a stream lazily"
   (cond ((null lis)                '())
         ((funcall pred (scar lis)) (scons (scar lis) (sfilter pred (scdr lis))))
         (t                         (sfilter pred (scdr lis))))) ; not lazy
@@ -81,9 +78,28 @@
       '()
       (scons (funcall f (scar lis)) (smap f (scdr lis)))))
 
+(defun stake (num lis)
+  "take NUM number of things from a lazy stream"
+  (if (zerop num)
+      '()
+      (scons (scar lis) (stake (1- num) (scdr lis)))))
+
+
+;; functions built ontop of laziness************************************************************************************
+
 (defun sterms (n)
   (scons (/ 1 (expt n 2))
          (sterms (1+ n))))
+
+(defun sieve (lis)
+  (scons (scar lis)
+         (sieve (sfilter (lambda (x) (/= 0 (mod x (scar lis))))
+                         (scdr lis)))))
+
+(defparameter *primes*
+  (labels ((naturals-from (n)
+             (scons n (naturals-from (1+ n)))))
+    (sieve (naturals-from 2))))
 
 (defparameter *test2* (scons 1 (scons 2 nil)))
 

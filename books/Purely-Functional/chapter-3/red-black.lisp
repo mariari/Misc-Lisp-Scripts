@@ -107,25 +107,19 @@
           (rb-length right)))))
 
 ;; now for some fun lets acc this, we can do this via cps as well!
-(defun rb-length% (tree &optional (acc 0) next-nodes)
+(defun rb-length-acc (tree &optional (acc 0) next-nodes)
   (match tree
     (:rb-empty (if (null next-nodes)
                    acc
-                   (rb-length% (car next-nodes) acc (cdr next-nodes))))
+                   (rb-length-acc (car next-nodes) acc (cdr next-nodes))))
     ((rb-tree left right)
-     (rb-length% left (1+ acc) (cons right next-nodes)))))
+     (rb-length-acc left (1+ acc) (cons right next-nodes)))))
 
-(defun rb-length%% (tree &optional (k #'identity))
+(defun rb-length-cps (tree &optional (k #'identity))
   (match tree
     (:rb-empty (funcall k 0))
     ((rb-tree left right)
-     (rb-length%% left (lambda (x) (+ 1 (funcall k (rb-length%% right)) x))))))
-
-(defun rb-length%% (tree &optional (k #'identity))
-  (match tree
-    (:rb-empty (funcall k 0))
-    ((rb-tree left right)
-     (rb-length%% left (lambda (x) (funcall k (rb-length%% right (lambda (y) (+ 1 x y)))))))))
+     (rb-length-cps left (lambda (x) (funcall k (rb-length-cps right (lambda (y) (+ 1 x y)))))))))
 
 ;; Testing functions***********************************************************************************************
 (defparameter *manual-tree-test* (make-rb-tree :elem 7
