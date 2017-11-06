@@ -78,23 +78,21 @@
 
   (declaim (ftype (function (fixnum &optional (or fixnum null) fixnum) (simple-array fixnum (*))) range-v))
   (defun range-v (first &optional (second) (step 1))
-    "returns a range in a vector, much faster than range, but only supports fixnums"
-    (flet ((compute (first second)
-             (declare (type fixnum first second))
-             (let ((vec (make-array (1+ (floor (abs (- second first)) step))
-                                    :element-type 'fixnum)))
-               (dotimes (i (length vec) vec)
-                 (declare (type fixnum i))
-                 (setf (aref vec i) (if (< first second)
-                                        (+ first (the fixnum (* step i)))
-                                        (- first (the fixnum (* step i)))))))))
-      (declare (inline compute))
-      (if second
-          (compute first second)
-          (compute 0     first)))))
+  "returns a range in a vector, much faster than range, but only supports fixnums"
+  (flet ((compute (first second)
+           (let ((vec      (make-array (1+ (floor (abs (- second first)) step))
+                                       :element-type 'fixnum))
+                 (new-step (if (< second first) (- step) step)))
+             (dotimes (i (length vec) vec)
+               (setf (aref vec i) (+ first (the fixnum (* new-step i))))))))
+    (declare (inline compute))
+    (if second
+        (compute first second)
+        (compute 0     first)))))
 
 (locally (declare (optimize (speed 3) (space 2) (safety 0) (debug 0) (compilation-speed 0)))
-  (time (defparameter *x* (range 0 100000 1))))
+  (time (defparameter *x* (range 100000))))
+
 
 ;; (print (range-v 10))
 

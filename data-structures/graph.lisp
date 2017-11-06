@@ -1,7 +1,7 @@
 ;; Hash table version
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (ql:quickload '(:fset))
-  (rename-package 'fset 'fset '(:f)))
+  (rename-package 'fset 'fset '(:fs)))
 
 
 (defparameter *nodes-clos* (make-hash-table))
@@ -205,9 +205,6 @@
            (make-node+    (node node2+) (list node (cons node (cadr node2+))))) ; like (b (b a)) to preserve path
       (declare (inline see seenp end-condition make-node+))
       (queue (list start (list start)) head tail) ; start the first node
-
-      (SETF HEAD (LIST (LIST START (LIST START)))
-            TAIL HEAD)
       (see start)
       (loop :until (null head) :do
          (let ((curr (dequeue head tail)))
@@ -249,6 +246,50 @@
 (defun hash-values (hash)
   (loop for value being the hash-values of hash collect value))
 
+
+;; lazy edition
+;; These versions are almost as fast as the version that could theoretically blow up the stack
+;; they are 
+(defun depth-searchl% (start graph find &key (key #'eq) (limit -1))
+  (labels ((rec (node node-list lim seen path)
+             (flet ((recurse (nodes-list)
+                      (let ((next (scar nodes-list)))
+                        (rec (car next) (scdr nodes-list) (caddr next) (fs:with seen node) (scar (cdr next)))))
+                    (prune (lis)   (sfilter (lambda (x) (not (fs:contains? seen x))) lis))
+                    (add   (x) (list x (scons node path) (1- lim))))
+
+               (cond ((null node-list)          '())
+                     ((funcall key find node)    (sreverse (scons find path)))
+                     ((or (null node) (= lim 0)) (recurse node-list))
+                     (t                          (recurse (sappend (smap #'add (prune (hash-keys
+                                                                                       (get-node node graph))))
+                                                                   node-list)))))))
+    (make-strict (rec start '(()) limit (fs:empty-set) '()))))
+
+;; This version for whatever reason is a LOT faster when the
+;; the answer can't be found... like 100x faster for (depth-searchl 1 *nodes* 122200)
+;; I'm guessing the hash table does better
+;; it's probably because the hash table gets its answers right away!
+;; but I don't see how that effects what nodes are evaluated when, as it should get called anyways
+;; (ie its a strict operation)
+(defun depth-searchl (start graph find &key (key #'eq) (limit -1))
+  (let ((seen (make-hash-table)))
+    (labels ((rec (node node-list lim path)
+               (flet ((recurse (nodes-list)
+                        (let ((next (scar nodes-list)))
+                          (setf (gethash node seen) t)
+                          (rec (car next) (scdr nodes-list) (caddr next) (scar (cdr next)))))
+                      (prune (lis)   (sfilter (lambda (x) (not (gethash x seen))) lis))
+                      (add   (x) (list x (scons node path) (1- lim))))
+
+                 (cond ((null node-list)          '())
+                       ((funcall key find node)    (sreverse (scons find path)))
+                       ((or (null node) (= lim 0)) (recurse node-list))
+                       (t                          (recurse (sappend (smap #'add (prune (hash-keys
+                                                                                         (get-node node graph))))
+                                                                     node-list)))))))
+      (make-strict (rec start '(()) limit '())))))
+
 ;; These versions are slower than the old version, take more memory, but won't blow up stack frames
 ;; this is more inline to my current style of problem solving...
 ;; node is stored as (val (list) lim)
@@ -258,8 +299,8 @@
   (labels ((rec (node node-list lim seen path)
              (flet ((recurse (nodes-list)
                       (let ((next (car nodes-list)))
-                        (rec (car next) (cdr nodes-list) (caddr next) (f:with seen node) (car (cdr next)))))
-                    (prune (lis)   (remove-if (lambda (x) (f:contains? seen x)) lis))
+                        (rec (car next) (cdr nodes-list) (caddr next) (fs:with seen node) (car (cdr next)))))
+                    (prune (lis)   (remove-if (lambda (x) (fs:contains? seen x)) lis))
                     (add   (acc x) (cons (list x (cons node path) (1- lim)) acc)))
 
                (cond ((null node-list)          '())
@@ -267,7 +308,7 @@
                      ((or (null node) (= lim 0)) (recurse node-list))
                      (t                          (recurse (reduce #'add (prune (hash-keys (get-node node graph)))
                                                                   :initial-value node-list)))))))
-    (rec start '(()) limit (f:empty-set) '())))
+    (rec start '(()) limit (fs:empty-set) '())))
 
 ;; This is a faster version of the code above
 ;; Furthermore the time complexity on gethash is O(1) so it's just superior in general
@@ -327,21 +368,23 @@
 ;;           ((symbolp val) (gethash val graph))))) ; or the symbol that leads to the graph
 
 
-;; lazy edition
-;; (defun depth-searchl% (start graph find &key (key #'eq) (limit -1))
-;;   (labels ((rec (node node-list lim seen path)
-;;              (flet ((recurse (nodes-list)
-;;                       (let ((next (scar nodes-list)))
-;;                         (rec (car next) (scdr nodes-list) (caddr next) (f:with seen node) (scar (cdr next)))))
-;;                     (prune (lis)   (remove-if (lambda (x) (f:contains? seen x)) lis))
-;;                     (add   (acc x) (scons (list x (scons node path) (1- lim)) acc)))
 
-;;                (cond ((null node-list)          '())
-;;                      ((funcall key find node)    (sreverse (scons find path)))
-;;                      ((or (null node) (= lim 0)) (recurse node-list))
-;;                      (t                          (recurse (sfoldl #'add node-list
-;;                                                                   (prune (hash-keys (get-node node graph))))))))))
-;;     (rec start '(()) limit (f:empty-set) '())))
+;; foldr is much slower than (sappend (smap ...)) for some reason
+(defun depth-searchl%% (start graph find &key (key #'eq) (limit -1))
+  (labels ((rec (node node-list lim seen path)
+             (flet ((recurse (nodes-list)
+                      (let ((next (scar nodes-list)))
+                        (rec (car next) (scdr nodes-list) (caddr next) (fs:with seen node) (scar (cdr next)))))
+                    (prune (lis)   (remove-if (lambda (x) (fs:contains? seen x)) lis))
+                    (add   (x acc) (scons (list x (scons node path) (1- lim)) acc)))
+
+               (cond ((null node-list)          '())
+                     ((funcall key find node)    (sreverse (scons find path)))
+                     ((or (null node) (= lim 0)) (recurse node-list))
+                     (t                          (recurse (sfoldr #'add node-list
+                                                                  (prune (hash-keys (get-node node graph))))))))))
+    (make-strict (rec start '(()) limit (fs:empty-set) '()))))
+
 
 ;; (time (defparameter *result* (make-strict (depth-searchl% 1 *nodes* 21))))
 ;; (time (defparameter *result* (depth-search% 1 *nodes* 21)))

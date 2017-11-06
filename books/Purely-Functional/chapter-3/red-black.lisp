@@ -84,7 +84,7 @@
 (defun rb-insert (val tree)
   (labels ((ins (tree)
              (match tree
-               (:rb-empty                    (make-rb-tree :col +red+ :elem val))
+               (:rb-empty                     (make-rb-tree :col +red+ :elem val))
                ((rb-tree col left elem right) (cond ((< val elem) (balance col (ins left) elem right))
                                                     ((> val elem) (balance col left       elem (ins right)))
                                                     (t             tree))))))
@@ -98,6 +98,34 @@
 
 (defun rb-insert-seq (seq tree)
   (apply #'rb-insert-many tree seq))
+
+(defun rb-length (tree)
+  (match tree
+    (:rb-empty 0)
+    ((rb-tree left right)
+     (+ 1 (rb-length left)
+          (rb-length right)))))
+
+;; now for some fun lets acc this, we can do this via cps as well!
+(defun rb-length% (tree &optional (acc 0) next-nodes)
+  (match tree
+    (:rb-empty (if (null next-nodes)
+                   acc
+                   (rb-length% (car next-nodes) acc (cdr next-nodes))))
+    ((rb-tree left right)
+     (rb-length% left (1+ acc) (cons right next-nodes)))))
+
+(defun rb-length%% (tree &optional (k #'identity))
+  (match tree
+    (:rb-empty (funcall k 0))
+    ((rb-tree left right)
+     (rb-length%% left (lambda (x) (+ 1 (funcall k (rb-length%% right)) x))))))
+
+(defun rb-length%% (tree &optional (k #'identity))
+  (match tree
+    (:rb-empty (funcall k 0))
+    ((rb-tree left right)
+     (rb-length%% left (lambda (x) (funcall k (rb-length%% right (lambda (y) (+ 1 x y)))))))))
 
 ;; Testing functions***********************************************************************************************
 (defparameter *manual-tree-test* (make-rb-tree :elem 7
