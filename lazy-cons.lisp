@@ -1,7 +1,8 @@
-
 ;; lambda the ultimate lazy
 
 ;; This struct allows me to tell whether the structure is lazy or an actual function the user wants!
+
+;;; Core Function********************************************************************************************************
 (defstruct lazy (expr (lambda () #'identity) :type function))
 
 (defmacro delay (n) `(make-lazy :expr (lambda () ,n)))
@@ -23,33 +24,58 @@
         (setf (cdr lis) (force rest))
         rest)))
 
+;;; Conversion functions*************************************************************************************************
+
+(defun make-strict% (lis &optional (orig lis))
+  "makes a lazy list strict"
+  (if lis
+      (progn (scar lis)
+             (make-strict% (scdr lis) orig))
+      orig))
+
+(defun make-strict (lis)
+  "makes a lazy list strict"
+  (do ((i lis (scdr i))
+       (j lis (scar i)))
+      ((null i) lis)))
+
+;; Works kinda... primes still take up needless amount of memory
+(defun make-strict-gc (lis)
+  "manually calls the gc, which is needed
+   for some lazy streams to be properly evaluated"
+  (do ((i lis (scdr i))
+       (j lis (scar i)))
+      ((null i) lis)
+    (when (> (sb-kernel::dynamic-usage) 512000000) ; ensures no error will be signaled
+      (gc :full t))))                              ; but it might not GC enough and the function will take forever
+
+
+(defun lazyfy (lis)
+  "makes a strict list lazy"
+  (if lis
+      (scons (car lis) (apply #'lazyfy (cdr lis)))
+      '()))
+
+;;; Useful Functions*****************************************************************************************************
+
+(defmacro slist (&body arguments)
+  "creates a lazy list from an argument list"
+  (if arguments
+      `(scons ,(car arguments) (slist ,@(cdr arguments)))
+      '()))
+
 (defun sreverse (lis &optional acc)
+  "reverses a lazy list, note this is O(n)"
   (let ((first (scar lis)))
     (if first
         (sreverse (scdr lis) (scons first acc))
         acc)))
 
-(defun make-strict (lis)
-  (if lis
-      (cons (scar lis) (make-strict (scdr lis)))
-      '()))
-
 (defun sappend (xs ys)
+  "appends one list (lazy or otherwise) to another."
   (if (null xs)
       ys
       (scons (scar xs) (sappend (scdr xs) ys))))
-
-(defun slist (&rest arguments)
-  (if arguments
-      (scons (car arguments) (apply #'slist (cdr arguments)))
-      '()))
-
-(declaim (ftype (function (function list &optional list) *) sfilter-bad))
-(defun sfilter-bad (pred lis &optional acc)
-  "don't use this version of filter, it is strict"
-  (cond ((null lis)                (sreverse acc))
-        ((funcall pred (scar lis)) (sfilter-bad pred (scdr lis) (scons (scar lis) acc)))
-        (t                         (sfilter-bad pred (scdr lis) acc))))
 
 (defun sfilter (pred lis)
   "filters a stream lazily"
@@ -57,26 +83,36 @@
         ((funcall pred (scar lis)) (scons (scar lis) (sfilter pred (scdr lis))))
         (t                         (sfilter pred (scdr lis))))) ; not lazy
 
+(defun smap (f lis)
+  "maps f onto a lazy list, note that f is a function, and is thus strict"
+  (if (null lis)
+      '()
+      (scons (funcall f (scar lis)) (smap f (scdr lis)))))
+
 (defun sfoldl (f acc lis)
   "a strict version of foldl that does all its arguments first"
   (if lis
       (sfoldl f (funcall f acc (scar lis)) (scdr lis))
       acc))
 
-;; fix by making macros being lazy
-(defun sfoldr (f acc lis)
-  "this can't be lazy since scons is a macro, thus we need to make things strict!"
+(defun sfoldr-bad (f acc lis)
+  "a version of that fold that tries to be lazy, but fails since macros aren't first class"
   (labels ((rec (f acc lis)
              (if lis
                  (delay (funcall f (scar lis) (rec f acc (scdr lis))))
                  acc)))
     (scdr (cons nil (rec f acc lis)))))
 
-(defun smap (f lis)
-  "note since CL is strict, the f function will be strict"
-  (if (null lis)
-      '()
-      (scons (funcall f (scar lis)) (smap f (scdr lis)))))
+;; fix by making macros being lazy
+;; this is a macro
+;; fix this macro later
+;; (defmacro sfoldr (f acc lis)
+;;   "a macro version of foldr that can take macros and functions as f, and can thus be lazy or strict"
+;;   (if lis
+;;       `(,f (scar ,lis)
+;;            (sfoldr ,f ,acc (scdr ,lis)))
+;;       acc))
+
 
 (defun stake (num lis)
   "take NUM number of things from a lazy stream"
@@ -84,8 +120,13 @@
       '()
       (scons (scar lis) (stake (1- num) (scdr lis)))))
 
+(defun sdrop (num lis)
+  "drops NUM number of things form the lazy stream"
+  (if (zerop num)
+      lis
+      (sdrop (1- num) (scdr lis))))
 
-;; functions built ontop of laziness************************************************************************************
+;;; functions built ontop of laziness************************************************************************************
 
 (defun sterms (n)
   (scons (/ 1 (expt n 2))
@@ -96,7 +137,7 @@
          (sieve (sfilter (lambda (x) (/= 0 (mod x (scar lis))))
                          (scdr lis)))))
 
-(defparameter *primes*
+(defun primes ()
   (labels ((naturals-from (n)
              (scons n (naturals-from (1+ n)))))
     (sieve (naturals-from 2))))
@@ -123,6 +164,14 @@
         ((<= x (scar lis)) (scons x lis))
         (t                 (scons (scar lis) (insert x (scdr lis))))))
 
+
+;;; Deprecated**********************************************************************************************************
+(declaim (ftype (function (function list &optional list) *) sfilter-bad))
+(defun sfilter-bad (pred lis &optional acc)
+  "don't use this version of filter, it is strict"
+  (cond ((null lis)                (sreverse acc))
+        ((funcall pred (scar lis)) (sfilter-bad pred (scdr lis) (scons (scar lis) acc)))
+        (t                         (sfilter-bad pred (scdr lis) acc))))
 
 ;; My third way to do this, the problem is that it forces the head every time*******************************************
 (defmacro delay% (n) `(lambda () ,n))
