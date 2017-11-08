@@ -35,8 +35,8 @@
 (defun rb-member (ele tree)
   (match tree
     (:rb-empty nil)
-    ((guard (rb-tree left elem)  (< ele elem)) (rb-member ele left))
-    ((guard (rb-tree right elem) (> ele elem)) (rb-member ele right))
+    ((guard (rb-tree left elem)  (less-than    ele elem)) (rb-member ele left))
+    ((guard (rb-tree right elem) (greater-than ele elem)) (rb-member ele right))
     (_ t)))
 
 
@@ -85,8 +85,8 @@
   (labels ((ins (tree)
              (match tree
                (:rb-empty                     (make-rb-tree :col +red+ :elem val))
-               ((rb-tree col left elem right) (cond ((< val elem) (balance col (ins left) elem right))
-                                                    ((> val elem) (balance col left       elem (ins right)))
+               ((rb-tree col left elem right) (cond ((less-than    val elem) (balance col (ins left) elem right))
+                                                    ((greater-than val elem) (balance col left       elem (ins right)))
                                                     (t             tree))))))
     (match (ins tree)
       ((rb-tree left elem right)
@@ -120,6 +120,33 @@
     (:rb-empty (funcall k 0))
     ((rb-tree left right)
      (rb-length-cps left (lambda (x) (funcall k (rb-length-cps right (lambda (y) (+ 1 x y)))))))))
+
+(defun rb-to-list (tree)
+  (match tree
+    (:rb-empty '())
+    ((rb-tree elem left right)
+     (append (rb-to-list left) (list elem) (rb-to-list right)))))
+;; Traversal Functions*********************************************************************************************
+(defmethod to-list ((tree rb-tree))
+  (rb-to-list tree))
+
+(defmethod mapg (f (s rb-tree))
+  (rb-insert-seq (mapcar f (rb-to-list s)) +empty+))
+
+;; Generic Comparison**********************************************************************************************
+(defgeneric less-than (a b)
+  (:documentation "used to create a generic comparison function"))
+
+(defmethod less-than ((a number) (b number))
+  (< a b))
+
+(defmethod less-than ((a t) (b t))
+  (< (sxhash a) (sxhash b)))
+
+(defun greater-than (a b)
+  "A generic comparison function that just calls less-than, so extend
+   greater-than by making another method for less-than"
+  (less-than b a))
 
 ;; Testing functions***********************************************************************************************
 (defparameter *manual-tree-test* (make-rb-tree :elem 7
