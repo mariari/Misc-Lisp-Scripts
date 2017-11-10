@@ -69,7 +69,7 @@
             (not (null four)))
      (let ((node (make-node :one two :two three :three four)))
        (make-deep :left  (make-digit :one x :two one)
-                  :spine (cons-t node deeper)
+                  :spine (cons-l node deeper)
                   :right right)))
     ;; our left isn't at max capacity, so we add things to our digit
     ((deep left spine right)
@@ -80,7 +80,7 @@
 (defun cons-r (x tree)
   "cons an element onto the back of a finger-tree"
   (match tree
-    (:empty (make-single :ele x))
+    (:empty       (make-single :ele x))
     ((Single ele) (make-deep :left  (make-digit :one ele)
                              :right (make-digit :one x)))
     ((guard (deep :left  left
@@ -89,13 +89,36 @@
             (not (null four)))
      (let ((node (make-node :one one :two two :three three))) ; want to send the elements furthest from the
        (make-deep :left  left                                 ; end down
-                  :spine (cons-t node deeper)
+                  :spine (cons-r node deeper)
                   :right (make-digit :one four :two x))))
     ((deep left spine right)
      (make-deep :left  left
                 :spine spine
                 :right (cons-r-dig x right)))))
 
+
+
+(defun tree-foldr (f z tree)
+  (match tree
+    (:empty z)
+    ((Single ele) (funcall f ele z))
+    ((deep left spine right)
+     (labels ((-<. (acc xs)
+                (foldr f acc xs))
+              (-<.. (acc xs)  ; here foldr swaps the order of args, we have to realign it
+                (tree-foldr (lambda (xs acc) (-<. acc xs)) acc xs)))
+       (-<. (-<.. (-<. z right) spine) left)))))
+
+(defun tree-foldl (f z tree)
+  (match tree
+    (:empty z)
+    ((Single ele) (funcall f z ele))
+    ((deep left spine right)
+     (labels ((>-. (acc xs)
+                (foldl f acc xs))
+              (>-.. (acc xs)  ; foldl does not swap args, so we are safe!
+                (tree-foldl #'>-. acc xs)))
+       (>-. (>-.. (>-. z right) spine) left)))))
 
 
 ;;; generic functions===================================================================================================
@@ -111,6 +134,28 @@
                                       (three (list one two three))
                                       (two   (list one two))
                                       (one   (list one))))))
+
+(defmethod foldr (f x (deep deep))
+  (tree-foldr f x deep))
+
+(defmethod foldr (f x (single single))
+  (tree-foldr f x single))
+
+
+(defmethod foldr (f x (single single))
+  (tree-foldr f x single))
+
+(defmethod foldr (f x (node node))
+  (reduce f (to-list node) :initial-value x :from-end t))
+
+(defmethod foldr (f x (digit digit))
+  (reduce f (to-list digit) :initial-value x :from-end t))
+
+(defmethod foldl (f x (node node))
+  (reduce f (to-list node) :initial-value x))
+
+(defmethod foldl (f x (digit digit))
+  (reduce f (to-list digit) :initial-value x))
 
 ;;; Helper Functions====================================================================================================
 
