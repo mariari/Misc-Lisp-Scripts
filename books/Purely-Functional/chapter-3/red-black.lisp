@@ -15,6 +15,8 @@
   "colors for a red-black tree"
   `(member ,+red+ ,+black+))
 
+(list-length)
+
 (deftype red-black ()
   `(or (eql :rb-Empty)
       (satisfies rb-tree-p)))
@@ -125,10 +127,10 @@
   (match tree
     (:rb-empty '())
     ((rb-tree elem left right)
-     (append (rb-to-list left) (list elem) (rb-to-list right)))))
+     (append (rb-to-list left) (cons elem (rb-to-list right))))))
 ;; Traversal Functions*********************************************************************************************
-(defmethod to-list ((tree rb-tree))
-  (rb-to-list tree))
+(defmethod to-list ((tree rb-tree)) (rb-to-list tree))
+(defmethod to-list ((tree symbol))  nil)
 
 (defmethod mapg (f (s rb-tree))
   (rb-insert-seq (mapcar f (rb-to-list s)) +empty+))
