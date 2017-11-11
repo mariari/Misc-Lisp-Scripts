@@ -72,16 +72,16 @@
 
 
 ;;; adding many things
-(defun add-manyl (dequeue &rest list)
+(defmethod add-manyl ((dequeue dequeue) &rest list)
   (add-seql list dequeue))
 
-(defun add-seql (seq dequeue)
+(defmethod add-seql (seq (dequeue dequeue))
   (reduce #'consl seq :from-end t :initial-value dequeue))
 
-(defun add-manyr (dequeue &rest list)
+(defmethod add-manyr ((dequeue dequeue) &rest list)
   (add-seqr list dequeue))
 
-(defun add-seqr (seq dequeue)
+(defmethod add-seqr (seq (dequeue dequeue))
   (reduce #'consr seq :from-end t :initial-value dequeue))
 
 ;; helper functions*****************************************************************************************************
