@@ -2,12 +2,15 @@
   (ql:quickload '(:let-over-lambda :trivia)))
 
 ;; EXTRA DEPENDENCEIS :: we don't require lazy, but this is made
-;; thus
+;; explicitly for lazy-cons
 
 
 ;; so far this macro only supports the :type keyword
-;; I'll add support for the conc later
+;; this macro does not support conc-n yet, but at a later date I'll add it
 (defmacro defstruct-l (name-and-options &rest slot-descriptions)
+  "works just like defstruct, except that it allows for the auto-generation of a lazy constructor
+   and getters that conform to automatic lazy expansion, if none of these features are used
+   then it's just defstruct"
   (flet ((turn-into-accessor (symb) (lol:symb (concatenate 'string
                                                            (lol:mkstr name-and-options)
                                                            "-"
@@ -20,9 +23,9 @@
             (mapcar (lambda (slot)
                       (if (not (listp slot))
                           slot
-                          (let ((seen-type nil))
-                            (mapcar (lambda (x)
-                                      (cond (seen-type       (setf x `(or lazy ,x)) )
+                          (let ((seen-type nil)) ; we just want to inject the lazy type to make consistent types
+                            (mapcar (lambda (x)       ; or else the user given types would complain
+                                      (cond (seen-type       (setf seen-type nil x `(or lazy ,x)))
                                             ((equal :type x) (setf seen-type t) :type)
                                             (t                x)))
                                     slot))))
@@ -49,6 +52,7 @@
                                     ,value)))))
                    new-symbs-make)
          (defmacro ,struct-creator-l (&key ,@new-symbs-with-default)
+           "creates a lazy version of the struct, delaying all the arguments"
            (list ',struct-creator ,@(mapcar (lambda (x)               ; we do (list '...) here as we are doing ` expansion by hand
                                               (if (keywordp x)        ; as we need to compile into a defmacro form
                                                   x                   ; and double ` would add extra , which is uneeded
@@ -56,3 +60,40 @@
                                             (lol:flatten (mapcar (lambda (symb)
                                                                    (list (turn-into-key-word symb) symb))
                                                                  new-symbs)))))))))
+
+
+;;;; Some examples to work if you wish to see the expansion
+
+;; (defconstant +empty-t+ :empty
+;;   "Used for the empty type of finger tree")
+
+;; (defstruct-l single
+;;     "single will be of type FingerTree"
+;;   ele)
+
+;; (deftype finger-tree ()
+;;   "the data structure finger tree is composed of empty, single, and deep"
+;;   `(or (eql :empty)
+;;       (satisfies single-p)
+;;       (satisfies deep-p)))
+
+
+;; (defstruct-l deep
+;;     "this is the spine of the finger tree, along with some digits on the sides"
+;;   (left (make-digit) :type digit) ; the default values are a hack and should thus never be used!
+;;   (spine :empty :type finger-tree)
+;;   (right (make-digit) :type digit))
+
+
+;; (defstruct-l digit
+;;     "a digit can hold either 1 or 2 or 3 or 4 things in it"
+;;   one two three four)
+
+;; (defstruct-l node
+;;     "a node either has two or three things in it"
+;;   one two three)
+
+;; (defstruct-l view
+;;     "a view of a finger-tree, gives back an element and the rest of the tree"
+;;   (ele nil)
+;;   (tree :empty :type (or finger-tree lazy)))
