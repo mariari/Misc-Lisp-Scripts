@@ -35,8 +35,6 @@
 (named-readtables:in-readtable :fare-quasiquote)
 
 
-
-
 (defmacro curry (fn . args)
   "Creates a partially applied function that takes 1 argument if it is a macro
    (a limitation of &rest closures in CL) and multiple if it is a function"

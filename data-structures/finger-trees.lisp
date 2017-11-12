@@ -2,8 +2,6 @@
   (ql:quickload :trivia)
   (use-package 'trivia))
 
-(SETF *ARITY-CHECK-BY-TEST-CALL* NIL)
-
 ;; here we are going to emulate the following Haskell Data Structure
 ;; data FingerTree a  = Empty
 ;;                    | Single a
@@ -14,11 +12,12 @@
 ;;;; creating the data structure========================================================================================
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  (SETF *ARITY-CHECK-BY-TEST-CALL* NIL)
   (defconstant +empty-t+ :empty
     "Used for the empty type of finger tree")
 
-  (defstruct single
-    "single will be of type FingerTree"
+  (defstruct-l single
+      "single will be of type FingerTree"
     ele)
 
   (deftype finger-tree ()
@@ -28,25 +27,27 @@
         (satisfies deep-p)))
 
 
-  (defstruct deep
-    "this is the spine of the finger tree, along with some digits on the sides"
+  (defstruct-l deep
+      "this is the spine of the finger tree, along with some digits on the sides"
     (left (make-digit) :type digit) ; the default values are a hack and should thus never be used!
     (spine :empty :type finger-tree)
     (right (make-digit) :type digit))
 
 
-  (defstruct digit
-    "a digit can hold either 1 or 2 or 3 or 4 things in it"
+  (defstruct-l digit
+      "a digit can hold either 1 or 2 or 3 or 4 things in it"
     one two three four)
 
-  (defstruct node
-    "a node either has two or three things in it"
+  (defstruct-l node
+      "a node either has two or three things in it"
     one two three)
 
-  (defstruct view
-    "a view of a finger-tree, gives back an element and the rest of the tree"
+  (defstruct-l view
+      "a view of a finger-tree, gives back an element and the rest of the tree"
     (ele nil)
-    (tree :empty :type finger-tree)))
+    (tree :empty :type (or finger-tree lazy))))
+
+
 
 (defun finger-tree-p (tree)
   (typep tree 'finger-tree))
@@ -113,21 +114,21 @@
     ((Single ele) (make-view :ele ele))
     ((guard (deep :left (digit one two) spine :right (digit :one a :two b :three c :four d))
             (null two))                                 ; checks for the case were we remove the only digit
-     (make-view :ele one
-                :tree
-                (let ((view-spine (tree-view-l spine))) ; if the spine is not empty, recurse on the spine
-                  (cond ((not (empty-viewp view-spine)) ; the :left part converts a node into a digit
-                         (make-deep :left  (to-digit (to-list (view-ele view-spine)))
-                                    :spine (view-tree view-spine)
-                                    :right (deep-right tree)))
-                        ;; spine is empty, so match against the right and give it to the left!
-                        (d (make-deep :left (make-digit :one a :two b) :spine :empty :right (make-digit :one c :two d)))
-                        (c (make-deep :left (make-digit :one a :two b) :spine :empty :right (make-digit :one c)))
-                        (b (make-deep :left (make-digit :one a)        :spine :empty :right (make-digit :one b)))
-                        (t (make-single :ele a))))))
+     (make-view-l :ele one
+                  :tree
+                  (let ((view-spine (tree-view-l spine))) ; if the spine is not empty, recurse on the spine
+                    (cond ((not (empty-viewp view-spine)) ; the :left part converts a node into a digit
+                           (make-deep :left  (to-digit (to-list (view-ele view-spine)))
+                                      :spine (view-tree view-spine)
+                                      :right (deep-right tree)))
+                          ;; spine is empty, so match against the right and give it to the left!
+                          (d (make-deep :left (make-digit :one a :two b):spine :empty :right (make-digit :one c :two d)))
+                          (c (make-deep :left (make-digit :one a :two b):spine :empty :right (make-digit :one c)))
+                          (b (make-deep :left (make-digit :one a)       :spine :empty :right (make-digit :one b)))
+                          (t (make-single :ele a))))))
     ((deep left spine right)
      (let ((dig-list (to-list left)))
-       (make-view :ele (car dig-list)
+       (make-view-l :ele (car dig-list)
                   :tree (make-deep :left (to-digit (cdr dig-list)) :spine spine :right right))))))
 
 ;; left version has the comments, since it's the same structure!
@@ -140,23 +141,23 @@
                   spine
                   :right (digit one two))
             (null two))
-     (make-view :ele one
-                :tree
-                (let ((view-spine (tree-view-r spine)))
-                  (cond ((not (empty-viewp view-spine))
-                         (make-deep :left  (deep-left tree)
-                                    :spine (view-tree view-spine)
-                                    :right (to-digit (to-list (view-ele view-spine)))))
-                        (d (make-deep :left (make-digit :one a :two b) :spine :empty :right (make-digit :one c :two d)))
-                        (c (make-deep :left (make-digit :one a :two b) :spine :empty :right (make-digit :one c)))
-                        (b (make-deep :left (make-digit :one a)        :spine :empty :right (make-digit :one b)))
-                        (t (make-single :ele a))))))
+     (make-view-l :ele one
+                  :tree
+                  (let ((view-spine (tree-view-r spine)))
+                    (cond ((not (empty-viewp view-spine))
+                           (make-deep :left  (deep-left tree)
+                                      :spine (view-tree view-spine)
+                                      :right (to-digit (to-list (view-ele view-spine)))))
+                          (d (make-deep :left (make-digit :one a :two b):spine :empty :right (make-digit :one c :two d)))
+                          (c (make-deep :left (make-digit :one a :two b):spine :empty :right (make-digit :one c)))
+                          (b (make-deep :left (make-digit :one a)       :spine :empty :right (make-digit :one b)))
+                          (t (make-single :ele a))))))
     ((deep left spine right)
      (let* ((dig-list (to-list right))
             (last     (car (last dig-list)))
             (rest     (butlast dig-list)))
-       (make-view :ele last
-                  :Tree (make-deep :left left :spine spine :right (to-digit rest)))))))
+       (make-view-l :ele last
+                    :Tree (make-deep :left left :spine spine :right (to-digit rest)))))))
 
 
 (defun tree-foldr (f z tree)

@@ -16,4 +16,7 @@
                (:file "./CL/functions"
                       :depends-on ("./CL/macros"))
                (:file "threadstest"
-                      :depends-on ("./CL/functions"))))
+                      :depends-on ("./CL/functions"))
+               (:file "./data-structures/lazy-cons")
+               (:file "./data-structures/lazy-struct"
+                      :depends-on ("./data-structures/lazy-cons"))))
