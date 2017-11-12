@@ -59,7 +59,8 @@
 
 (defun empty-viewp (view)
   "we can simulate an empty view like this"
-  (equalp view (make-view)))
+  (or (equalp view (make-view))
+     (equalp (view-tree view) (view-tree (make-view)))))
 
 
 ;;;; Functions==========================================================================================================
@@ -129,7 +130,7 @@
     ((deep left spine right)
      (let ((dig-list (to-list left)))
        (make-view-l :ele (car dig-list)
-                  :tree (make-deep :left (to-digit (cdr dig-list)) :spine spine :right right))))))
+                    :tree (make-deep :left (to-digit (cdr dig-list)) :spine spine :right right))))))
 
 ;; left version has the comments, since it's the same structure!
 (defun tree-view-r (tree)

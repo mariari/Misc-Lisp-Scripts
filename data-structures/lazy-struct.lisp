@@ -49,10 +49,10 @@
                                     ,value)))))
                    new-symbs-make)
          (defmacro ,struct-creator-l (&key ,@new-symbs-with-default)
-           (,struct-creator ,@(mapcar (lambda (x) ; make the elements delayed, as we want them to be lazy
-                                        (if (keywordp x)
-                                            x
-                                            `(delay ,x)))
-                                      (lol:flatten (mapcar (lambda (symb)
-                                                             (list (turn-into-key-word symb) symb))
-                                                           new-symbs)))))))))
+           (list ',struct-creator ,@(mapcar (lambda (x)               ; we do (list '...) here as we are doing ` expansion by hand
+                                              (if (keywordp x)        ; as we need to compile into a defmacro form
+                                                  x                   ; and double ` would add extra , which is uneeded
+                                                  `(list 'delay ,x))) ; make the elements delayed, as we want them to be lazy
+                                            (lol:flatten (mapcar (lambda (symb)
+                                                                   (list (turn-into-key-word symb) symb))
+                                                                 new-symbs)))))))))
