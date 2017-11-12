@@ -42,7 +42,8 @@
            (value (gensym))
            (object (gensym)))
 
-      `(prog1 (defstruct ,name-and-options ,doc-string ,@new-body)
+      `(prog2 (declaim (notinline ,@new-symbs-make))          ; we need to notinline things or else the old calls inside a (λ ())
+         (defstruct ,name-and-options ,doc-string ,@new-body) ; of any kind will use the old version, and ruin our code!
          ,@(mapcar (lambda (maker-symb)
                      `(setf (symbol-function ',maker-symb)
                             (lambda (,object)
@@ -51,11 +52,12 @@
                                     (setf (,maker-symb ,object) (force ,value))
                                     ,value)))))
                    new-symbs-make)
+         (declaim (inline ,@new-symbs-make))                  ; now we can inline the newly updated function
          (defmacro ,struct-creator-l (&key ,@new-symbs-with-default)
            "creates a lazy version of the struct, delaying all the arguments"
-           (list ',struct-creator ,@(mapcar (lambda (x)               ; we do (list '...) here as we are doing ` expansion by hand
-                                              (if (keywordp x)        ; as we need to compile into a defmacro form
-                                                  x                   ; and double ` would add extra , which is uneeded
+           (list ',struct-creator ,@(mapcar (lambda (x) ; we do (list '...) here as we are doing ` expansion by hand
+                                              (if (keywordp x) ; as we need to compile into a defmacro form
+                                                  x ; and double ` would add extra , which is uneeded
                                                   `(list 'delay ,x))) ; make the elements delayed, as we want them to be lazy
                                             (lol:flatten (mapcar (lambda (symb)
                                                                    (list (turn-into-key-word symb) symb))
