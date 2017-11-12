@@ -7,14 +7,17 @@
 
 ;; so far this macro only supports the :type keyword
 ;; this macro does not support conc-n yet, but at a later date I'll add it
+;; for some reason undefining 
 (defmacro defstruct-l (name-and-options &rest slot-descriptions)
   "works just like defstruct, except that it allows for the auto-generation of a lazy constructor
    and getters that conform to automatic lazy expansion, if none of these features are used
    then it's just defstruct"
   (flet ((turn-into-accessor (symb) (lol:symb (concatenate 'string
                                                            (lol:mkstr name-and-options)
-                                                           "-"
-                                                           (lol:mkstr symb))))
+                                                           "-" (lol:mkstr symb))))
+         (turn-into-accessor-l (symb) (lol:symb (concatenate 'string
+                                                             (lol:mkstr name-and-options)
+                                                             "-" (lol:mkstr symb) "-L")))
          (turn-into-key-word (symb) (intern (concatenate 'string (lol:mkstr symb)) "KEYWORD")))
 
     (let* ((doc-string (car (remove-if-not #'stringp slot-descriptions)))
@@ -37,22 +40,64 @@
                                            new-body))
            (new-symbs      (mapcar (lambda (slot)                     (if (listp slot) (car slot) slot)) new-body))
            (new-symbs-make (mapcar (lambda (slot) (turn-into-accessor (if (listp slot) (car slot) slot))) new-body))
+           (new-symbs-make-l (mapcar (lambda (slot) (turn-into-accessor-l (if (listp slot) (car slot) slot))) new-body))
            (struct-creator   (lol:symb (concatenate 'string "MAKE-" (lol:mkstr name-and-options))))
            (struct-creator-l (lol:symb (concatenate 'string "MAKE-" (lol:mkstr name-and-options) "-L")))
            (value (gensym))
-           (object (gensym)))
+           ;; (func (gensym))
+           (object (gensym))
+           )
 
-      `(prog2 (declaim (notinline ,@new-symbs-make))          ; we need to notinline things or else the old calls inside a (λ ())
-         (defstruct ,name-and-options ,doc-string ,@new-body) ; of any kind will use the old version, and ruin our code!
+      `(prog2 (declaim (notinline ,@new-symbs-make)) ; we need to notinline things or else the old calls inside a (λ ())
+           ,(if doc-string
+                `(defstruct ,name-and-options ,doc-string ,@new-body)
+                `(defstruct ,name-and-options ,@new-body)) ; of any kind will use the old version, and ruin our code!
+         ;; FIX ME, for some reason I can't overset the default getters and setters
+         ;; I tired to ways of solving the problem below
+
+         ;; the first uses setf and not inling the functions to get the effect
+         ;; this approach has the issue of using the old definition for some reason
+         ;; it's bizarre
+
+         ;; the second makes a new function of the same name and unbinds the original
+         ;; this second method gets stuck in infinite recursion of calling itself over and over
+
+         ;; 1.
          ,@(mapcar (lambda (maker-symb)
-                     `(setf (symbol-function ',maker-symb)
-                            (lambda (,object)
-                              (let ((,value (,maker-symb ,object)))
-                                (if (lazy-p ,value)
-                                    (setf (,maker-symb ,object) (force ,value))
-                                    ,value)))))
+                     `(eval-when (:compile-toplevel :load-toplevel :execute)
+                        (setf (symbol-function ',maker-symb)
+                              (lambda (,object)
+                                (let ((,value (,maker-symb ,object)))
+                                  (if (lazy-p ,value)
+                                      (setf (,maker-symb ,object) (force ,value))
+                                      ,value))))))
                    new-symbs-make)
-         (declaim (inline ,@new-symbs-make))                  ; now we can inline the newly updated function
+
+         ;; 2.
+         ;; ,@(mapcar (lambda (maker-symb)
+         ;;             `(flet ((,maker-symb (,object)
+         ;;                       (let ((,func #',maker-symb))
+         ;;                         (let ((,value (funcall ,func ,object)))
+         ;;                           (if (lazy-p ,value)
+         ;;                               (setf (,maker-symb ,object) (force ,value))
+         ;;                               ,value)))))
+         ;;                (fmakunbound ',maker-symb)
+         ;;                (defun ,maker-symb (,object)
+         ;;                  (funcall ,maker-symb ,object))
+         ;;                ;; (declaim (inline ,maker-symb))
+         ;;                ))
+         ;;           new-symbs-make)
+
+         ;; for the mean time use this definition instead and call -l when the function is lazy, or ∀ calls in general
+         ,@(mapcar (lambda (maker-symb-l maker-symb)
+                     `(defun ,maker-symb-l (,object)
+                        (let ((,value (,maker-symb ,object)))
+                          (if (lazy-p ,value)
+                              (setf (,maker-symb ,object) (force ,value))
+                              ,value))))
+                   new-symbs-make-l new-symbs-make)
+
+         (declaim (inline ,@new-symbs-make)) ; now we can inline the newly updated function
          (defmacro ,struct-creator-l (&key ,@new-symbs-with-default)
            "creates a lazy version of the struct, delaying all the arguments"
            (list ',struct-creator ,@(mapcar (lambda (x) ; we do (list '...) here as we are doing ` expansion by hand

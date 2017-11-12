@@ -26,7 +26,6 @@
         (satisfies single-p)
         (satisfies deep-p)))
 
-
   (defstruct-l deep
       "this is the spine of the finger tree, along with some digits on the sides"
     (left (make-digit) :type digit) ; the default values are a hack and should thus never be used!
@@ -119,8 +118,8 @@
                   :tree
                   (let ((view-spine (tree-view-l spine))) ; if the spine is not empty, recurse on the spine
                     (cond ((not (empty-viewp view-spine)) ; the :left part converts a node into a digit
-                           (make-deep :left  (to-digit (to-list (view-ele view-spine)))
-                                      :spine (view-tree view-spine)
+                           (make-deep :left  (to-digit (to-list (view-ele-l view-spine)))
+                                      :spine (view-tree-l view-spine)
                                       :right (deep-right tree)))
                           ;; spine is empty, so match against the right and give it to the left!
                           (d (make-deep :left (make-digit :one a :two b):spine :empty :right (make-digit :one c :two d)))
@@ -147,8 +146,8 @@
                   (let ((view-spine (tree-view-r spine)))
                     (cond ((not (empty-viewp view-spine))
                            (make-deep :left  (deep-left tree)
-                                      :spine (view-tree view-spine)
-                                      :right (to-digit (to-list (view-ele view-spine)))))
+                                      :spine (view-tree-l view-spine)
+                                      :right (to-digit (to-list (view-ele-l view-spine)))))
                           (d (make-deep :left (make-digit :one a :two b):spine :empty :right (make-digit :one c :two d)))
                           (c (make-deep :left (make-digit :one a :two b):spine :empty :right (make-digit :one c)))
                           (b (make-deep :left (make-digit :one a)       :spine :empty :right (make-digit :one b)))
