@@ -105,17 +105,17 @@
 
 
 ;; see deprecated code, if you really want to abstract out the patterns vs left and right views!
-(defun tree-view-l (tree)
+(defun view-l (tree)
   (match tree
     (:empty       (make-view))
     ((Single ele) (make-view :ele ele))
     ((guard (deep :left (digit one two) :right (digit :one a :two b :three c :four d))
-            (null two))                                                 ; checks for the case were we remove the only digit
+            (null two))                                            ; checks for the case were we remove the only digit
      (make-view-l :ele one
                   :tree
-                  (let ((view-spine (tree-view-l (deep-spine-l tree)))) ; if the spine is not empty, recurse on the spine
-                    (cond ((not (empty-viewp view-spine))               ; the :left part converts a node into a digit
-                           (make-deep :left  (to-digit (to-list (view-ele-l view-spine)))
+                  (let ((view-spine (view-l (deep-spine-l tree)))) ; if the spine is not empty, recurse on the spine
+                    (cond ((not (empty-viewp view-spine))
+                           (make-deep :left  (to-digit (to-list (view-ele-l view-spine))) ; convert a node into a digit
                                       :spine (view-tree view-spine)
                                       :right (deep-right tree)))
                           ;; spine is empty, so match against the right and give it to the left!
@@ -128,7 +128,7 @@
                     :tree (make-deep :left (to-digit (cdr dig-list)) :spine spine :right right))))))
 
 ;; left version has the comments, since it's the same structure!
-(defun tree-view-r (tree)
+(defun view-r (tree)
   "the right and left cases are almost the same, so just swap left for right and call it done!"
   (match tree
     (:empty       (make-view))
@@ -138,7 +138,7 @@
             (null two))
      (make-view-l :ele one
                   :tree
-                  (let ((view-spine (tree-view-r (deep-spine-l tree))))
+                  (let ((view-spine (view-r (deep-spine-l tree))))
                     (cond ((not (empty-viewp view-spine))
                            (make-deep :left  (deep-left tree)
                                       :spine (view-tree view-spine)
@@ -153,40 +153,12 @@
        (make-view-l :ele last
                     :Tree (make-deep :left left :spine spine :right (to-digit rest)))))))
 
-
-(defun tree-foldr (f z tree)
-  (match tree
-    (:empty z)
-    ((Single ele) (funcall f ele z))
-    ((deep left spine right)
-     (labels ((-<.  (acc xs) (foldr f acc xs))
-              (-<.. (acc xs) (tree-foldr (flip-2 #'-<.) acc xs))) ; here foldr swaps the order of args, so realign it
-       (declare (inline -<. -<..))                                ; we use flip-2 to make -<. inlineable!
-       (-<. (-<.. (-<. z right) spine) left)))))
-
-(defun tree-foldl (f z tree)
-  (match tree
-    (:empty z)
-    ((Single ele) (funcall f z ele))
-    ((deep left spine right)
-     (labels ((>-.  (acc xs) (foldl f acc xs))
-              (>-.. (acc xs) (tree-foldl #'>-. acc xs))) ; foldl does not swap args, so we are safe!
-       (declare (inline >-. >-..))
-       (>-. (>-.. (>-. z right) spine) left)))))
-
-
-
-
-(defun to-finger-gen (f seq)
-  (reduce f seq :initial-value :empty :from-end t))
-
-(defun to-finger (seq)
-  (to-finger-gen #'cons-l seq))
-
-(defun to-finger-r (seq)
-  (to-finger-gen #'cons-r seq))
-
 ;;; generic functions===================================================================================================
+(defgeneric cat (s1 s2)
+  (:documentation "concatenates two structures of the same type"))
+
+(defmethod cat ((tree1 deep) tree2)   (finger-cat tree1 tree2))
+(defmethod cat ((tree1 single) tree2) (finger-cat tree1 tree2))
 
 (defmethod to-list ((node node))
   (if (node-3p node)
@@ -200,13 +172,18 @@
                                       (two   (list one two))
                                       (one   (list one))))))
 
+(defmethod to-list ((tree deep))   (finger-to-list tree))
+(defmethod to-list ((tree single)) (finger-to-list tree))
+
+
+(defmethod to-stream ((tree deep))   (finger-to-stream tree))
+(defmethod to-stream ((tree single)) (finger-to-stream tree))
+
+(defmethod foldr (f x (single single)) (tree-foldr f x single))
 (defmethod foldr (f x (deep deep))     (tree-foldr f x deep))
-(defmethod foldr (f x (single single)) (tree-foldr f x single))
-(defmethod foldr (f x (single single)) (tree-foldr f x single))
 
 (defmethod foldl (f x (single single)) (tree-foldl f x single))
 (defmethod foldl (f x (deep deep))     (tree-foldl f x deep))
-(defmethod foldl (f x (single single)) (tree-foldl f x single))
 
 (defmethod foldr (f x (node node))   (reduce f (to-list node) :initial-value x :from-end t))
 (defmethod foldr (f x (digit digit)) (reduce f (to-list digit) :initial-value x :from-end t))
@@ -237,11 +214,124 @@
 (defun flip (f)
   (lambda (x y &rest args) (apply f y x args)))
 
+(declaim (inline flip flip-2))
+
 (defun flip-2 (f)
   (lambda (x y) (funcall f y x)))
 
-(declaim (inline flip flip-2))
+;; we prefer Node3's as much as possible here!
+;; [a] -> [Node a]
+(defun nodes (xs &optional acc)
+  "converts a list of elements to a list of Node of elements"
+  (match xs
+    (nil             (error "it requires at least 2 elements to be a node, not 0"))
+    ((list _)        (error "it requires at least 2 elements to be a node, not 1"))
+    ((list a b)      (reverse (cons (make-node :one a :two b)          acc)))
+    ((list a b c)    (reverse (cons (make-node :one a :two b :three c) acc)))
+    ((list a b c d)  (reverse (list*(make-node :one c :two d) (make-node :one a :two b) acc)))
+    ((list* a b c d) (nodes d (cons (make-node :one a :two b :three c) acc)))))
 
+(defun app3 (tree1 xs tree2)
+  "concatenate two finger trees using a middle list to store elements that will go between the branches"
+  (match (list tree1 tree2)
+    ((list :empty _)       (lift-cons-l xs tree2))
+    ((list _ :empty)       (lift-cons-r xs tree1))
+    ((list (single ele) _) (cons-l ele (lift-cons-l xs tree2)))
+    ((list _ (single ele)) (cons-r ele (lift-cons-r xs tree1)))
+    ((list (deep :left 1l :right 1r)
+           (deep :left 2l :right 2r))
+     (make-deep :left 1l
+                :spine (app3 (deep-spine-l tree1)
+                             (nodes (append (to-list 1r) xs (to-list 2l)))
+                             (deep-spine-l tree2))
+                :right 2r))))
+
+;;;; None generic versions of generic functions=========================================================================
+;; note the empty type requires these calls instead of the more generic version, since a symbol is ambiguous!
+
+(defun finger-cat (tree1 tree2)
+  "concatenates two fingertrees"
+  (app3 tree1 '() tree2))
+
+
+(defun tree-foldr (f z tree)
+  (match tree
+    (:empty z)
+    ((Single ele) (funcall f ele z))
+    ((deep left spine right)
+     (labels ((-<.  (acc xs) (foldr f acc xs))
+              (-<.. (acc xs) (tree-foldr (flip-2 #'-<.) acc xs))) ; here foldr swaps the order of args, so realign it
+       (declare (inline -<. -<..))                                ; we use flip-2 to make -<. inlineable!
+       (-<. (-<.. (-<. z right) spine) left)))))
+
+(defun tree-foldl (f z tree)
+  (match tree
+    (:empty z)
+    ((Single ele) (funcall f z ele))
+    ((deep left spine right)
+     (labels ((>-.  (acc xs) (foldl f acc xs))
+              (>-.. (acc xs) (tree-foldl #'>-. acc xs))) ; foldl does not swap args, so we are safe!
+       (declare (inline >-. >-..))
+       (>-. (>-.. (>-. z right) spine) left)))))
+
+(defun lift-cons-gen (f seq tree)
+  (reduce f seq :initial-value tree :from-end t))
+
+(defun lift-cons-r (seq tree)
+  (lift-cons-gen #'cons-r seq tree))
+
+(defun lift-cons-l (seq tree)
+  (lift-cons-gen #'cons-l seq tree))
+
+(defun to-finger (seq)
+  (lift-cons-l seq :empty))
+
+(defun to-finger-r (seq)
+  (to-finger-gen #'cons-r seq))
+
+(defun finger-to-list (tree &optional acc)
+  (let ((view (view-l tree)))
+    (if (view-ele-l view)
+        (finger-to-list (view-tree-l view) (cons (view-ele-l view) acc))
+        (reverse acc))))
+
+(defun finger-to-stream (tree)
+  (let ((view (view-l tree)))
+    (if (view-ele-l view)
+        (scons (view-ele-l view) (finger-to-stream (view-tree-l view)))
+        nil)))
+
+
+;;;; Unused Ideas=======================================================================================================
+
+(defun nodes-l (xs)
+  "a lazy conversion of [a] |-> [Node a] "
+  (scdr (scdr (scdr (scdr xs))))
+  (scar xs)
+  (scar (scdr xs))
+  (scar (scdr (scdr xs)))
+  (match xs
+    (nil           (error "it requires at least 2 elements to be a node, not 0"))
+    ((list _)      (error "it requires at least 2 elements to be a node, not 1"))
+    ((list a b)    (slist (make-node :one a :two b)))
+    ((list a b c)  (slist (make-node :one a :two b :three c)))
+    ((list* a b c) (scons (make-node :one a :two b)
+                          (nodes-l c)))))
+
+(defun app3-l (tree1 xs tree2)
+  "concatenate two finger trees using a middle list to store elements that will go between the branches"
+  (match (list tree1 tree2)
+    ((list :empty _)       (lift-cons-l (make-strict xs) tree2))
+    ((list _ :empty)       (lift-cons-r (make-strict xs) tree1))
+    ((list (single ele) _) (cons-l ele (lift-cons-l (make-strict xs) tree2)))
+    ((list _ (single ele)) (cons-r ele (lift-cons-r (make-strict xs) tree1)))
+    ((list (deep :left 1l :right 1r)
+           (deep :left 2l :right 2r))
+     (make-deep :left 1l
+                :spine (app3% (deep-spine-l tree1)
+                             (nodes-l (sappend (sappend (to-list 1r) xs) (to-list 2l)))
+                             (deep-spine-l tree2))
+                :right 2r))))
 
 ;;;; Deprecated Ideas===================================================================================================
 
@@ -266,7 +356,7 @@
              (null two)) ; checks for the case were we remove the only digit
       (make-view :ele one
                  :tree
-                 (let ((view-spine (tree-view-l spine))) ; if the spine is not empty, recurse on the spine
+                 (let ((view-spine (view-l spine))) ; if the spine is not empty, recurse on the spine
                    (cond ((not (empty-viewp view-spine)) ; the :left part converts a node into a digit
                           (make-deep :left  ,(if left?
                                                  `(to-digit (to-list (view-ele view-spine)))
