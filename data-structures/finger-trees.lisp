@@ -28,6 +28,7 @@
 
   (defstruct-l deep
       "this is the spine of the finger tree, along with some digits on the sides"
+    measure
     (left (make-digit) :type digit) ; the default values are a hack and should thus never be used!
     (spine :empty :type finger-tree)
     (right (make-digit) :type digit))
@@ -39,7 +40,7 @@
 
   (defstruct-l node
       "a node either has two or three things in it"
-    one two three)
+    measure one two three)
 
   (defstruct-l view
       "a view of a finger-tree, gives back an element and the rest of the tree"
@@ -60,6 +61,64 @@
   "we can simulate an empty view like this"
   (or (equalp view (make-view))))
 
+
+;;;; Monoidic Constructors==============================================================================================
+
+(defgeneric <> (xs ys)
+  (:documentation "the monoidic operation between two values"))
+
+(defgeneric mempty (_)
+  (:documentation "the empty value for a type, takes a fake variable"))
+
+(defgeneric bar (x &optional mempty-value)
+  (:documentation "converts a structure into a monoidic structure, the mempty-value is value of the type we want, so
+                   I can generically have this work on any type"))
+
+;; These three variables allow the user to use their own measure by letting over <> and mempty before using!
+(defparameter <> #'<>
+  "the monidic function, by default, it goes to the defmethod, but let over this to change the behavior of functions")
+
+(defparameter mempty #'mempty
+  "the identity value by default, if users want to use their own measure, just let over this")
+
+(defparameter bar #'bar
+    "the value that gets called onto a structure to make it monoidic, by default it converts things to numbers")
+
+(defmethod bar ((x number)) x)
+
+(defmethod <> ((x number) (y number))
+  (+ x y))
+
+(defmethod bar ((xs node) &optional mempty-value)
+  (declare (ignore mempty-value))
+  (node-measure-l xs))
+
+(defmethod bar ((xs digit) &optional (mempty-value 0))
+  (foldl (lambda (acc i) (<> i (bar acc))) (funcall mempty mempty-value) xs))
+
+(defmethod bar ((x symbol) &optional (mempty-value 0))
+  (funcall mempty mempty-value))
+
+(defmethod bar ((x single) &optional mempty-value)
+  (declare (ignore mempty-value))
+  (funcall mempty (bar (single-ele x))))
+
+;; (let ((bar (lambda (x) (declare (ignore x)) 2)))
+;;   (print (make-s-node :one 3 :two 4 :bar (lambda (x) (declare (ignore x)) 8))))
+
+(defmethod mempty ((x number))
+  (declare (ignore x))
+  0)
+
+(defun make-s-node (&key measure one two three (bar bar) (<> <>) (mempty mempty))
+  (let ((measure? (if measure
+                      measure
+                      (funcall <> (funcall bar one) (funcall bar two)))))
+    (if three
+        (make-node :measure (funcall <> measure? (funcall bar three))
+                   :one one :two two :three three)
+        (make-node :measure measure?
+                   :one one :two two))))
 
 ;;;; Functions==========================================================================================================
 ;;; time to convert some functions!
@@ -95,7 +154,7 @@
                   :right (digit one two three four))
             (not (null four)))
      (let ((node (make-node :one one :two two :three three))) ; want to send the elements furthest from the
-       (make-deep :left  left                                 ; end down
+       (make-deep :left  left           ; end down
                   :spine (cons-r node (deep-spine-l tree))
                   :right (make-digit :one four :two x))))
     ((deep left spine right)
@@ -110,7 +169,7 @@
     (:empty       (make-view))
     ((Single ele) (make-view :ele ele))
     ((guard (deep :left (digit one two) :right (digit :one a :two b :three c :four d))
-            (null two))                                            ; checks for the case were we remove the only digit
+            (null two)) ; checks for the case were we remove the only digit
      (make-view-l :ele one
                   :tree
                   (let ((view-spine (view-l (deep-spine-l tree)))) ; if the spine is not empty, recurse on the spine
@@ -261,7 +320,7 @@
     ((deep left spine right)
      (labels ((-<.  (acc xs) (foldr f acc xs))
               (-<.. (acc xs) (tree-foldr (flip-2 #'-<.) acc xs))) ; here foldr swaps the order of args, so realign it
-       (declare (inline -<. -<..))                                ; we use flip-2 to make -<. inlineable!
+       (declare (inline -<. -<..)) ; we use flip-2 to make -<. inlineable!
        (-<. (-<.. (-<. z right) spine) left)))))
 
 (defun tree-foldl (f z tree)
@@ -329,8 +388,8 @@
            (deep :left 2l :right 2r))
      (make-deep :left 1l
                 :spine (app3% (deep-spine-l tree1)
-                             (nodes-l (sappend (sappend (to-list 1r) xs) (to-list 2l)))
-                             (deep-spine-l tree2))
+                              (nodes-l (sappend (sappend (to-list 1r) xs) (to-list 2l)))
+                              (deep-spine-l tree2))
                 :right 2r))))
 
 ;;;; Deprecated Ideas===================================================================================================
