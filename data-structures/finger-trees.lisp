@@ -44,7 +44,7 @@
   (defstruct-l view
       "a view of a finger-tree, gives back an element and the rest of the tree"
     (ele nil)
-    (tree :empty :type (or finger-tree lazy))))
+    (tree :empty :type finger-tree)))
 
 
 
@@ -58,8 +58,7 @@
 
 (defun empty-viewp (view)
   "we can simulate an empty view like this"
-  (or (equalp view (make-view))
-     (equalp (view-tree view) (view-tree (make-view)))))
+  (or (equalp view (make-view))))
 
 
 ;;;; Functions==========================================================================================================
@@ -74,12 +73,11 @@
                              :right (make-digit :one ele)))
     ;; this case we must recurse, as our left node is at max capacity!
     ((guard (deep :left  (digit one two three four)
-                  :spine deeper
                   :right right)
             (not (null four)))
      (let ((node (make-node :one two :two three :three four)))
        (make-deep :left  (make-digit :one x :two one)
-                  :spine (cons-l node deeper)
+                  :spine (cons-l node (deep-spine-l tree))
                   :right right)))
     ;; our left isn't at max capacity, so we add things to our digit
     ((deep left spine right)
@@ -94,12 +92,11 @@
     ((Single ele) (make-deep :left  (make-digit :one ele)
                              :right (make-digit :one x)))
     ((guard (deep :left  left
-                  :spine deeper
                   :right (digit one two three four))
             (not (null four)))
      (let ((node (make-node :one one :two two :three three))) ; want to send the elements furthest from the
        (make-deep :left  left                                 ; end down
-                  :spine (cons-r node deeper)
+                  :spine (cons-r node (deep-spine-l tree))
                   :right (make-digit :one four :two x))))
     ((deep left spine right)
      (make-deep :left  left
@@ -112,19 +109,18 @@
   (match tree
     (:empty       (make-view))
     ((Single ele) (make-view :ele ele))
-    ((guard (deep :left (digit one two) spine :right (digit :one a :two b :three c :four d))
-            (null two))                                 ; checks for the case were we remove the only digit
+    ((guard (deep :left (digit one two) :right (digit :one a :two b :three c :four d))
+            (null two))                                                 ; checks for the case were we remove the only digit
      (make-view-l :ele one
                   :tree
-                  (let ((view-spine (tree-view-l spine))) ; if the spine is not empty, recurse on the spine
-                    (cond ((not (empty-viewp view-spine)) ; the :left part converts a node into a digit
+                  (let ((view-spine (tree-view-l (deep-spine-l tree)))) ; if the spine is not empty, recurse on the spine
+                    (cond ((not (empty-viewp view-spine))               ; the :left part converts a node into a digit
                            (make-deep :left  (to-digit (to-list (view-ele-l view-spine)))
-                                      :spine (view-tree-l view-spine)
+                                      :spine (view-tree view-spine)
                                       :right (deep-right tree)))
                           ;; spine is empty, so match against the right and give it to the left!
-                          (d (make-deep :left (make-digit :one a :two b):spine :empty :right (make-digit :one c :two d)))
-                          (c (make-deep :left (make-digit :one a :two b):spine :empty :right (make-digit :one c)))
-                          (b (make-deep :left (make-digit :one a)       :spine :empty :right (make-digit :one b)))
+                          (c (make-deep :left (make-digit :one a :two b) :right (make-digit :one c :two d)))
+                          (b (make-deep :left (make-digit :one a)        :right (make-digit :one b)))
                           (t (make-single :ele a))))))
     ((deep left spine right)
      (let ((dig-list (to-list left)))
@@ -138,19 +134,17 @@
     (:empty       (make-view))
     ((Single ele) (make-view :ele ele))
     ((guard (deep :left (digit :one a :two b :three c :four d)
-                  spine
                   :right (digit one two))
             (null two))
      (make-view-l :ele one
                   :tree
-                  (let ((view-spine (tree-view-r spine)))
+                  (let ((view-spine (tree-view-r (deep-spine-l tree))))
                     (cond ((not (empty-viewp view-spine))
                            (make-deep :left  (deep-left tree)
-                                      :spine (view-tree-l view-spine)
+                                      :spine (view-tree view-spine)
                                       :right (to-digit (to-list (view-ele-l view-spine)))))
-                          (d (make-deep :left (make-digit :one a :two b):spine :empty :right (make-digit :one c :two d)))
-                          (c (make-deep :left (make-digit :one a :two b):spine :empty :right (make-digit :one c)))
-                          (b (make-deep :left (make-digit :one a)       :spine :empty :right (make-digit :one b)))
+                          (c (make-deep :left (make-digit :one a :two b) :right (make-digit :one c :two d)))
+                          (b (make-deep :left (make-digit :one a)        :right (make-digit :one b)))
                           (t (make-single :ele a))))))
     ((deep left spine right)
      (let* ((dig-list (to-list right))
