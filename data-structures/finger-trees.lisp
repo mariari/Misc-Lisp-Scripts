@@ -82,33 +82,7 @@
   "the identity value by default, if users want to use their own measure, just let over this")
 
 (defparameter bar #'bar
-    "the value that gets called onto a structure to make it monoidic, by default it converts things to numbers")
-
-(defmethod bar ((x number)) x)
-
-(defmethod <> ((x number) (y number))
-  (+ x y))
-
-(defmethod bar ((xs node) &optional mempty-value)
-  (declare (ignore mempty-value))
-  (node-measure-l xs))
-
-(defmethod bar ((xs digit) &optional (mempty-value 0))
-  (foldl (lambda (acc i) (<> i (bar acc))) (funcall mempty mempty-value) xs))
-
-(defmethod bar ((x symbol) &optional (mempty-value 0))
-  (funcall mempty mempty-value))
-
-(defmethod bar ((x single) &optional mempty-value)
-  (declare (ignore mempty-value))
-  (funcall mempty (bar (single-ele x))))
-
-;; (let ((bar (lambda (x) (declare (ignore x)) 2)))
-;;   (print (make-s-node :one 3 :two 4 :bar (lambda (x) (declare (ignore x)) 8))))
-
-(defmethod mempty ((x number))
-  (declare (ignore x))
-  0)
+  "the value that gets called onto a structure to make it monoidic, by default it converts things to numbers")
 
 (defun make-s-node (&key measure one two three (bar bar) (<> <>) (mempty mempty))
   (let ((measure? (if measure
@@ -346,7 +320,7 @@
   (lift-cons-l seq :empty))
 
 (defun to-finger-r (seq)
-  (to-finger-gen #'cons-r seq))
+  (lift-cons-r seq :empty))
 
 (defun finger-to-list (tree &optional acc)
   (let ((view (view-l tree)))
@@ -359,6 +333,59 @@
     (if (view-ele-l view)
         (scons (view-ele-l view) (finger-to-stream (view-tree-l view)))
         nil)))
+
+;;;; Monoidic Instances of types========================================================================================
+
+(defmethod bar ((x number) &optional mempty-value)
+  (declare (ignore mempty-value))
+  x)
+
+(defmethod bar ((xs string) &optional mempty-value)
+  (declare (ignore mempty-value))
+  (length xs))
+
+(defmethod mempty ((x number))
+  (declare (ignore x))
+  0)
+
+(defmethod mempty ((x string))
+  (declare (ignore x))
+  "")
+
+(defmethod <> ((x number) (y number))
+  (+ x y))
+
+(defmethod <> ((x string) (y string))
+  (concatenate 'string x y))
+
+;; node bar/norm================================
+(defmethod bar ((xs node) &optional mempty-value)
+  (declare (ignore mempty-value))
+  (node-measure-l xs))
+
+;; digit bar/norm==========================================================
+(defmethod bar ((xs digit)
+                &optional (mempty-value (funcall mempty (digit-one-l xs))))
+  (foldl (lambda (acc i) (<> i (bar acc))) mempty-value xs))
+
+;; Finger Tree Bar/Norm===============================
+(defmethod bar ((x symbol) &optional (mempty-value 0))
+  (funcall mempty mempty-value))
+
+(defmethod bar ((x single) &optional mempty-value)
+  (declare (ignore mempty-value))
+  (bar (single-ele x)))
+
+(defmethod bar ((x deep) &optional mempty-value)
+  (declare (ignore mempty-value))
+  (deep-measure-l x))
+;;====================================================
+
+;; (let ((bar (lambda (x) (declare (ignore x)) 2)))
+;;   (print (make-s-node :one 3 :two 4 :bar (lambda (x) (declare (ignore x)) 8))))
+
+(defmethod mempty ((x node))
+  (mempty (node-one-l x)))
 
 
 ;;;; Unused Ideas=======================================================================================================
@@ -387,7 +414,7 @@
     ((list (deep :left 1l :right 1r)
            (deep :left 2l :right 2r))
      (make-deep :left 1l
-                :spine (app3% (deep-spine-l tree1)
+                :spine (app3-l (deep-spine-l tree1)
                               (nodes-l (sappend (sappend (to-list 1r) xs) (to-list 2l)))
                               (deep-spine-l tree2))
                 :right 2r))))
