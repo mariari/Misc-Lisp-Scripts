@@ -34,28 +34,42 @@
     (right (make-digit) :type digit))
 
 
-  (defstruct-l digit
+  (defstruct digit "a digit can hold either 1 or 2 or 3 or 4 things in it")
+
+  (defstruct (digit-1 (:include digit))
       "a digit can hold either 1 or 2 or 3 or 4 things in it"
-    one two three four)
+    one)
+
+  (defstruct (digit-2 (:include digit-1))
+      "a digit can hold either 1 or 2 or 3 or 4 things in it"
+    two)
+
+  (defstruct (digit-3 (:include digit-2))
+      "a digit can hold either 1 or 2 or 3 or 4 things in it"
+    three)
+
+  (defstruct (digit-4 (:include digit-3))
+      "a digit can hold either 1 or 2 or 3 or 4 things in it"
+    four)
 
   (defstruct-l node
       "a node either has two or three things in it"
-    (measure 0) one two three)
+    (measure 0))
+
+  (defstruct-l (node-2 (:include node))
+      one two)
+
+  (defstruct-l (node-3 (:include node))
+      one two three)
 
   (defstruct-l view
       "a view of a finger-tree, gives back an element and the rest of the tree"
     (ele nil)
     (tree :empty :type finger-tree)))
 
-
-
 (defun finger-tree-p (tree)
   (typep tree 'finger-tree))
 
-(defun node-3p (node)
-  "returns true -> this is a node three
-   returns false -> this is a node two"
-  (node-three node))
 
 (defun empty-viewp (view)
   "we can simulate an empty view like this"
@@ -92,10 +106,10 @@
                       measure
                       (f <> (f bar one) (f bar two)))))
     (if three
-        (make-node :measure (f <> measure? (f bar three))
-                   :one one :two two :three three)
-        (make-node :measure measure?
-                   :one one :two two))))
+        (make-node-3 :measure (f <> measure? (f bar three))
+                     :one one :two two :three three)
+        (make-node-2 :measure measure?
+                     :one one :two two))))
 
 (defun make-s-deep (&key measure (left (make-digit)) (spine :empty) (right (make-digit)))
   (let ((deep (make-deep :left left :spine spine :right right)))
@@ -115,39 +129,37 @@
   (match tree
     (:empty       (make-single :ele x))
     ;; upgrade the single element into a deep structure with an empty spine
-    ((Single ele) (make-s-deep :left (make-digit :one x)
-                             :right (make-digit :one ele)))
+    ((Single ele) (make-s-deep :left (make-digit-1 :one x)
+                               :right (make-digit-1 :one ele)))
     ;; this case we must recurse, as our left node is at max capacity!
-    ((guard (deep :left  (digit one two three four)
-                  :right right)
-            (not (null four)))
+    ((deep :left  (digit-4 one two three four)
+           :right right)
      (let ((node (make-s-node :one two :two three :three four)))
-       (make-s-deep :left  (make-digit :one x :two one)
-                  :spine (cons-l node (deep-spine-l tree))
-                  :right right)))
+       (make-s-deep :left  (make-digit-2 :one x :two one)
+                    :spine (cons-l node (deep-spine-l tree))
+                    :right right)))
     ;; our left isn't at max capacity, so we add things to our digit
     ((deep left spine right)
      (make-s-deep :left (cons-l-dig x left)
-                :spine spine
-                :right right))))
+                  :spine spine
+                  :right right))))
 
 (defun cons-r (x tree)
   "cons an element onto the back of a finger-tree"
   (match tree
     (:empty       (make-single :ele x))
-    ((Single ele) (make-s-deep :left  (make-digit :one ele)
-                             :right (make-digit :one x)))
-    ((guard (deep :left  left
-                  :right (digit one two three four))
-            (not (null four)))
+    ((Single ele) (make-s-deep :left  (make-digit-1 :one ele)
+                               :right (make-digit-1 :one x)))
+    ((deep :left  left
+           :right (digit-4 one two three four))
      (let ((node (make-s-node :one one :two two :three three))) ; want to send the elements furthest from the
        (make-s-deep :left  left           ; end down
-                  :spine (cons-r node (deep-spine-l tree))
-                  :right (make-digit :one four :two x))))
+                    :spine (cons-r node (deep-spine-l tree))
+                    :right (make-digit-2 :one four :two x))))
     ((deep left spine right)
      (make-s-deep :left  left
-                :spine spine
-                :right (cons-r-dig x right)))))
+                  :spine spine
+                  :right (cons-r-dig x right)))))
 
 
 ;; see deprecated code, if you really want to abstract out the patterns vs left and right views!
@@ -155,19 +167,23 @@
   (match tree
     (:empty       (make-view))
     ((Single ele) (make-view :ele ele))
-    ((guard (deep :left (digit one two) :right (digit :one a :two b :three c :four d))
-            (null two)) ; checks for the case were we remove the only digit
+    ((deep :left (digit-1 one) right) ; checks for the case were we remove the only digit
      (make-view-l :ele one
                   :tree
                   (let ((view-spine (view-l (deep-spine-l tree)))) ; if the spine is not empty, recurse on the spine
-                    (cond ((not (empty-viewp view-spine))
-                           (make-s-deep :left  (to-digit (to-list (view-ele-l view-spine))) ; convert a node into a digit
-                                      :spine (view-tree view-spine)
-                                      :right (deep-right tree)))
+                    (if (not (empty-viewp view-spine))
+                        (make-s-deep :left  (to-digit (to-list (view-ele-l view-spine))) ; convert a node into a digit
+                                     :spine (view-tree view-spine)
+                                     :right (deep-right tree))
                           ;; spine is empty, so match against the right and give it to the left!
-                          (c (make-s-deep :left (make-digit :one a :two b) :right (make-digit :one c :two d)))
-                          (b (make-s-deep :left (make-digit :one a)        :right (make-digit :one b)))
-                          (t (make-single :ele a))))))
+                        (match right
+                          ((digit-4 :one a :two b :three c :four d) (make-s-deep :left (make-digit-2 :one a :two b)
+                                                                                 :right (make-digit-2 :one c :two d)))
+                          ((digit-3 :one a :two b :three c)         (make-s-deep :left (make-digit-2 :one a :two b)
+                                                                                 :right (make-digit-1 :one c)))
+                          ((digit-2 :one a :two b)                  (make-s-deep :left (make-digit-1 :one a)
+                                                                                 :right (make-digit-1 :one b)))
+                          ((digit-1 :one a)                         (make-single :ele a)))))))
     ((deep left spine right)
      (let ((dig-list (to-list left)))
        (make-view-l :ele (car dig-list)
@@ -179,19 +195,22 @@
   (match tree
     (:empty       (make-view))
     ((Single ele) (make-view :ele ele))
-    ((guard (deep :left (digit :one a :two b :three c :four d)
-                  :right (digit one two))
-            (null two))
+    ((deep left :right (digit-1 one))  ;; (digit :one a :two b :three c :four d)
      (make-view-l :ele one
                   :tree
                   (let ((view-spine (view-r (deep-spine-l tree))))
-                    (cond ((not (empty-viewp view-spine))
-                           (make-s-deep :left  (deep-left tree)
-                                      :spine (view-tree view-spine)
-                                      :right (to-digit (to-list (view-ele-l view-spine)))))
-                          (c (make-s-deep :left (make-digit :one a :two b) :right (make-digit :one c :two d)))
-                          (b (make-s-deep :left (make-digit :one a)        :right (make-digit :one b)))
-                          (t (make-single :ele a))))))
+                    (if (not (empty-viewp view-spine))
+                        (make-s-deep :left  (deep-left tree)
+                                     :spine (view-tree view-spine)
+                                     :right (to-digit (to-list (view-ele-l view-spine))))
+                        (match left
+                          ((digit-4 :one a :two b :three c :four d) (make-s-deep :left (make-digit-2 :one a :two b)
+                                                                                 :right (make-digit-2 :one c :two d)))
+                          ((digit-3 :one a :two b :three c)         (make-s-deep :left (make-digit-2 :one a :two b)
+                                                                                 :right (make-digit-1 :one c)))
+                          ((digit-2 :one a :two b)                  (make-s-deep :left (make-digit-1 :one a)
+                                                                                 :right (make-digit-1 :one b)))
+                          ((digit-1 :one a)                         (make-single :ele a)))))))
     ((deep left spine right)
      (let* ((dig-list (to-list right))
             (last     (car (last dig-list)))
@@ -206,10 +225,11 @@
 (defmethod cat ((tree1 deep) tree2)   (finger-cat tree1 tree2))
 (defmethod cat ((tree1 single) tree2) (finger-cat tree1 tree2))
 
-(defmethod to-list ((node node))
-  (if (node-3p node)
-      (list (node-one node) (node-two node) (node-three node))
-      (list (node-one node) (node-two node))))
+(defmethod to-list ((node node-2))
+  (list (node-one node) (node-two node)))
+
+(defmethod to-list ((node node-3))
+  (list (node-one node) (node-two node) (node-three node)))
 
 (defmethod to-list ((digit digit))
   (match digit
@@ -240,22 +260,37 @@
 ;;; Helper Functions====================================================================================================
 
 (defun to-digit (lis)
-  (make-digit :one (car lis) :two (cadr lis) :three (caddr lis) :four (cadddr lis)))
+  (match lis
+    ((list a)       (make-digit-1 :one a))
+    ((list a b)     (make-digit-2 :one a :two b))
+    ((list a b c)   (make-digit-3 :one a :two b :three c))
+    ((list a b c d) (make-digit-4 :one a :two b :three c :four d))
+    (t              (error "the list must be of size 4 or lesser to become a digit"))))
 
-(defun cons-l-dig (x dig)
-  (match dig ((digit one two three four)
-              (when four
-                (error "can't append a node onto a digit of four"))
-              (make-digit :one x :two one :three two :four three))))
+(defmethod cons-l-dig (x (dig digit-1))
+  (make-digit-2 :one x :two (digit-1-one dig)))
 
-(defun cons-r-dig (x dig)
-  (match dig ((digit one two three four)
-              (when four
-                (error "can't append a node onto a digit of four"))
-              (cond (three (make-digit :one one :two two :three three :four x))
-                    (two   (make-digit :one one :two two :three x))
-                    (one   (make-digit :one one :two x))
-                    (t     (make-digit :one x))))))
+(defmethod cons-l-dig (x (dig digit-2))
+  (make-digit-3 :one x :two (digit-2-one dig) :three (digit-2-two dig)))
+
+(defmethod cons-l-dig (x (dig digit-3))
+  (make-digit-4 :one x :two (digit-3-one dig) :three (digit-3-two dig) :four (digit-3-three dig)))
+
+(defmethod cons-l-dig (x (dig digit-4))
+  (error "can't append a node onto a digit of four"))
+
+
+
+(defmethod cons-r-dig (x (dig digit-1))
+  (make-digit-2 :one (digit-1-one dig) :two x))
+(defmethod cons-l-dig (x (dig digit-2))
+  (make-digit-3 :one (digit-2-one dig) :two (digit-2-two dig) :three x))
+
+(defmethod cons-l-dig (x (dig digit-3))
+  (make-digit-4 :one (digit-3-one dig) :two (digit-3-two dig) :three (digit-3-three dig) :four x))
+
+(defmethod cons-l-dig (x (dig digit-4))
+  (error "can't append a node onto a digit of four"))
 
 (defun flip (f)
   (lambda (x y &rest args) (apply f y x args)))
@@ -287,10 +322,24 @@
     ((list (deep :left 1l :right 1r)
            (deep :left 2l :right 2r))
      (make-s-deep :left 1l
-                :spine (app3 (deep-spine-l tree1)
-                             (nodes (append (to-list 1r) xs (to-list 2l)))
-                             (deep-spine-l tree2))
-                :right 2r))))
+                  :spine (app3 (deep-spine-l tree1)
+                               (nodes (append (to-list 1r) xs (to-list 2l))) ; at most there are 4 things in this list
+                               (deep-spine-l tree2))
+                  :right 2r))))
+
+
+(defmethod node-one ((node node-2))   (node-2-one node))
+(defmethod node-one-l ((node node-2)) (node-2-one-l node))
+(defmethod node-two ((node node-2))   (node-2-two node))
+(defmethod node-two-l ((node node-2)) (node-2-two-l node))
+
+(defmethod node-one ((node node-3))     (node-3-one node))
+(defmethod node-one-l ((node node-3))   (node-3-one-l node))
+(defmethod node-two ((node node-3))     (node-3-two node))
+(defmethod node-two-l ((node node-3))   (node-3-two-l node))
+(defmethod node-three ((node node-3))   (node-3-three node))
+(defmethod node-three-l ((node node-3)) (node-3-three-l node))
+
 
 ;;;; None generic versions of generic functions=========================================================================
 ;; note the empty type requires these calls instead of the more generic version, since a symbol is ambiguous!
