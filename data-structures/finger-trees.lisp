@@ -104,14 +104,20 @@
   "the value that gets called onto a structure to make it monoidic, by default it converts things to numbers")
 
 (defun make-s-node (&key measure one two three (bar bar) (<> <>))
-  (let ((measure? (if measure
-                      measure
-                      (f <> (f bar one) (f bar two)))))
-    (if three
-        (make-node-3 :measure (f <> measure? (f bar three))
-                     :one one :two two :three three)
-        (make-node-2 :measure measure?
-                     :one one :two two))))
+  (let ((node (if three
+                  (make-node-3 :one one :two two :three three)
+                  (make-node-2 :one one :two two))))
+    (setf (node-measure node)
+          (if measure
+              measure
+              (flet ((delayed-node ()
+                       (f <> (f bar (node-one node))
+                             (f bar (node-two node)))))
+                (if three
+                    (delay (f <> (delayed-node)
+                                 (f bar (node-3-three node))))
+                    (delay (delayed-node))))))
+    node))
 
 (defun make-s-deep (&key measure (left (make-digit)) (spine :empty) (right (make-digit)))
   (let ((deep (make-deep :left left :spine spine :right right)))
@@ -410,6 +416,10 @@
   (declare (ignore mempty-value))
   x)
 
+(defmethod bar ((x lazy) &optional mempty-value)
+  (declare (ignore mempty-value))
+  (bar (force x)))
+
 (defmethod bar ((xs string) &optional mempty-value)
   (declare (ignore mempty-value))
   (length xs))
@@ -425,6 +435,15 @@
 (defmethod <> ((x number) (y number))
   (+ x y))
 
+(defmethod <> ((x lazy) (y lazy))
+  (delay (<> (force x) (force y))))
+
+(defmethod <> ((x lazy) y)
+  (delay (<> (force x) y)))
+
+(defmethod <> (x (y lazy))
+  (delay (<> x (force y))))
+
 (defmethod <> ((x string) (y string))
   (concatenate 'string x y))
 
@@ -434,8 +453,18 @@
   (node-measure-l xs))
 
 ;; digit bar/norm==========================================================
-(defmethod bar ((xs digit)
-                &optional (mempty-value (f mempty (digit-one-l xs))))
+(defmethod bar ((xs digit-1)
+                &optional (mempty-value (f mempty (digit-1-one xs))))
+  (foldl (lambda (acc a) (<> acc (bar a))) mempty-value xs))
+
+(defmethod bar ((xs digit-2)
+                &optional (mempty-value (f mempty (digit-2-one xs))))
+  (foldl (lambda (acc a) (<> acc (bar a))) mempty-value xs))
+(defmethod bar ((xs digit-3)
+                &optional (mempty-value (f mempty (digit-3-one xs))))
+  (foldl (lambda (acc a) (<> acc (bar a))) mempty-value xs))
+(defmethod bar ((xs digit-4)
+                &optional (mempty-value (f mempty (digit-4-one xs))))
   (foldl (lambda (acc a) (<> acc (bar a))) mempty-value xs))
 
 ;; Finger Tree Bar/Norm===============================
