@@ -7,7 +7,7 @@
 
 ;; so far this macro only supports the :type keyword
 ;; this macro does not support conc-n yet, but at a later date I'll add it
-;; for some reason undefining 
+;; it supports options in name and options, but it does not make lazy version of inher
 (defmacro defstruct-l (name-and-options &rest slot-descriptions)
   "works just like defstruct, except that it allows for the auto-generation of a lazy constructor
    and getters that conform to automatic lazy expansion, if none of these features are used
@@ -44,15 +44,30 @@
              (new-symbs-make-l (mapcar (lambda (slot) (turn-into-accessor-l (if (listp slot) (car slot) slot))) new-body))
              (struct-creator   (lol:symb (concatenate 'string "MAKE-" (lol:mkstr name))))
              (struct-creator-l (lol:symb (concatenate 'string "MAKE-" (lol:mkstr name) "-L")))
-             (value (gensym))
-             ;; (func (gensym))
-             )
-
-        `(prog2 ;; (declaim (notinline ,@new-symbs-make))
-                                        ; we need to notinline things or else the old calls inside a (λ ())
+             (value (gensym)))
+        `(prog1
              ,(if doc-string
                   `(defstruct ,name-and-options ,doc-string ,@new-body)
                   `(defstruct ,name-and-options ,@new-body)) ; of any kind will use the old version, and ruin our code!
+             ,@(mapcar (lambda (maker-symb-l maker-symb)
+                         `(defun ,maker-symb-l (,name)
+                            (let ((,value (,maker-symb ,name)))
+                              (if (lazy-p ,value)
+                                  (setf (,maker-symb ,name) (force ,value))
+                                  ,value))))
+                       new-symbs-make-l new-symbs-make)
+             (defmacro ,struct-creator-l (&key ,@new-symbs-with-default)
+             "creates a lazy version of the struct, delaying all the arguments"
+             (list ',struct-creator ,@(mapcar (lambda (x)               ; (list '...) because we are doing ` expansion by hand
+                                                (if (keywordp x)        ; as we need to compile into a defmacro form
+                                                    x                   ; and double ` would add extra , which is uneeded
+                                                    `(list 'delay ,x))) ; make the elements delayed, as we want them to be lazy
+                                              (lol:flatten (mapcar (lambda (symb)
+                                                                     (list (turn-into-key-word symb) symb))
+                                                                   new-symbs))))))))))
+
+
+;;;; old idea that I would like the answer to sometim
              ;; FIX ME, for some reason I can't overset the default getters and setters
              ;; I tired to ways of solving the problem below
 
@@ -90,26 +105,6 @@
              ;;           new-symbs-make)
 
              ;; for the mean time use this definition instead and call -l when the function is lazy, or ∀ calls in general
-             ,@(mapcar (lambda (maker-symb-l maker-symb)
-                         `(defun ,maker-symb-l (,name)
-                            (let ((,value (,maker-symb ,name)))
-                              (if (lazy-p ,value)
-                                  (setf (,maker-symb ,name) (force ,value))
-                                  ,value))))
-                       new-symbs-make-l new-symbs-make)
-
-           ;; (declaim (inline ,@new-symbs-make))
-                                        ; now we can inline the newly updated function
-           (defmacro ,struct-creator-l (&key ,@new-symbs-with-default)
-             "creates a lazy version of the struct, delaying all the arguments"
-             (list ',struct-creator ,@(mapcar (lambda (x) ; (list '...) because we are doing ` expansion by hand
-                                                (if (keywordp x) ; as we need to compile into a defmacro form
-                                                    x ; and double ` would add extra , which is uneeded
-                                                    `(list 'delay ,x))) ; make the elements delayed, as we want them to be lazy
-                                              (lol:flatten (mapcar (lambda (symb)
-                                                                     (list (turn-into-key-word symb) symb))
-                                                                   new-symbs))))))))))
-
 
 ;;;; Some examples to work if you wish to see the expansion
 

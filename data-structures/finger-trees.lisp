@@ -34,23 +34,24 @@
     (right (make-digit) :type digit))
 
 
-  (defstruct digit "a digit can hold either 1 or 2 or 3 or 4 things in it")
+  ;; Digits don't inherent from each other as I don't want a digit-4 to match for a digit-1!!!
 
+  (defstruct digit "a digit can hold either 1 or 2 or 3 or 4 things in it")
   (defstruct (digit-1 (:include digit))
-      "a digit can hold either 1 or 2 or 3 or 4 things in it"
+    "a digit can hold either 1 or 2 or 3 or 4 things in it"
     one)
 
-  (defstruct (digit-2 (:include digit-1))
-      "a digit can hold either 1 or 2 or 3 or 4 things in it"
-    two)
+  (defstruct (digit-2 (:include digit))
+    "a digit can hold either 1 or 2 or 3 or 4 things in it"
+    one two)
 
-  (defstruct (digit-3 (:include digit-2))
-      "a digit can hold either 1 or 2 or 3 or 4 things in it"
-    three)
+  (defstruct (digit-3 (:include digit))
+    "a digit can hold either 1 or 2 or 3 or 4 things in it"
+    one two three)
 
-  (defstruct (digit-4 (:include digit-3))
-      "a digit can hold either 1 or 2 or 3 or 4 things in it"
-    four)
+  (defstruct (digit-4 (:include digit))
+    "a digit can hold either 1 or 2 or 3 or 4 things in it"
+    one two three four)
 
   (defstruct-l node
       "a node either has two or three things in it"
@@ -70,13 +71,14 @@
 (defun finger-tree-p (tree)
   (typep tree 'finger-tree))
 
-
 (defun empty-viewp (view)
   "we can simulate an empty view like this"
-  (or (equalp view (make-view))))
+  (equalp view (make-view)))
 
 
 ;;;; Monoidic Constructors==============================================================================================
+
+;; Create a defmonoid macro that automatically creates proper dispatch for the monoidic function
 
 (defmacro f (&rest args)
   `(funcall ,@args))
@@ -177,11 +179,11 @@
                                      :right (deep-right tree))
                           ;; spine is empty, so match against the right and give it to the left!
                         (match right
-                          ((digit-4 :one a :two b :three c :four d) (make-s-deep :left (make-digit-2 :one a :two b)
+                          ((digit-4 :one a :two b :three c :four d) (make-s-deep :left  (make-digit-2 :one a :two b)
                                                                                  :right (make-digit-2 :one c :two d)))
-                          ((digit-3 :one a :two b :three c)         (make-s-deep :left (make-digit-2 :one a :two b)
+                          ((digit-3 :one a :two b :three c)         (make-s-deep :left  (make-digit-2 :one a :two b)
                                                                                  :right (make-digit-1 :one c)))
-                          ((digit-2 :one a :two b)                  (make-s-deep :left (make-digit-1 :one a)
+                          ((digit-2 :one a :two b)                  (make-s-deep :left  (make-digit-1 :one a)
                                                                                  :right (make-digit-1 :one b)))
                           ((digit-1 :one a)                         (make-single :ele a)))))))
     ((deep left spine right)
@@ -204,11 +206,11 @@
                                      :spine (view-tree view-spine)
                                      :right (to-digit (to-list (view-ele-l view-spine))))
                         (match left
-                          ((digit-4 :one a :two b :three c :four d) (make-s-deep :left (make-digit-2 :one a :two b)
+                          ((digit-4 :one a :two b :three c :four d) (make-s-deep :left  (make-digit-2 :one a :two b)
                                                                                  :right (make-digit-2 :one c :two d)))
-                          ((digit-3 :one a :two b :three c)         (make-s-deep :left (make-digit-2 :one a :two b)
+                          ((digit-3 :one a :two b :three c)         (make-s-deep :left  (make-digit-2 :one a :two b)
                                                                                  :right (make-digit-1 :one c)))
-                          ((digit-2 :one a :two b)                  (make-s-deep :left (make-digit-1 :one a)
+                          ((digit-2 :one a :two b)                  (make-s-deep :left  (make-digit-1 :one a)
                                                                                  :right (make-digit-1 :one b)))
                           ((digit-1 :one a)                         (make-single :ele a)))))))
     ((deep left spine right)
@@ -231,12 +233,17 @@
 (defmethod to-list ((node node-3))
   (list (node-one node) (node-two node) (node-three node)))
 
-(defmethod to-list ((digit digit))
-  (match digit
-    ((digit one two three four) (cond (four  (list one two three four))
-                                      (three (list one two three))
-                                      (two   (list one two))
-                                      (one   (list one))))))
+(defmethod to-list ((digit digit-1)) (list (digit-1-one digit)))
+(defmethod to-list ((digit digit-2)) (list (digit-2-one digit)
+                                           (digit-2-two digit)))
+(defmethod to-list ((digit digit-3)) (list (digit-3-one digit)
+                                           (digit-3-two digit)
+                                           (digit-3-three digit)))
+
+(defmethod to-list ((digit digit-4)) (list (digit-4-one digit)
+                                           (digit-4-two digit)
+                                           (digit-4-three digit)
+                                           (digit-4-four digit)))
 
 (defmethod to-list ((tree deep))   (finger-to-list tree))
 (defmethod to-list ((tree single)) (finger-to-list tree))
@@ -252,9 +259,10 @@
 (defmethod foldl (f x (deep deep))     (tree-foldl f x deep))
 
 (defmethod foldr (f x (node node))   (reduce f (to-list node) :initial-value x :from-end t))
-(defmethod foldr (f x (digit digit)) (reduce f (to-list digit) :initial-value x :from-end t))
 
 (defmethod foldl (f x (node node))   (reduce f (to-list node) :initial-value x))
+
+(defmethod foldr (f x (digit digit)) (reduce f (to-list digit) :initial-value x :from-end t))
 (defmethod foldl (f x (digit digit)) (reduce f (to-list digit) :initial-value x))
 
 ;;; Helper Functions====================================================================================================
@@ -283,13 +291,13 @@
 
 (defmethod cons-r-dig (x (dig digit-1))
   (make-digit-2 :one (digit-1-one dig) :two x))
-(defmethod cons-l-dig (x (dig digit-2))
+(defmethod cons-r-dig (x (dig digit-2))
   (make-digit-3 :one (digit-2-one dig) :two (digit-2-two dig) :three x))
 
-(defmethod cons-l-dig (x (dig digit-3))
+(defmethod cons-r-dig (x (dig digit-3))
   (make-digit-4 :one (digit-3-one dig) :two (digit-3-two dig) :three (digit-3-three dig) :four x))
 
-(defmethod cons-l-dig (x (dig digit-4))
+(defmethod cons-r-dig (x (dig digit-4))
   (error "can't append a node onto a digit of four"))
 
 (defun flip (f)
