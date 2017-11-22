@@ -23,17 +23,15 @@
 
       (let* ((doc-string (car (remove-if-not #'stringp slot-descriptions)))
              (slot-descriptions (remove-if #'stringp slot-descriptions))
-             (new-body
-              (mapcar (lambda (slot)
-                        (if (not (listp slot))
-                            slot
-                            (let ((seen-type nil)) ; we just want to inject the lazy type to make consistent types
-                              (mapcar (lambda (x) ; or else the user given types would complain
-                                        (cond (seen-type       (setf seen-type nil x `(or lazy ,x)))
-                                              ((equal :type x) (setf seen-type t) :type)
-                                              (t                x)))
-                                      slot))))
-                      slot-descriptions))
+             (new-body (mapcar (lambda (slot)
+                                 (if (not (listp slot))
+                                     slot
+                                     (mapcan (lambda (x) ; we just want to inject the lazy type to make consistent types
+                                               (if (eq (car x) :type)
+                                                   `(:type (or lazy ,(cadr x)))
+                                                   x))
+                                             (lol:group slot 2))))
+                               slot-descriptions))
              (new-symbs-with-default (mapcar (lambda (slot)
                                                (if (listp slot)
                                                    (list (car slot) (cadr slot))

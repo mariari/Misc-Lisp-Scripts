@@ -68,12 +68,14 @@
     (ele nil)
     (tree :empty :type finger-tree)))
 
+(defparameter +empty-view+ (make-view))
+
 (defun finger-tree-p (tree)
   (typep tree 'finger-tree))
 
 (defun empty-viewp (view)
   "we can simulate an empty view like this"
-  (equalp view (make-view)))
+  (equalp view +empty-view+))
 
 
 ;;;; Monoidic Constructors==============================================================================================
@@ -161,7 +163,7 @@
     ((deep :left  left
            :right (digit-4 one two three four))
      (let ((node (make-s-node :one one :two two :three three))) ; want to send the elements furthest from the
-       (make-s-deep :left  left           ; end down
+       (make-s-deep :left  left                                 ; end down
                     :spine (cons-r node (deep-spine-l tree))
                     :right (make-digit-2 :one four :two x))))
     ((deep left spine right)
@@ -171,60 +173,58 @@
 
 
 ;; see deprecated code, if you really want to abstract out the patterns vs left and right views!
-(defun view-l (tree)
-  (match tree
-    (:empty       (make-view))
-    ((Single ele) (make-view :ele ele))
-    ((deep :left (digit-1 one) right) ; checks for the case were we remove the only digit
-     (make-view-l :ele one
-                  :tree
-                  (let ((view-spine (view-l (deep-spine-l tree)))) ; if the spine is not empty, recurse on the spine
-                    (if (not (empty-viewp view-spine))
-                        (make-s-deep :left  (to-digit (to-list (view-ele-l view-spine))) ; convert a node into a digit
-                                     :spine (view-tree view-spine)
-                                     :right (deep-right tree))
-                          ;; spine is empty, so match against the right and give it to the left!
-                        (match right
-                          ((digit-4 :one a :two b :three c :four d) (make-s-deep :left  (make-digit-2 :one a :two b)
-                                                                                 :right (make-digit-2 :one c :two d)))
-                          ((digit-3 :one a :two b :three c)         (make-s-deep :left  (make-digit-2 :one a :two b)
-                                                                                 :right (make-digit-1 :one c)))
-                          ((digit-2 :one a :two b)                  (make-s-deep :left  (make-digit-1 :one a)
-                                                                                 :right (make-digit-1 :one b)))
-                          ((digit-1 :one a)                         (make-single :ele a)))))))
-    ((deep left spine right)
-     (let ((dig-list (to-list left)))
-       (make-view-l :ele (car dig-list)
-                    :tree (make-s-deep :left (to-digit (cdr dig-list)) :spine spine :right right))))))
+(defun-match view-l (tree)
+  (:empty       +empty-view+)
+  ((Single ele) (make-view :ele ele))
+  ((deep :left (digit-1 one) right) ; checks for the case were we remove the only digit
+   (make-view-l :ele one
+                :tree
+                (let ((view-spine (view-l (deep-spine-l tree)))) ; if the spine is not empty, recurse on the spine
+                  (if (not (empty-viewp view-spine))
+                      (make-s-deep :left  (to-digit (to-list (view-ele-l view-spine))) ; convert a node into a digit
+                                   :spine (view-tree view-spine)
+                                   :right (deep-right tree))
+                      ;; spine is empty, so match against the right and give it to the left!
+                      (match right
+                             ((digit-4 :one a :two b :three c :four d) (make-s-deep :left  (make-digit-2 :one a :two b)
+                                                                                    :right (make-digit-2 :one c :two d)))
+                             ((digit-3 :one a :two b :three c)         (make-s-deep :left  (make-digit-2 :one a :two b)
+                                                                                    :right (make-digit-1 :one c)))
+                             ((digit-2 :one a :two b)                  (make-s-deep :left  (make-digit-1 :one a)
+                                                                                    :right (make-digit-1 :one b)))
+                             ((digit-1 :one a)                         (make-single :ele a)))))))
+  ((deep left spine right)
+   (let ((dig-list (to-list left)))
+     (make-view :ele (car dig-list)
+                :tree (make-s-deep :left (to-digit (cdr dig-list)) :spine spine :right right)))))
 
 ;; left version has the comments, since it's the same structure!
-(defun view-r (tree)
+(defun-match view-r (tree)
   "the right and left cases are almost the same, so just swap left for right and call it done!"
-  (match tree
-    (:empty       (make-view))
-    ((Single ele) (make-view :ele ele))
-    ((deep left :right (digit-1 one))  ;; (digit :one a :two b :three c :four d)
-     (make-view-l :ele one
-                  :tree
-                  (let ((view-spine (view-r (deep-spine-l tree))))
-                    (if (not (empty-viewp view-spine))
-                        (make-s-deep :left  (deep-left tree)
-                                     :spine (view-tree view-spine)
-                                     :right (to-digit (to-list (view-ele-l view-spine))))
-                        (match left
-                          ((digit-4 :one a :two b :three c :four d) (make-s-deep :left  (make-digit-2 :one a :two b)
-                                                                                 :right (make-digit-2 :one c :two d)))
-                          ((digit-3 :one a :two b :three c)         (make-s-deep :left  (make-digit-2 :one a :two b)
-                                                                                 :right (make-digit-1 :one c)))
-                          ((digit-2 :one a :two b)                  (make-s-deep :left  (make-digit-1 :one a)
-                                                                                 :right (make-digit-1 :one b)))
-                          ((digit-1 :one a)                         (make-single :ele a)))))))
-    ((deep left spine right)
-     (let* ((dig-list (to-list right))
-            (last     (car (last dig-list)))
-            (rest     (butlast dig-list)))
-       (make-view-l :ele last
-                    :Tree (make-s-deep :left left :spine spine :right (to-digit rest)))))))
+  (:empty       +empty-view+)
+  ((Single ele) (make-view :ele ele))
+  ((deep left :right (digit-1 one))
+   (make-view-l :ele one
+                :tree
+                (let ((view-spine (view-r (deep-spine-l tree))))
+                  (if (not (empty-viewp view-spine))
+                      (make-s-deep :left  (deep-left tree)
+                                   :spine (view-tree view-spine)
+                                   :right (to-digit (to-list (view-ele-l view-spine))))
+                      (match left
+                        ((digit-4 :one a :two b :three c :four d) (make-s-deep :left  (make-digit-2 :one a :two b)
+                                                                               :right (make-digit-2 :one c :two d)))
+                        ((digit-3 :one a :two b :three c)         (make-s-deep :left  (make-digit-2 :one a :two b)
+                                                                               :right (make-digit-1 :one c)))
+                        ((digit-2 :one a :two b)                  (make-s-deep :left  (make-digit-1 :one a)
+                                                                               :right (make-digit-1 :one b)))
+                        ((digit-1 :one a)                         (make-single :ele a)))))))
+  ((deep left spine right)
+   (let* ((dig-list (to-list right))
+          (last     (car (last dig-list)))
+          (rest     (butlast dig-list)))
+     (make-view :ele last
+                :Tree (make-s-deep :left left :spine spine :right (to-digit rest))))))
 
 ;;; generic functions===================================================================================================
 (defgeneric cat (s1 s2)
