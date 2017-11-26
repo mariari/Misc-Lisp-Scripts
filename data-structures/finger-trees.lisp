@@ -2,6 +2,8 @@
   (ql:quickload :trivia)
   (use-package 'trivia))
 
+
+;; (declaim (optimize (speed 3) (space 0) (safety 0) (compilation-speed 0)))
 ;; here we are going to emulate the following Haskell Data Structure
 ;; data FingerTree a  = Empty
 ;;                    | Single a
@@ -14,20 +16,20 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (SETF *ARITY-CHECK-BY-TEST-CALL* NIL)
   (defconstant +empty-t+ :empty
-    "Used for the empty type of finger tree")
+    "Used for the empty type of current-iter tree")
 
   (defstruct-l single
       "single will be of type FingerTree"
     ele)
 
   (deftype finger-tree ()
-    "the data structure finger tree is composed of empty, single, and deep"
+    "the data structure current-iter tree is composed of empty, single, and deep"
     `(or (eql :empty)
         (satisfies single-p)
         (satisfies deep-p)))
 
   (defstruct-l deep
-      "this is the spine of the finger tree, along with some digits on the sides"
+      "this is the spine of the current-iter tree, along with some digits on the sides"
     measure
     (left (make-digit) :type digit) ; the default values are a hack and should thus never be used!
     (spine :empty :type finger-tree)
@@ -66,7 +68,15 @@
   (defstruct-l view
       "a view of a finger-tree, gives back an element and the rest of the tree"
     (ele nil)
-    (tree :empty :type finger-tree)))
+    (tree :empty :type finger-tree))
+  (defstruct-l split
+      "splits a data structure by singling out an element"
+    left
+    ele
+    right))
+
+;; it's best to describe the structure with its type signature
+;; data split f a = Split (f a) a (f a)
 
 (defparameter +empty-view+ (make-view))
 
@@ -98,12 +108,15 @@
 ;; These three variables allow the user to use their own measure by letting over <> and mempty before using!
 (defparameter <> #'<>
   "the monidic function, by default, it goes to the defmethod, but let over this to change the behavior of functions")
+(declaim (type function <>))
 
 (defparameter mempty #'mempty
   "the identity value by default, if users want to use their own measure, just let over this")
+(declaim (type function mempty))
 
 (defparameter bar #'bar
   "the value that gets called onto a structure to make it monoidic, by default it converts things to numbers")
+(declaim (type function bar))
 
 (defun make-s-node (&key measure one two three (bar bar) (<> <>))
   (let ((node (if three
@@ -181,7 +194,7 @@
                 :tree
                 (let ((view-spine (view-l (deep-spine-l tree)))) ; if the spine is not empty, recurse on the spine
                   (if (not (empty-viewp view-spine))
-                      (make-s-deep :left  (to-digit (to-list (view-ele-l view-spine))) ; convert a node into a digit
+                      (make-s-deep :left  (to-digit (view-ele-l view-spine)) ; convert a node into a digit
                                    :spine (view-tree view-spine)
                                    :right (deep-right tree))
                       ;; spine is empty, so match against the right and give it to the left!
@@ -210,7 +223,7 @@
                   (if (not (empty-viewp view-spine))
                       (make-s-deep :left  (deep-left tree)
                                    :spine (view-tree view-spine)
-                                   :right (to-digit (to-list (view-ele-l view-spine))))
+                                   :right (to-digit (view-ele-l view-spine)))
                       (match left
                         ((digit-4 :one a :two b :three c :four d) (make-s-deep :left  (make-digit-2 :one a :two b)
                                                                                :right (make-digit-2 :one c :two d)))
@@ -225,6 +238,46 @@
           (rest     (butlast dig-list)))
      (make-view :ele last
                 :Tree (make-s-deep :left left :spine spine :right (to-digit rest))))))
+
+(declaim (ftype (FUNCTION (function T digit) split) split-digit))
+(defun split-digit (measure-pred current-iter digit)
+  "splits digits based on a predicate, where current-iter is the value of the points up until now"
+  (labels ((rec (measure-pred current-iter dig-list)
+             (match dig-list
+               ((list a)     (make-split :ele a))
+               ((list* a as) (let ((new-iter (f <> current-iter (f bar a))))
+                               (declare (type function measure-pred))
+                               (if (f measure-pred new-iter)
+                                   (make-split :ele a :right as)
+                                   (let ((split (rec measure-pred new-iter as)))
+                                     (make-split :left  (cons a (split-left split))
+                                                 :ele   (split-ele split)
+                                                 :right (split-right split)))))))))
+    (rec measure-pred current-iter (to-list digit))))
+
+(declaim (ftype (FUNCTION (function T finger-tree) split) split-tree))
+(defun split-tree (measure-pred current-iter tree)
+  (match tree
+    ((single ele)            (make-split :left :empty :ele ele :right :empty))
+    ((deep left spine right) (let ((value-left (f <> current-iter (f bar left))))
+                               (if (f measure-pred value-left)
+                                   (let ((split (split-digit measure-pred current-iter left)))
+                                     (make-split :left  (to-finger (split-left split))
+                                                 :ele   (split-ele split)
+                                                 :right (deep-l (split-right split) spine right)))
+                                   (let ((value-middle (f <> value-left (f bar spine))))
+                                     (if (f measure-pred value-middle)
+                                         (let* ((t-split       (split-tree  measure-pred value-left spine))
+                                                (value-l-spine (f <> value-left (f bar (split-left t-split))))
+                                                (d-split       (split-digit measure-pred value-l-spine (split-ele t-split))))
+                                           (make-split :left  (deep-r left (split-left t-split) (split-left d-split))
+                                                       :ele   (split-ele d-split)
+                                                       :right (deep-l (split-right d-split) (split-right t-split) right)))
+                                         (let ((split (split-digit measure-pred value-middle right)))
+                                           (make-split :left  (deep-r left spine (split-left split))
+                                                       :ele   (split-ele split)
+                                                       :right (to-finger (split-right split)))))))))
+    (_ (error "send in a finger-tree"))))
 
 ;;; generic functions===================================================================================================
 (defgeneric cat (s1 s2)
@@ -273,13 +326,16 @@
 
 ;;; Helper Functions====================================================================================================
 
-(defun to-digit (lis)
+(defmethod to-digit ((lis list))
   (match lis
     ((list a)       (make-digit-1 :one a))
     ((list a b)     (make-digit-2 :one a :two b))
     ((list a b c)   (make-digit-3 :one a :two b :three c))
     ((list a b c d) (make-digit-4 :one a :two b :three c :four d))
-    (t              (error "the list must be of size 4 or lesser to become a digit"))))
+    (_              (error "the list must be of size 4 or lesser to become a digit"))))
+
+(defmethod to-digit ((node node))
+  (to-digit (to-list node)))
 
 (defmethod cons-l-dig (x (dig digit-1))
   (make-digit-2 :one x :two (digit-1-one dig)))
@@ -294,7 +350,6 @@
   (error "can't append a node onto a digit of four"))
 
 
-
 (defmethod cons-r-dig (x (dig digit-1))
   (make-digit-2 :one (digit-1-one dig) :two x))
 (defmethod cons-r-dig (x (dig digit-2))
@@ -307,11 +362,14 @@
   (error "can't append a node onto a digit of four"))
 
 (defun flip (f)
+  (declare (type function f))
   (lambda (x y &rest args) (apply f y x args)))
 
 (declaim (inline flip flip-2))
 
+(declaim (ftype (FUNCTION (function) t) tree-flip-2))
 (defun flip-2 (f)
+  (declare (type function f))
   (lambda (x y) (f f y x)))
 
 ;; we prefer Node3's as much as possible here!
@@ -327,7 +385,7 @@
     ((list* a b c d) (nodes d (cons (make-s-node :one a :two b :three c) acc)))))
 
 (defun app3 (tree1 xs tree2)
-  "concatenate two finger trees using a middle list to store elements that will go between the branches"
+  "concatenate two current-iter trees using a middle list to store elements that will go between the branches"
   (match (list tree1 tree2)
     ((list :empty _)       (lift-cons-l xs tree2))
     ((list _ :empty)       (lift-cons-r xs tree1))
@@ -340,6 +398,23 @@
                                (nodes (append (to-list 1r) xs (to-list 2l))) ; at most there are 4 things in this list
                                (deep-spine-l tree2))
                   :right 2r))))
+
+;; [a] -> FingerTree (Node a) -> Digit a -> FingerTree a
+(defun deep-l (left spine right-digit)
+  (if (null left)
+      (let ((viewed (view-l spine)))
+        (if (empty-viewp viewed)
+            (to-finger (to-list right-digit))
+            (make-s-deep :left (to-digit (view-ele-l viewed)) :spine (view-tree viewed) :right right-digit)))
+      (make-s-deep :left (to-digit left) :spine spine :right right-digit)))
+;;  Digit a -> FingerTree (Node a) -> [a] -> FingerTree a
+(defun deep-r (left-digit spine right)
+  (if (null right)
+      (let ((viewed (view-r spine)))
+        (if (empty-viewp viewed)
+            (to-finger (to-list left-digit))
+            (make-s-deep :left left-digit :spine (view-tree viewed) :right (to-digit (view-ele-l viewed)))))
+      (make-s-deep :left left-digit :spine spine :right (to-digit right))))
 
 
 (defmethod node-one ((node node-2))   (node-2-one node))
@@ -362,7 +437,7 @@
   "concatenates two fingertrees"
   (app3 tree1 '() tree2))
 
-
+(declaim (ftype (FUNCTION (function t finger-tree) t) tree-foldr))
 (defun tree-foldr (f z tree)
   (match tree
     (:empty z)
@@ -373,6 +448,8 @@
        (declare (inline -<. -<..)) ; we use flip-2 to make -<. inlineable!
        (-<. (-<.. (-<. z right) spine) left)))))
 
+
+(declaim (ftype (FUNCTION (function t finger-tree) t) tree-foldl))
 (defun tree-foldl (f z tree)
   (match tree
     (:empty z)
@@ -504,7 +581,7 @@
                           (nodes-l c)))))
 
 (defun app3-l (tree1 xs tree2)
-  "concatenate two finger trees using a middle list to store elements that will go between the branches"
+  "concatenate two current-iter trees using a middle list to store elements that will go between the branches"
   (match (list tree1 tree2)
     ((list :empty _)       (lift-cons-l (make-strict xs) tree2))
     ((list _ :empty)       (lift-cons-r (make-strict xs) tree1))
