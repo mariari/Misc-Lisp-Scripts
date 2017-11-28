@@ -72,7 +72,7 @@
       (match (remove-min-tree (cdr ts))
         ((list min? ts2)
          (if (funcall compare (node-val (car ts)) (node-val min?))
-             ts
+             (list (car ts) (cdr ts))
              (list min? (cons (car ts) ts2)))))))
 
 (defun bi-find-min (ts)
