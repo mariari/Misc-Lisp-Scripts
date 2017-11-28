@@ -1,7 +1,7 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (ql:quickload '(:trivia
                   :fset))
-  (rename-package 'fset 'fset '(:f))
+  (rename-package 'fset 'fset '(:fs))
   (use-package 'trivia))
 
 (setf *ARITY-CHECK-BY-TEST-CALL* nil)
@@ -61,24 +61,22 @@
     ((list _ '()) ts1)
     ((list (list* (Node :node-rank r1) tr1)
            (list* (Node :node-rank r2) tr2))
-     (cond
-       ((< r1 r2) (cons (car ts1) (bi-merge% tr1 ts2)))
-       ((> r1 r2) (cons (car ts2) (bi-merge% ts1 tr2)))
-       (t
-        (ins-tree (link (car ts1) (car ts2)) (bi-merge% tr1 tr2)))))))
+     (cond ((< r1 r2) (cons (car ts1) (bi-merge% tr1 ts2)))
+           ((> r1 r2) (cons (car ts2) (bi-merge% ts1 tr2)))
+           (t
+            (ins-tree (link (car ts1) (car ts2)) (bi-merge% tr1 tr2)))))))
 
 (defun remove-min-tree (ts &optional (compare #'<=))
   (if (null (cdr ts))
       (list (car ts) '())
-      (match (list (remove-min-tree (cdr ts)) ts)
-             ((list (list* min? ts2)
-                    (list* t1 ts1))
-              (if (funcall compare (node-rank t1) (node-rank min?))
-                  (list t1 ts1)
-                  (list min? (cons t1 ts2)))))))
+      (match (remove-min-tree (cdr ts))
+        ((list min? ts2)
+         (if (funcall compare (node-val (car ts)) (node-val min?))
+             ts
+             (list min? (cons (car ts) ts2)))))))
 
 (defun bi-find-min (ts)
-  (node-rank (car (remove-min-tree ts))))
+  (node-val (car (remove-min-tree ts))))
 
 (defun delete-min (ts)
   (match (remove-min-tree ts)
