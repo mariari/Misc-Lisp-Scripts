@@ -45,26 +45,23 @@
   (ins-tree (create-node 0 x '()) ts))
 
 
-(defun bi-merge (ts1 ts2)
+(defun bi-merge-gen (ts1 ts2 comp1 comp2)
   (cond ((null ts1) ts2)
         ((null ts2) ts1)
         (t (let ((t1 (car ts1))
                  (t2 (car ts2)))
-             (cond ((< (node-rank t1) (node-rank t2)) (cons t1 (bi-merge (cdr ts1) ts2)))
-                   ((> (node-rank t1) (node-rank t2)) (cons t2 (bi-merge ts1 (cdr ts2))))
+             (cond ((funcall comp1 (node-rank t1) (node-rank t2)) (cons t1 (bi-merge-gen (cdr ts1) ts2 comp1 comp2)))
+                   ((funcall comp2 (node-rank t1) (node-rank t2)) (cons t2 (bi-merge-gen ts1 (cdr ts2) comp1 comp2)))
                    (t
-                    (ins-tree (link t1 t2) (bi-merge (cdr ts1) (cdr ts2)))))))))
+                    (ins-tree (link t1 t2) (bi-merge-gen (cdr ts1) (cdr ts2) comp1 comp2))))))))
 
-(defun bi-merge% (ts1 ts2)
-  (match (list ts1 ts2)
-    ((list '() _) ts2)
-    ((list _ '()) ts1)
-    ((list (list* (Node :node-rank r1) tr1)
-           (list* (Node :node-rank r2) tr2))
-     (cond ((< r1 r2) (cons (car ts1) (bi-merge% tr1 ts2)))
-           ((> r1 r2) (cons (car ts2) (bi-merge% ts1 tr2)))
-           (t
-            (ins-tree (link (car ts1) (car ts2)) (bi-merge% tr1 tr2)))))))
+(defun bi-merge (ts1 ts2)
+  "the standard merge function that is used to merge nodes in the heap"
+  (bi-merge-gen ts1 ts2 #'< #'>))
+
+(defun bi-merge-rev (ts1 ts2)
+  "A merge function that is used for node merging, not for heap merging"
+  (bi-merge-gen ts1 ts2 #'> #'<))
 
 (defun remove-min-tree (ts &optional (compare #'<=))
   (if (null (cdr ts))
@@ -80,7 +77,29 @@
 
 (defun delete-min (ts)
   (match (remove-min-tree ts)
-         ((list min rest) (bi-merge (reverse (node-tre-list min)) rest))))
+    ((list min rest) (bi-merge (reverse (node-tre-list min)) rest))))
+
+(defun bubble-up (node number)
+  "bubbles the value of the node at number (counting from 0) to the parent value and shifts the parent value down"
+  (labels ((list-rec (xs number)
+             (cond ((null xs)      (error "the number inputted is too high for the rank of the xs"))
+                   ((zerop number) (bubble-first-child (make-node :val (node-val node) :tre-list xs)))
+                   (t              (let ((bub (list-rec (cdr xs) (1- number))))
+                                     (make-node :rank     (node-rank node)
+                                                :val      (node-val bub)
+                                                :tre-list (cons (car xs) (node-tre-list bub))))))))
+    (list-rec (node-tre-list node) number)))
+
+;; use this
+(defun bubble-first-child (node)
+  "swaps the value of the first child and the parent node"
+  (let ((child (car (node-tre-list node))))
+    (make-node :rank     (node-rank node)
+               :val      (node-val child)
+               :tre-list (cons (make-node :rank (node-rank child)
+                                          :val  (node-val node)
+                                          :tre-list (node-tre-list child))
+                               (cdr (node-tre-list node))))))
 
 (defparameter *linked* (link% (link% (create-node 0 1 '())
                                      (create-node 0 2 '()))
@@ -88,3 +107,26 @@
                                      (create-node 0 5 '()))))
 
 (defparameter *nodes* (insert 4 (insert 1 (insert 2 (insert 3 '())))))
+
+(defparameter *nodes15* (reduce #'insert (f:range 14) :initial-value '() :from-end t))
+(defparameter *8th* (cadddr *nodes15*))
+;; (defparameter *new* #S(NODE
+;;                        :RANK 1
+;;                        :VAL 2
+;;                        :TRE-LIST (#S(NODE :RANK 0 :VAL 10 :TRE-LIST NIL))))
+
+;; (bubble-up *new* #S(NODE
+;;                    :RANK 3
+;;                    :VAL 7
+;;                    :TRE-LIST (#S(NODE
+;;                                  :RANK 2
+;;                                  :VAL 11
+;;                                  :TRE-LIST (#S(NODE
+;;                                                :RANK 1
+;;                                                :VAL 13
+;;                                                :TRE-LIST (#S(NODE
+;;                                                              :RANK 0
+;;                                                              :VAL 14
+;;                                                              :TRE-LIST NIL)))
+;;                                               #S(NODE :RANK 0 :VAL 12 :TRE-LIST NIL)))
+;;                                 #S(NODE :RANK 0 :VAL 8 :TRE-LIST NIL))))
