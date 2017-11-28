@@ -1,12 +1,13 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (ql:quickload '(:trivia
-                  :fset))
+                  :fset
+                  :alexandria))
   (rename-package 'fset 'fset '(:fs))
   (use-package 'trivia))
 
 (setf *ARITY-CHECK-BY-TEST-CALL* nil)
 
-;; Binomial Heaps *************************************************************************************************
+;;;; Data Structure Setup===============================================================================================
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defstruct Node (rank 0 :type Integer)
                   val
@@ -14,6 +15,14 @@
 
 (defun create-node (rank val tre-list)
   (make-node :rank rank :val val :tre-list tre-list))
+
+(defun update-node-val (node fn)
+  (make-node :rank (node-rank node) :val (funcall fn (node-val node)) :tre-list (node-tre-list node)))
+
+(defun update-node-list (node fn)
+  (make-node :rank (node-rank node) :val (node-val node) :tre-list (funcall fn (node-tre-list node))))
+
+;;;; Main Functions=====================================================================================================
 
 (defun link (t1 t2 &optional (compare #'<=))
   "Link trees of equal rank"
@@ -29,8 +38,6 @@
           (if (funcall compare v1 v2)
               (create-node (1+ r) v1 (cons t2 c1))
               (create-node (1+ r) v2 (cons t1 c2))))))
-
-(defstruct binomial (tree '() :type list))
 
 (defun ins-tree (t1 ts)
   (cond ((null ts)
@@ -79,19 +86,60 @@
   (match (remove-min-tree ts)
     ((list min rest) (bi-merge (reverse (node-tre-list min)) rest))))
 
-(defun bubble-up (node number)
-  "bubbles the value of the node at number (counting from 0) to the parent value and shifts the parent value down"
+;;;; Node functions=====================================================================================================
+
+(defun bubble-down (node)
+  "looks to see if any values of the children are greater, and if so bubbles down the ndoes value"
   (labels ((list-rec (xs number)
-             (cond ((null xs)      (error "the number inputted is too high for the rank of the xs"))
-                   ((zerop number) (bubble-first-child (make-node :val (node-val node) :tre-list xs)))
-                   (t              (let ((bub (list-rec (cdr xs) (1- number))))
-                                     (make-node :rank     (node-rank node)
-                                                :val      (node-val bub)
-                                                :tre-list (cons (car xs) (node-tre-list bub))))))))
+             (cond ((< 0 number)             (update-node-list (list-rec (cdr xs) (1- number)) (lambda (x) (cons (car xs) x))))
+                   ((<= (node-val node)
+                        (node-val (car xs))) #1=(update-node-list node (constantly xs)))
+                   (t                        (update-node-list (bubble-first-child #1#)
+                                                               (lambda (x) (cons (bubble-down (car x)) (cdr xs))))))))
+    (let* ((xs (node-tre-list node))
+           (smallest-ele-rank (car (alexandria:extremum
+                                    (mapcar (lambda (x) (cons (node-rank x) (node-val x))) xs) #'< :key #'cdr))))
+      (if smallest-ele-rank
+          (list-rec xs (- (node-rank node) smallest-ele-rank 1))
+          node))))
+
+
+(defun dec-nth-node (node number update-fn)
+  (number-less-than-node-rank node number)
+  (labels ((list-rec (xs number)
+             (if (not (zerop number))
+                 (let ((bub (list-rec (cdr xs) (1- number))))
+                   (make-node :rank     (node-rank node)
+                              :val      (node-val bub)
+                              :tre-list (cons (car xs) (node-tre-list bub))))
+                 (let* ((child     (car xs))
+                        (new-child (update-node-val child update-fn))
+                        (new-node  (make-node :rank     (node-rank node)
+                                              :val      (node-val node)
+                                              :tre-list (cons new-child (cdr xs)))))
+                   (if (< (node-val new-child) (node-val node))
+                       (bubble-up-first-child new-node)
+                       new-node)))))
+    (list-rec (node-tre-list node) number)))
+
+;; Helper Functions=====================================================================================================
+(defun number-less-than-node-rank (node number)
+  (when (or (> 0 number) (>= number (node-rank node)))
+    (error "the number inputted is too high for the rank of the xs")))
+
+;; there will be a version that counts how many spots in binary, this is just a helper for that
+(defun bubble-up-nth (node number)
+  "bubbles the value of the node at number (counting from 0) to the parent value and shifts the parent value down"
+  (number-less-than-node-rank node number)
+  (labels ((list-rec (xs number)
+             (if (zerop number)
+                 (bubble-up-first-child (update-node-list node (constantly xs)))
+                 (update-node-list (list-rec (cdr xs) (1- number))
+                                   (lambda (x) (cons (car xs) x))))))
     (list-rec (node-tre-list node) number)))
 
 ;; use this
-(defun bubble-first-child (node)
+(defun bubble-up-first-child (node)
   "swaps the value of the first child and the parent node"
   (let ((child (car (node-tre-list node))))
     (make-node :rank     (node-rank node)
@@ -100,7 +148,7 @@
                                           :val  (node-val node)
                                           :tre-list (node-tre-list child))
                                (cdr (node-tre-list node))))))
-
+;; Testing Functions====================================================================================================
 (defparameter *linked* (link% (link% (create-node 0 1 '())
                                      (create-node 0 2 '()))
                               (link% (create-node 0 3 '())
@@ -115,7 +163,7 @@
 ;;                        :VAL 2
 ;;                        :TRE-LIST (#S(NODE :RANK 0 :VAL 10 :TRE-LIST NIL))))
 
-;; (bubble-up *new* #S(NODE
+;; (bubble-up-nth *new* #S(NODE
 ;;                    :RANK 3
 ;;                    :VAL 7
 ;;                    :TRE-LIST (#S(NODE
