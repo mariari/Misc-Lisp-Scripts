@@ -40,18 +40,17 @@
 ; we violated the precondition that neither list should be non-nil
 ; just return the empty dequeue, instead of returning an error
 (defun-match cdrr (dequeue)
-  ((Dequeue :size-f 0 :size-e 0)                        dequeue)
-  ((Dequeue :size-f f :size-e 0 :front front)          (let-match1 (dequeue size-e size-f front end)
-                                                                   (split-into-dequeue front f)
-                                                         (make-dequeue :size-e (1- size-e)
-                                                                       :end    (cdr end)
-                                                                       :size-f size-f
-                                                                       :front  front)))
-  ((Dequeue :size-f f :size-e 1 :front front)          (split-into-dequeue front f))
-  ((Dequeue :size-f f :size-e e :front front :end end) (make-dequeue :size-e (1- e)
-                                                                     :size-f f
-                                                                     :front  front
-                                                                     :end    (cdr end))))
+  ((Dequeue :size-f 0 :size-e 0)    dequeue)
+  ((Dequeue size-f :size-e 0 front) (let-match1 (dequeue size-e size-f front end) (split-into-dequeue front size-f)
+                                      (make-dequeue :size-e (1- size-e)
+                                                    :end    (cdr end)
+                                                    :size-f size-f
+                                                    :front  front)))
+  ((Dequeue size-f :size-e 1 front)  (split-into-dequeue front size-f))
+  ((Dequeue size-f size-e front end) (make-dequeue :size-e (1- size-e)
+                                                   :size-f size-f
+                                                   :front  front
+                                                   :end    (cdr end))))
 
 
 (defun cdrl (dequeue)

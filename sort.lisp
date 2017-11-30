@@ -1,11 +1,11 @@
 (ql:quickload 'trivia)
 
 (defun heap-sort (a &optional (func #'<) (count (length a)))
-  "Heap sort, pass a function (#'< or #'>) to sort the final array default is max at end" 
+  "Heap sort, pass a function (#'< or #'>) to sort the final array default is max at end"
   (macrolet ((ref (i) `(aref a ,i))
              (swap (i j) `(rotatef (ref ,i) (ref ,j)))
              (ref< (i j) `(funcall func (ref ,i) (ref ,j))))
-     
+
     (labels ((sift (root count)
                (let ((cl (+ (* 2 root) 1))
                      (cr (+ (* 2 root) 2)))
@@ -14,10 +14,10 @@
                        (when (ref< root c)
                          (swap root c)
                          (sift c count)))))))
- 
+
       (loop for start from (1- (floor count 2)) downto 0
          do (sift start count))
- 
+
       (loop for end from (1- count) downto 1
          do (swap 0 end) (sift 0 end))))
   a)
@@ -33,6 +33,28 @@
                  (merge-sort (subseq sequence 0 half))
                  (merge-sort (subseq sequence half))
                  f)))))
+
+(defun my-merge-sort (sequence &optional (f #'<))
+  "Does not have Side effects"
+  (let ((len (length sequence)))
+    (if (= len 1)
+        (coerce sequence 'list)
+        (let ((half (truncate (/ len 2))))
+          (my-merge
+                 (merge-sort (subseq sequence 0 half))
+                 (merge-sort (subseq sequence half))
+                 f)))))
+
+(defun my-merge (list1 list2 &optional (pred #'<) (cps #'identity))
+  (flet ((recur (fn1 fn2 lesser)
+           (my-merge (funcall fn1 list1)
+                     (funcall fn2 list2)
+                     pred
+                     (lambda (x) (funcall cps (cons (car lesser) x))))))
+    (cond ((null list1)                           (funcall cps list2))
+          ((null list2)                           (funcall cps list1))
+          ((funcall pred (car list1) (car list2)) (recur #'cdr #'identity list1))
+          (t                                      (recur #'identity #'cdr list2)))))
 
 (defun insertion-sort% (l &optional (pred '<=))
   "a variation on insertion sort where elements get appended to the front instead of checking in place
@@ -61,20 +83,19 @@
 
 
 
-
 ;; FROM ROSETTA CODE----------------------------------
 (defun span (predicate list)
   (let ((tail (member-if-not predicate list)))
     (values (ldiff list tail) tail)))
- 
+
 (defun less-than (x)
   (lambda (y) (< y x)))
- 
+
 (defun insert (list elt)
   (multiple-value-bind (left right)
       (span (less-than elt) list)
     (append left (list elt) right)))
- 
+
 (defun insertion-sort%% (list)
   (reduce #'insert list :initial-value nil))
 ;;----------------------------------------------------
@@ -145,5 +166,3 @@
 ;;         ;; MERGE is a standard common-lisp function, which does just
 ;;         ;; what we want.
 ;;         (merge-them (subseq sequence 0 half)))))
-
-

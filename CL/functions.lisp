@@ -53,8 +53,7 @@
 (defun range-v (first &optional (second) (step 1))
   "returns a range in a vector, much faster than range, but only supports fixnums"
   (flet ((compute (first second)
-           (let ((vec      (make-array (1+ (floor (abs (- second first)) step))
-                                       :element-type 'fixnum))
+           (let ((vec      (make-array (1+ (floor (abs (- second first)) step)) :element-type 'fixnum))
                  (new-step (if (> first second) (- step) step))) ; we will go down if first > second else up
              (dotimes (i (length vec) vec)
                (setf (aref vec i) (+ first (the fixnum (* new-step i))))))))
@@ -94,6 +93,25 @@
   list)
 
 
+(defun split-on (delim seq)
+  (let ((length (length delim)))
+    (labels ((rec (seq cps)
+               (let ((num (search delim seq)))
+                 (if num
+                     (rec (subseq seq (+ length num))
+                          (lambda (x)
+                            (funcall cps (list* (subseq seq 0 num) (subseq seq num (+ length num)) x))))
+                     (funcall cps (list seq))))))
+      (rec seq #'identity))))
+
+(defun replace-all (old new seq)
+  (mapcar (lambda (x num)
+            (if (zerop num) x new))
+          (split-on old seq) '#1=(0 1 . #1#)))
+
+(defun circular (list)
+  (when list
+    (setf (cdr (last list)) list)))
 ;;; Helper functions---------------------------------------------------------------------------
 (defun split-by-delim (delim seq)
     "Returns a list of substrings of seq"
@@ -108,7 +126,6 @@
                  (cons (subseq seq i) acc)
                  (tco (cons (subseq seq i j) acc) (1+ j)))))
     (reverse (tco))))
-
 
 ;; Lost with the time--------------------------------------------------------------------------
 (defun fact% (num &optional (bot 1))
@@ -133,3 +150,12 @@
     (declare (type fixnum new-step))
     (dotimes (i (length vec) vec)
       (setf (aref vec i) (incf current new-step)))))
+
+(defun replace-all% (old new seq)
+  (cadr (reduce (lambda (x acc)
+                  (list (1+ (car acc))
+                        (if (evenp (car acc))
+                            (cons x (cadr acc))
+                            (cons new (cadr acc)))))
+                (split-on old seq)
+                :initial-value (list 0 '()) :from-end t)))

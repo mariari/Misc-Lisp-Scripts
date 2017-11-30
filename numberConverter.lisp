@@ -10,7 +10,7 @@
 ;;; Components-----------------------------------------------------------------------------------
 (defun redix-to-num (full-num)
   "Converts a base 2(0y), 8(0o), and 16(0x) number"
-  ;; num-list has to be lower case before we pass it in or else the math will add up wrong 
+  ;; num-list has to be lower case before we pass it in or else the math will add up wrong
   (let ((num-list (string-to-hexdec-list (string-downcase (subseq full-num 2)))))
     (reduce #'+ (mapcar (lambda (num pos)
                  (* num (expt (r-check full-num) pos))) ; exponent each number by it's position in the list
@@ -18,7 +18,7 @@
                (range (1- (length num-list)) 0))))) ; (expt ? 0)
 
 (defun num-to-redix (full-num &optional base)
-  ;; Grab the 0x/o/y then combine it with the converted string 
+  ;; Grab the 0x/o/y then combine it with the converted string
   (concatenate 'string
                (subseq full-num 0 2)
                (coerce (mod-number (parse-integer (subseq full-num 2)) ; mod-number returns a list '(#\a #\1)
@@ -40,9 +40,9 @@
                  (let ((mod-num (mod numbers redix)))
                    (f (floor numbers redix)
                       (cons (if (> mod-num 9)
-                                ;;  Offset of 87 Makes 10 an a and so on 
+                                ;;  Offset of 87 Makes 10 an a and so on
                                 (code-char (+ 87 mod-num))
-                                (digit-char      mod-num)) ; we make this a char so we can coerce it 
+                                (digit-char      mod-num)) ; we make this a char so we can coerce it
                             acc))))))
     (f num nil)))
 
@@ -68,9 +68,9 @@
 
 (defun redix-to-num% (full-num)
   "Converts a base 2(0y), 8(0o), and 16(0x) number"
-  ;; num-list has to be lower case before we pass it in or else the math will add up wrong 
+  ;; num-list has to be lower case before we pass it in or else the math will add up wrong
   (let* ((num-list (string-to-hexdec-list (string-downcase (subseq full-num 2))))
-	 (list-pos (length num-list)))
+         (list-pos (length num-list)))
     (reduce #'+ (mapcar (lambda (num)
                  ;; Reduce list-pos by 1 every iteration so the exponent gives the proper value
                  (decf  list-pos 1)     ; SE
@@ -80,20 +80,20 @@
                num-list))))
 
 (defun string-to-hexdec-list% (str)
-  "Converts every number of the string into a list... assumes that the list is all lowercase" 
+  "Converts every number of the string into a list... assumes that the list is all lowercase"
   (labels ((transform (lst string)
              (if (= (length string) 0)
                  lst               ;Checks if it is a number or char
                  (transform (cons (if (digit-char-p (char string 0))
-                                      (digit-char-p (char string 0))  
+                                      (digit-char-p (char string 0))
                                       (- (char-int (char string 0)) 87))
                                   lst)
                             (subseq string 1)))))
-    (reverse (transform nil str))))      ; reverse output is still more efficient then using append! 
+    (reverse (transform nil str))))      ; reverse output is still more efficient then using append!
 
 (defun hexdec-list-to-string% (list)
   "Converts a list into a string with no spaces"
-  (remove #\Space (string-trim '(#\( #\)) (princ-to-string list)))) ; turns out using coerce on chars is better than this on numbers and chars 
+  (remove #\Space (string-trim '(#\( #\)) (princ-to-string list)))) ; turns out using coerce on chars is better than this on numbers and chars
 
 ;; wanna just cheat-----------------------------------------------------------------------------
 (defun convert% (string)
@@ -125,7 +125,7 @@
 ;;           (t (if (/= (r-check num) 10)
 ;;                  (setf num (princ-to-string (redix-to-num num))) t)))
 ;;     (format t "~a      "  num)
-;;     (mapcar (lambda (x) (format t "~a      " 
+;;     (mapcar (lambda (x) (format t "~a      "
 ;;                          (num-to-redix (concatenate 'string x num)))) '("0o" "0x" "0y"))))
 
 
