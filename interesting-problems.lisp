@@ -24,10 +24,7 @@
   (reduce (lambda (ys x)
             (match ys
               ((cons `(,val ,max) _)
-               (cons (list x (if (> max (funcall key val))
-                                 max
-                                 (funcall key val)))
-                     ys))))
+               (cons `(,x ,(max max (funcall key val))) ys))))
           (cdr xs)
           :initial-value `((,(car xs) ,(funcall key (car xs))))))
 
