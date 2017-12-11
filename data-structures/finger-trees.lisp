@@ -267,7 +267,7 @@
                                                  :right (deep-l (split-right split) spine right)))
                                    (let ((value-middle (f <> value-left (f bar spine))))
                                      (if (f measure-pred value-middle)
-                                         (let* ((t-split       (split-tree  measure-pred value-left spine))
+                                         (let* ((t-split       (split-tree measure-pred value-left spine))
                                                 (value-l-spine (f <> value-left (f bar (split-left t-split))))
                                                 (d-split       (split-digit measure-pred value-l-spine (split-ele t-split))))
                                            (make-split :left  (deep-r left (split-left t-split) (split-left d-split))
@@ -405,16 +405,24 @@
       (let ((viewed (view-l spine)))
         (if (empty-viewp viewed)
             (to-finger (to-list right-digit))
-            (make-s-deep :left (to-digit (view-ele-l viewed)) :spine (view-tree viewed) :right right-digit)))
-      (make-s-deep :left (to-digit left) :spine spine :right right-digit)))
+            (make-s-deep :left  (to-digit (view-ele-l viewed))
+                         :spine (view-tree viewed)
+                         :right  right-digit)))
+      (make-s-deep :left  (to-digit left)
+                   :spine spine
+                   :right right-digit)))
 ;;  Digit a -> FingerTree (Node a) -> [a] -> FingerTree a
 (defun deep-r (left-digit spine right)
   (if (null right)
       (let ((viewed (view-r spine)))
         (if (empty-viewp viewed)
             (to-finger (to-list left-digit))
-            (make-s-deep :left left-digit :spine (view-tree viewed) :right (to-digit (view-ele-l viewed)))))
-      (make-s-deep :left left-digit :spine spine :right (to-digit right))))
+            (make-s-deep :left  left-digit
+                         :spine (view-tree viewed)
+                         :right (to-digit (view-ele-l viewed)))))
+      (make-s-deep :left  left-digit
+                   :spine spine
+                   :right (to-digit right))))
 
 
 (defmethod node-one ((node node-2))   (node-2-one node))

@@ -31,6 +31,7 @@
                 (`(1 2 ,_ ,a ,@b) (reduce #'+ (cons a b))))))
 
 (match '(1 2 3 4)
+  (`(1 ,x ,@y) (list x y)))(match '(1 2 3 4)
   (`(1 ,x ,@y) (list x y)))
 ;; (in-optimizer :trivia)
 ;; (in-optimizer :balland2006)

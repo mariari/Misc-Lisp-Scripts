@@ -249,7 +249,7 @@
 
 ;; lazy edition
 ;; These versions are almost as fast as the version that could theoretically blow up the stack
-;; they are 
+;; they are
 (defun depth-searchl% (start graph find &key (key #'eq) (limit -1))
   (labels ((rec (node node-list lim seen path)
              (flet ((recurse (nodes-list)

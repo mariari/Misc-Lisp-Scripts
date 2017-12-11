@@ -14,7 +14,9 @@
         #:trivia)
   (:export :ls :lsl
            :lss :range :fact :range-v :nrotate-left
-           :my-command-line :split-by-delim))
+           :my-command-line :split-by-delim
+           :ncircular :circular
+           :split-on :replace-all))
 
 (in-package :functions)
 
@@ -25,7 +27,7 @@
 
 (defun lsl (&optional &rest dir)
   "puts lss into a 2 layered list"
-  (cond ((cdr dir) (mapcar (lambda (x) (ls x)) dir))
+  (cond ((cdr dir) (mapcar #'ls dir))
         (dir       (list (apply #'ls dir)))
         (t         (list (ls)))))
 
@@ -110,6 +112,11 @@
           (split-on old seq) '#1=(0 1 . #1#)))
 
 (defun circular (list)
+  (when list
+    (let ((new-list (copy-list list)))
+      (setf (cdr (last new-list)) new-list))))
+
+(defun ncircular (list)
   (when list
     (setf (cdr (last list)) list)))
 ;;; Helper functions---------------------------------------------------------------------------

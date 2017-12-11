@@ -43,6 +43,13 @@
                   ,arguments  :output ,output)
      ,@body))
 
+
+(defmacro our-cond (&body lists)
+  (reduce (lambda (x ys)
+            `(if ,(car x)
+                 (progn ,@(cdr x))
+                 ,ys))
+          lists :initial-value nil :from-end t))
 ;; From LOL------------------------------------------------------------------------------------
 (defmacro! pointer-& (obj)
   `(lambda (&optional (,g!set ',g!temp))

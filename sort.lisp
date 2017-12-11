@@ -1,4 +1,5 @@
 (ql:quickload 'trivia)
+(use-package 'trivia)
 
 (defun heap-sort (a &optional (func #'<) (count (length a)))
   "Heap sort, pass a function (#'< or #'>) to sort the final array default is max at end"
@@ -60,11 +61,11 @@
   "a variation on insertion sort where elements get appended to the front instead of checking in place
    same O(n^2)"
   (labels ((insert (x ys)
-             (trivia:match ys
-               ((sequence)                                       (list x))
-               ((trivia:guard (sequence y _) (funcall pred x y)) (cons x ys))
-               ((sequence y rst)                                 (cons y (insert x rst))))))
-    (coerce (reduce 'insert l :initial-value '())
+             (match ys
+               ((list)                                 (list x))
+               ((guard (list* y _) (funcall pred x y)) (cons x ys))
+               ((list* y rst)                          (cons y (insert x rst))))))
+    (coerce (reduce #'insert l :initial-value '() :from-end t)
             (type-of l))))
 
 (defun insertion-sort (seq &optional (f #'>))
