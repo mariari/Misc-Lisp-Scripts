@@ -216,7 +216,7 @@
   "the right and left cases are almost the same, so just swap left for right and call it done!"
   (:empty       +empty-view+)
   ((Single ele) (make-view :ele ele))
-  ((deep left :right (digit-1 one))
+  ((deep :left left :right (digit-1 one))
    (make-view-l :ele one
                 :tree
                 (let ((view-spine (view-r (deep-spine-l tree))))
@@ -239,7 +239,7 @@
      (make-view :ele last
                 :Tree (make-s-deep :left left :spine spine :right (to-digit rest))))))
 
-(declaim (ftype (FUNCTION (function T digit) split) split-digit))
+(declaim (ftype (function (function T digit) (or split t)) split-digit))
 (defun split-digit (measure-pred current-iter digit)
   "splits digits based on a predicate, where current-iter is the value of the points up until now"
   (labels ((rec (measure-pred current-iter dig-list)
@@ -249,34 +249,38 @@
                                (declare (type function measure-pred))
                                (if (f measure-pred new-iter)
                                    (make-split :ele a :right as)
-                                   (let ((split (rec measure-pred new-iter as)))
-                                     (make-split :left  (cons a (split-left split))
-                                                 :ele   (split-ele split)
-                                                 :right (split-right split)))))))))
+                                   (update-left (rec measure-pred new-iter as)
+                                                (lambda (l) (cons a l)))))))))
     (rec measure-pred current-iter (to-list digit))))
 
 (declaim (ftype (FUNCTION (function T finger-tree) split) split-tree))
 (defun split-tree (measure-pred current-iter tree)
   (match tree
-    ((single ele)            (make-split :left :empty :ele ele :right :empty))
-    ((deep left spine right) (let ((value-left (f <> current-iter (f bar left))))
-                               (if (f measure-pred value-left)
-                                   (let ((split (split-digit measure-pred current-iter left)))
-                                     (make-split :left  (to-finger (split-left split))
-                                                 :ele   (split-ele split)
-                                                 :right (deep-l (split-right split) spine right)))
-                                   (let ((value-middle (f <> value-left (f bar spine))))
-                                     (if (f measure-pred value-middle)
-                                         (let* ((t-split       (split-tree measure-pred value-left spine))
-                                                (value-l-spine (f <> value-left (f bar (split-left t-split))))
-                                                (d-split       (split-digit measure-pred value-l-spine (split-ele t-split))))
-                                           (make-split :left  (deep-r left (split-left t-split) (split-left d-split))
-                                                       :ele   (split-ele d-split)
-                                                       :right (deep-l (split-right d-split) (split-right t-split) right)))
-                                         (let ((split (split-digit measure-pred value-middle right)))
-                                           (make-split :left  (deep-r left spine (split-left split))
-                                                       :ele   (split-ele split)
-                                                       :right (to-finger (split-right split)))))))))
+    ((single ele)
+     (make-split :left :empty :ele ele :right :empty))
+
+    ((deep left spine right)
+     (let ((value-left (f <> current-iter (f bar left))))
+       (if (f measure-pred value-left)
+           (let-match1 (split :left l :ele e :right r)
+                       (split-digit measure-pred current-iter left)
+             (make-split :left  (to-finger l)
+                         :ele   e
+                         :right (deep-l r spine right)))
+           (let ((value-middle (f <> value-left (f bar spine))))
+             (if (f measure-pred value-middle)
+                 (let-match* (((split :left lt :ele et :right rt) (split-tree measure-pred value-left spine))
+                              (bar-value-spine                    (f <> value-left (f bar lt)))
+                              ((split :left ld :ele ed :right rd) (split-digit measure-pred bar-value-spine et)))
+                   (make-split :left  (deep-r left lt ld)
+                               :ele   ed
+                               :right (deep-l rd rt right)))
+                 (let-match1 (split :left l :ele e :right r)
+                             (split-digit measure-pred value-middle right)
+                   (make-split :left  (deep-r left spine l)
+                               :ele   e
+                               :right (to-finger r))))))))
+
     (_ (error "send in a finger-tree"))))
 
 ;;; generic functions===================================================================================================
@@ -521,13 +525,13 @@
   (+ x y))
 
 (defmethod <> ((x lazy) (y lazy))
-  (delay (<> (force x) (force y))))
+  (delay (f <> (force x) (force y))))
 
 (defmethod <> ((x lazy) y)
-  (delay (<> (force x) y)))
+  (delay (f <> (force x) y)))
 
 (defmethod <> (x (y lazy))
-  (delay (<> x (force y))))
+  (delay (f <> x (force y))))
 
 (defmethod <> ((x string) (y string))
   (concatenate 'string x y))
@@ -540,17 +544,17 @@
 ;; digit bar/norm==========================================================
 (defmethod bar ((xs digit-1)
                 &optional (mempty-value (f mempty (digit-1-one xs))))
-  (foldl (lambda (acc a) (<> acc (bar a))) mempty-value xs))
+  (foldl (lambda (acc a) (f <> acc (bar a))) mempty-value xs))
 
 (defmethod bar ((xs digit-2)
                 &optional (mempty-value (f mempty (digit-2-one xs))))
-  (foldl (lambda (acc a) (<> acc (bar a))) mempty-value xs))
+  (foldl (lambda (acc a) (f <> acc (bar a))) mempty-value xs))
 (defmethod bar ((xs digit-3)
                 &optional (mempty-value (f mempty (digit-3-one xs))))
-  (foldl (lambda (acc a) (<> acc (bar a))) mempty-value xs))
+  (foldl (lambda (acc a) (f <> acc (bar a))) mempty-value xs))
 (defmethod bar ((xs digit-4)
                 &optional (mempty-value (f mempty (digit-4-one xs))))
-  (foldl (lambda (acc a) (<> acc (bar a))) mempty-value xs))
+  (foldl (lambda (acc a) (f <> acc (bar a))) mempty-value xs))
 
 ;; Finger Tree Bar/Norm===============================
 (defmethod bar ((x symbol) &optional (mempty-value 0))
@@ -570,6 +574,27 @@
 
 (defmethod mempty ((x node))
   (mempty (node-measure-l x)))
+
+;; Struct updater cruft=================================================================================================
+
+(defmethod update-left ((split split) updater)
+  (make-split :left (funcall updater  (split-left split))
+              :ele  (split-ele split)
+              :right (split-right split)))
+
+(defmethod update-ele ((split split) updater)
+  (match split
+    ((split left ele right)
+     (make-split :left  left
+                 :ele   (funcall updater ele)
+                 :right right))))
+
+(defmethod update-right ((split split) updater)
+  (match split
+    ((split left ele right)
+     (make-split :left  left
+                 :ele   ele
+                 :right (funcall updater right)))))
 
 
 ;;;; Unused Ideas=======================================================================================================
