@@ -62,9 +62,9 @@
    same O(n^2)"
   (labels ((insert (x ys)
              (match ys
-               ((list)                                 (list x))
-               ((guard (list* y _) (funcall pred x y)) (cons x ys))
-               ((list* y rst)                          (cons y (insert x rst))))))
+               ((guard (cons y _) (funcall pred x y)) (cons x ys))
+               ((cons y rst)                          (cons y (insert x rst)))
+               (nil                                   (list x)))))
     (coerce (reduce #'insert l :initial-value '() :from-end t)
             (type-of l))))
 
