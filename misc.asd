@@ -19,4 +19,7 @@
                       :depends-on ("./CL/functions"))
                (:file "./data-structures/lazy-cons")
                (:file "./data-structures/lazy-struct"
-                      :depends-on ("./data-structures/lazy-cons"))))
+                      :depends-on ("./data-structures/lazy-cons"))
+               (:file "./data-structures/tuple")
+               (:file "./data-structures/state"
+                      :depends-on ("./data-structures/tuple"))))
