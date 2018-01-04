@@ -13,18 +13,16 @@
    and getters that conform to automatic lazy expansion, if none of these features are used
    then it's just defstruct"
   (let ((name (if (listp name-and-options) (car name-and-options) name-and-options)))
-    (flet ((turn-into-accessor (symb) (lol:symb (concatenate 'string
-                                                             (lol:mkstr name)
-                                                             "-" (lol:mkstr symb))))
-           (turn-into-accessor-l (symb) (lol:symb (concatenate 'string
-                                                               (lol:mkstr name)
-                                                               "-" (lol:mkstr symb) "-L")))
-           (turn-into-key-word (symb) (intern (concatenate 'string (lol:mkstr symb)) "KEYWORD")))
+    (labels ((turn-into-accessor (symb)   (lol:symb (concatenate 'string
+                                                                 (lol:mkstr name) "-" (lol:mkstr symb))))
+             (turn-into-accessor-l (symb) (lol:symb (concatenate 'string
+                                                                 (lol:mkstr (turn-into-accessor symb)) "-L")))
+             (turn-into-key-word (symb)   (intern (concatenate 'string (lol:mkstr symb)) "KEYWORD")))
 
-      (let* ((doc-string (car (remove-if-not #'stringp slot-descriptions)))
+      (let* ((doc-string        (car (remove-if-not #'stringp slot-descriptions)))
              (slot-descriptions (remove-if #'stringp slot-descriptions))
              (new-body (mapcar (lambda (slot)
-                                 (if (not (listp slot))
+                                 (if (atom slot)
                                      slot
                                      (mapcan (lambda (x) ; we just want to inject the lazy type to make consistent types
                                                (if (eq (car x) :type)
@@ -37,11 +35,11 @@
                                                    (list (car slot) (cadr slot))
                                                    slot))
                                              new-body))
-             (new-symbs      (mapcar (lambda (slot)                     (if (listp slot) (car slot) slot)) new-body))
-             (new-symbs-make (mapcar (lambda (slot) (turn-into-accessor (if (listp slot) (car slot) slot))) new-body))
-             (new-symbs-make-l (mapcar (lambda (slot) (turn-into-accessor-l (if (listp slot) (car slot) slot))) new-body))
+             (new-symbs        (mapcar (lambda (slot) (if (listp slot) (car slot) slot)) new-body))
+             (new-symbs-make   (mapcar #'turn-into-accessor new-symbs))
+             (new-symbs-make-l (mapcar #'turn-into-accessor-l new-symbs))
              (struct-creator   (lol:symb (concatenate 'string "MAKE-" (lol:mkstr name))))
-             (struct-creator-l (lol:symb (concatenate 'string "MAKE-" (lol:mkstr name) "-L")))
+             (struct-creator-l (lol:symb (concatenate 'string (lol:mkstr struct-creator) "-L")))
              (value (gensym)))
         `(prog1
              ,(if doc-string
