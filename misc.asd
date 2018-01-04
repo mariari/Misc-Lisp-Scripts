@@ -21,5 +21,9 @@
                (:file "./data-structures/lazy-struct"
                       :depends-on ("./data-structures/lazy-cons"))
                (:file "./data-structures/tuple")
+               (:file "./data-structures/functor-applicative-monad")
                (:file "./data-structures/state"
-                      :depends-on ("./data-structures/tuple"))))
+                      :depends-on ("./data-structures/tuple"
+                                   "./data-structures/functor-applicative-monad"))
+               (:file "./data-structures/reader"
+                      :depends-on ("./data-structures/functor-applicative-monad"))))

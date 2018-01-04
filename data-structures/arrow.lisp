@@ -3,10 +3,20 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (use-package 'tuple))
 
-(defun **** (f g x)
-  (tup (funcall f (fst x))
-       (funcall g (snd x))))
+(defun **** (&rest fns)
+  (flet ((func (f g)
+           (lambda (x)
+             (tup (funcall f (fst x))
+                  (funcall g (snd x))))))
+    (reduce #'func fns :from-end t)))
 
-(defun &&& (f g x)
-  (tup (funcall f x)
-       (funcall g x)))
+(defun &&& (&rest fns)
+  (flet ((func (f g)
+           (lambda (x)
+             (tup (funcall f x)
+                  (funcall g x)))))
+    (reduce #'func fns :from-end t)))
+
+
+(defun ***** (&rest functions)
+  (lambda (xs) (mapcar (lambda (f x) (funcall f x)) functions xs)))
