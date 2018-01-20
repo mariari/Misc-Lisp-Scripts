@@ -1,13 +1,15 @@
 (defpackage #:reader
   (:nicknames #:r)
   (:documentation "provides the reader monad")
-  (:use #:common-lisp)
+  (:use #:common-lisp
+        #:generic)
   (:export :reader-state
            :reader-p
            :reader-run
            :ask
-           :rpure
-           :<*> :fmap :>>= :=<<))
+           :make-reader
+           :rlocal
+           :rpure))
 
 (in-package :reader)
 
@@ -22,6 +24,8 @@
 (defmethod fmap (f (m reader))
   (make-reader (lambda (x) (funcall f (funcall (reader-run m) x)))))
 
+(defun rlocal (f g)
+  (make-reader (lambda (x) (funcall (reader-run g) (funcall f x)))))
 
 (defun rpure (x)
   (make-reader (constantly x)))

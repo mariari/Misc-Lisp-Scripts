@@ -3,15 +3,15 @@
   (:documentation "provides the state monad")
   (:use #:common-lisp
         #:tuple
-        #:trivia)
+        #:trivia
+        #:generic)
   (:export :make-state
            :state-p
            :state-run
            :sget
            :put
            :modify
-           :spure
-           :<*> :fmap :>>= :=<<))
+           :spure))
 
 (in-package :state)
 
