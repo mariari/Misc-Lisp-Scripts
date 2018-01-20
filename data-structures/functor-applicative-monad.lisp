@@ -1,5 +1,14 @@
+(defpackage #:generic
+  (:nicknames #:g)
+  (:documentation "provides the reader monad")
+  (:use #:common-lisp)
+  (:export :<$
+           :liftA2
+           :<* :*>
+           :>>
+           :<*> :fmap :>>= :=<<))
 
-
+(in-package :generic)
 ;; functor
 (defgeneric fmap (f xs)
   (:documentation "functor map"))
