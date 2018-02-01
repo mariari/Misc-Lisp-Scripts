@@ -287,8 +287,9 @@
 (defgeneric cat (s1 s2)
   (:documentation "concatenates two structures of the same type"))
 
-(defmethod cat ((tree1 deep) tree2)   (finger-cat tree1 tree2))
-(defmethod cat ((tree1 single) tree2) (finger-cat tree1 tree2))
+(defmethod cat ((tree1 deep) tree2)          (finger-cat tree1 tree2))
+(defmethod cat ((tree1 single) tree2)        (finger-cat tree1 tree2))
+(defmethod cat ((tree1 (eql :empty)) tree2)  (finger-cat tree1 tree2))
 
 (defmethod to-list ((node node-2))
   (list (node-one node) (node-two node)))
@@ -308,18 +309,22 @@
                                            (digit-4-three digit)
                                            (digit-4-four digit)))
 
-(defmethod to-list ((tree deep))   (finger-to-list tree))
-(defmethod to-list ((tree single)) (finger-to-list tree))
+(defmethod to-list ((tree deep))         (finger-to-list tree))
+(defmethod to-list ((tree single))       (finger-to-list tree))
+(defmethod to-list ((tree (eql :empty))) (finger-to-list tree))
 
 
-(defmethod to-stream ((tree deep))   (finger-to-stream tree))
-(defmethod to-stream ((tree single)) (finger-to-stream tree))
+(defmethod to-stream ((tree deep))         (finger-to-stream tree))
+(defmethod to-stream ((tree single))       (finger-to-stream tree))
+(defmethod to-stream ((tree (eql :empty))) (finger-to-stream tree))
 
-(defmethod foldr (f x (single single)) (tree-foldr f x single))
-(defmethod foldr (f x (deep deep))     (tree-foldr f x deep))
+(defmethod foldr (f x (single single))     (tree-foldr f x single))
+(defmethod foldr (f x (deep deep))         (tree-foldr f x deep))
+(defmethod foldr (f x (empty (eql :empty))) (tree-foldr f x empty))
 
-(defmethod foldl (f x (single single)) (tree-foldl f x single))
-(defmethod foldl (f x (deep deep))     (tree-foldl f x deep))
+(defmethod foldl (f x (single single))      (tree-foldl f x single))
+(defmethod foldl (f x (deep deep))          (tree-foldl f x deep))
+(defmethod foldl (f x (empty (eql :empty))) (tree-foldl f x empty))
 
 (defmethod foldr (f x (node node))   (reduce f (to-list node) :initial-value x :from-end t))
 
