@@ -18,5 +18,4 @@
                    (format s "[~A ~A]"
                            (fst p)
                            (snd p)))))
-  fst
-  snd)
+  fst snd)

@@ -94,7 +94,7 @@
              (cond ((< 0 number)             (update-node-list (list-rec (cdr xs) (1- number)) (lambda (x) (cons (car xs) x))))
                    ((<= (node-val node)
                         (node-val (car xs))) #1=(update-node-list node (constantly xs)))
-                   (t                        (update-node-list (bubble-first-child #1#)
+                   (t                        (update-node-list (bubble-up-first-child #1#)
                                                                (lambda (x) (cons (bubble-down (car x)) (cdr xs))))))))
     (let* ((xs (node-tre-list node))
            (smallest-ele-rank (car (alexandria:extremum

@@ -89,7 +89,7 @@
                (:rb-empty                     (make-rb-tree :col +red+ :elem val))
                ((rb-tree col left elem right) (cond ((less-than    val elem) (balance col (ins left) elem right))
                                                     ((greater-than val elem) (balance col left       elem (ins right)))
-                                                    (t             tree))))))
+                                                    (t                       tree))))))
     (match (ins tree)
       ((rb-tree left elem right)
        (make-rb-tree :left left :elem elem :right right))))) ; make the same tree, but have the first node be black

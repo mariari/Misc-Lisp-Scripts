@@ -150,7 +150,7 @@
                              (f (lambda (x &optional y) (subseq (subseq vals 1) x y)))
                              (left-v  (funcall f 0 split))
                              (right-v (funcall f split)))
-                          (setf #2# (make-tree! :val (elt vals 0))) 
+                          (setf #2# (make-tree! :val (elt vals 0)))
                           (rec  #1# left-v)
                           (rec  #2# right-v))))))
       (rec tree values-arry) tree)))

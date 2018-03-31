@@ -17,7 +17,8 @@
            :my-command-line :split-by-delim
            :ncircular :circular
            :split-on :replace-all
-           :compose :curry :curryf))
+           :compose :curry :curryf
+           :foldr-b :foldl-b))
 
 (in-package :functions)
 
@@ -156,6 +157,24 @@
 (defun ncircular (list)
   (when list
     (setf (cdr (last list)) list)))
+
+(defstruct break-cps run)
+
+(defun foldr-b (f z xs &optional (cps #'identity) (break (lambda (x) (make-break-cps :run x))))
+  (if (null xs)
+      (funcall cps z)
+      (foldr-b f z (cdr xs) (lambda (acc)
+                              (let ((curr (funcall f (car xs) acc break)))
+                                (if (break-cps-p curr)
+                                    (break-cps-run curr)
+                                    (funcall cps curr))))
+               break)))
+
+(defun foldl-b (f z xs &optional (break (lambda (x) (make-break-cps :run x))))
+  (cond ((break-cps-p z) (break-cps-run z))
+        ((null xs)       z)
+        (t               (foldl-b f (funcall f z (car xs) break) (cdr xs) break))))
+
 ;;; Helper functions---------------------------------------------------------------------------
 (defun split-by-delim (delim seq)
     "Returns a list of substrings of seq"

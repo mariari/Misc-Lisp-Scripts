@@ -143,7 +143,6 @@
                            (f bar right)))))
     deep))
 
-
 ;;;; Functions==========================================================================================================
 ;;; time to convert some functions!
 
@@ -280,7 +279,6 @@
                    (make-split :left  (deep-r left spine l)
                                :ele   e
                                :right (to-finger r))))))))
-
     (_ (error "send in a finger-tree"))))
 
 ;;; generic functions===================================================================================================

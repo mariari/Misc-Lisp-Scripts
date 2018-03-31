@@ -54,6 +54,8 @@
                              ((tup :fst a :snd s%%) (funcall (state-run m) s%)))
                   (tup (funcall f a) s%%)))))
 
+
+
 (defmethod >>= ((f state) g)
   (>>=% f g))
 

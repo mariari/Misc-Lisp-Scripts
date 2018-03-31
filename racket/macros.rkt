@@ -60,7 +60,7 @@
                 body)))))
 
 ;; Better expansion and allows for curry to work
-;; this does not work with optional arguments yet!
+;; does not work for optional arguments yet
 (define-macro (defmemo fn-list . body)
   "defines a memoized function, NOTE: it does support ((f a) b)
    syntax and only memorizes the answer for a and NOΤ b"
@@ -74,7 +74,7 @@
 
 ;; would just call defmmeo inside, but racket has a weird macro system that makes me
 ;; have to define a package to call
-;; this does not work with optional arguments yet!
+;; does not work for optional arguments yet
 (define-macro (defmemol fn-list . body)
   "defines a memoized function, NOTE: it does support ((f a) b)
    syntax and only memorizes the answer for a and NOΤ b
@@ -82,6 +82,12 @@
   `(define ,fn-list
      (defmemo ,fn-list ,@body)
      ,fn-list))
+
+(defmemol (hops% x)
+  (match x
+    [0             1]
+    [(? negative?) 0]
+    [_             (apply + (map hops% (range (sub1 x) (- x 4) -1)))]))
 
 (defmemol (mfib n)
   (if (< n 1)
@@ -91,10 +97,10 @@
 ;; note that the CPS here is quite slow
 ;; 3132 cpu time for 1000, while the normal is 3
 ;; 1000x times slower at 1000 elements
-(defmemo (mfib-cps n [cps identity])
+(defmemo ((mfib-cps n) [cps identity])
   (if (< n 1)
       (cps 1)
-      (mfib-cps (- n 1) (compose cps (curry + (mfib-cps (- n 2)))))))
+      ((mfib-cps (- n 1)) (lambda (x) ((mfib-cps (- n 2)) (compose cps (curry + x)))))))
 
 ;; 1680 cpu time
 (defmemo (mfib-tco n [tco 1])
