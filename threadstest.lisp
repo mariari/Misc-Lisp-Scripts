@@ -7,7 +7,8 @@
                   :fare-quasiquote
                   :let-over-lambda
                   :trivia))
-  (asdf:load-system :uiop))
+  ;; (asdf:load-system :uiop)
+  )
 
 
 (defpackage #:shell
@@ -17,7 +18,7 @@
   (:shadowing-import-from #:let-over-lambda #:when-match #:if-match #:symb)
   (:use #:inferior-shell)
   (:shadowing-import-from #:inferior-shell #:<>)
-  (:use #:uiop
+  (:use
         #:functions
         #:bordeaux-threads
         #:bt-semaphore
@@ -55,10 +56,10 @@
 
 
 (defun num-threads ()
-  (os-cond ((os-unix-p)    (read-from-string (run/s `(nproc --all)))) ; works
-           ((os-windows-p) (read-from-string (run/s `(echo %NUMBER_OF_PROCESSORS%)))) ; not tested
-           ((os-macosx-p)  (read-from-string (run/s `(sysctl -n hw.ncpu)))) ; not tested
-           (t              8)))         ; if it's not a supported OS, just put the cores to 8
+  (uiop:os-cond ((uiop:os-unix-p)    (read-from-string (run/s `(nproc --all)))) ; works
+                ((uiop:os-windows-p) (read-from-string (run/s `(echo %NUMBER_OF_PROCESSORS%)))) ; not tested
+                ((uiop:os-macosx-p)  (read-from-string (run/s `(sysctl -n hw.ncpu)))) ; not tested
+                (t                   8)))         ; if it's not a supported OS, just put the cores to 8
 
 
 (defun ignored-threads-imp (&optional extra-threads-list)
