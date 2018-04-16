@@ -7,61 +7,63 @@
 
 ;; so far this macro only supports the :type keyword
 ;; this macro does not support conc-n yet, but at a later date I'll add it
-;; it supports options in name and options, but it does not make lazy version of inher
+;; it supports options in name and options, but it does not make lazy version of inner
 (defmacro defstruct-l (name-and-options &rest slot-descriptions)
   "works just like defstruct, except that it allows for the auto-generation of a lazy constructor
    and getters that conform to automatic lazy expansion, if none of these features are used
    then it's just defstruct"
   (let ((name (if (listp name-and-options) (car name-and-options) name-and-options)))
-    (labels ((turn-into-accessor (symb)   (lol:symb (concatenate 'string
-                                                                 (lol:mkstr name) "-" (lol:mkstr symb))))
-             (turn-into-accessor-l (symb) (lol:symb (concatenate 'string
-                                                                 (lol:mkstr (turn-into-accessor symb)) "-L")))
-             (turn-into-key-word (symb)   (intern (concatenate 'string (lol:mkstr symb)) "KEYWORD")))
+    (labels ((turn-into-accessor   (symb) (concat-symb (lol:mkstr name) "-" (lol:mkstr symb)))
+             (turn-into-accessor-l (symb) (concat-symb (lol:mkstr (turn-into-accessor symb)) "-L"))
+             (turn-into-key-word   (symb) (intern (lol:mkstr symb) "KEYWORD")))
 
       (let* ((doc-string        (car (remove-if-not #'stringp slot-descriptions)))
              (slot-descriptions (remove-if #'stringp slot-descriptions))
-             (new-body (mapcar (lambda (slot)
-                                 (if (atom slot)
-                                     slot
-                                     (mapcan (lambda (x) ; we just want to inject the lazy type to make consistent types
-                                               (if (eq (car x) :type)
-                                                   `(:type (or lazy ,(cadr x)))
-                                                   x))
-                                             (lol:group slot 2))))
-                               slot-descriptions))
-             (new-symbs-with-default (mapcar (lambda (slot)
-                                               (if (listp slot)
-                                                   (list (car slot) (cadr slot))
-                                                   slot))
-                                             new-body))
-             (new-symbs        (mapcar (lambda (slot) (if (listp slot) (car slot) slot)) new-body))
-             (new-symbs-make   (mapcar #'turn-into-accessor new-symbs))
-             (new-symbs-make-l (mapcar #'turn-into-accessor-l new-symbs))
-             (struct-creator   (lol:symb (concatenate 'string "MAKE-" (lol:mkstr name))))
-             (struct-creator-l (lol:symb (concatenate 'string (lol:mkstr struct-creator) "-L")))
-             (value (gensym)))
+             (new-body          (mapcar (lambda (slot)
+                                          (if (atom slot)
+                                              slot
+                                              (mapcan (lambda (x) ; we just want to inject the lazy type to make consistent types
+                                                        (if (eq (car x) :type)
+                                                            `(:type (or lazy ,(cadr x)))
+                                                            x))
+                                                      (lol:group slot 2))))
+                                        slot-descriptions))
+             (new-symbs-default (mapcar (lambda (slot)
+                                          (if (listp slot)
+                                              (list (car slot) (cadr slot))
+                                              slot))
+                                        new-body))
+             (new-symbs         (mapcar (lambda (slot) (if (listp slot) (car slot) slot)) new-body))
+             (new-symbs-make    (mapcar #'turn-into-accessor   new-symbs))
+             (new-symbs-make-l  (mapcar #'turn-into-accessor-l new-symbs))
+             (struct-creator    (concat-symb "MAKE-" (lol:mkstr name)))
+             (struct-creator-l  (concat-symb (lol:mkstr struct-creator) "-L"))
+             (value             (gensym)))
         `(prog1
              ,(if doc-string
                   `(defstruct ,name-and-options ,doc-string ,@new-body)
                   `(defstruct ,name-and-options ,@new-body)) ; of any kind will use the old version, and ruin our code!
-             ,@(mapcar (lambda (maker-symb-l maker-symb)
-                         `(defun ,maker-symb-l (,name)
-                            (let ((,value (,maker-symb ,name)))
-                              (if (lazy-p ,value)
-                                  (setf (,maker-symb ,name) (force ,value))
-                                  ,value))))
-                       new-symbs-make-l new-symbs-make)
-             (defmacro ,struct-creator-l (&key ,@new-symbs-with-default)
+           ,@(mapcar (lambda (maker-symb-l maker-symb)
+                       `(defun ,maker-symb-l (,name)
+                          (let ((,value (,maker-symb ,name)))
+                            (if (lazy-p ,value)
+                                (setf (,maker-symb ,name) (force ,value))
+                                ,value))))
+                     new-symbs-make-l new-symbs-make)
+           (defmacro ,struct-creator-l (&key ,@new-symbs-default)
              "creates a lazy version of the struct, delaying all the arguments"
-             (list ',struct-creator ,@(mapcar (lambda (x)               ; (list '...) because we are doing ` expansion by hand
-                                                (if (keywordp x)        ; as we need to compile into a defmacro form
-                                                    x                   ; and double ` would add extra , which is uneeded
+             (list ',struct-creator ,@(mapcar (lambda (x) ; (list '...) because we are doing ` expansion by hand
+                                                (if (keywordp x) ; as we need to compile into a defmacro form
+                                                    x ; and double ` would add extra , which is uneeded
                                                     `(list 'delay ,x))) ; make the elements delayed, as we want them to be lazy
                                               (lol:flatten (mapcar (lambda (symb)
                                                                      (list (turn-into-key-word symb) symb))
                                                                    new-symbs))))))))))
+(defun concat-s (&rest body)
+  (apply #'concatenate 'string body))
 
+(defun concat-symb (&rest body)
+  (lol:symb (apply #'concat-s body)))
 
 ;;;; old idea that I would like the answer to sometim
              ;; FIX ME, for some reason I can't overset the default getters and setters
@@ -101,6 +103,7 @@
              ;;           new-symbs-make)
 
              ;; for the mean time use this definition instead and call -l when the function is lazy, or ∀ calls in general
+
 
 ;;;; Some examples to work if you wish to see the expansion
 
