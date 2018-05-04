@@ -4,7 +4,7 @@
 ;; so instead of implementing a left and right, we can just implement a single direction and use that
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (ql:quickload '(:trivia))
+  (ql:quickload :trivia)
   (use-package 'trivia))
 
 
@@ -18,15 +18,14 @@
 
 (defun consl (val dequeue)
   "cons on an element to the front of the dequeue"
-  (let ((size-f (dequeue-size-f dequeue)))
-    (if (and (zerop (dequeue-size-e dequeue))
-           (>= size-f 2))
-        (split-into-dequeue (cons val (dequeue-front dequeue))
-                            (1+ size-f))
-        (make-dequeue :size-e (dequeue-size-e dequeue)
-                      :size-f (1+ (dequeue-size-f dequeue))
-                      :end    (dequeue-end dequeue)
-                      :front  (cons val (dequeue-front dequeue))))))
+  (let-match1 (dequeue size-f size-e front end)
+              dequeue
+    (if (and (zerop size-e) (>= size-f 2))
+        (split-into-dequeue (cons val front) (1+ size-f))
+        (make-dequeue :size-e size-e
+                      :size-f (1+ size-f)
+                      :end    end
+                      :front  (cons val front)))))
 
 (defun consr (val dequeue)
   "cons on an element to the back of the dequeue"
@@ -40,12 +39,8 @@
 ; we violated the precondition that neither list should be non-nil
 ; just return the empty dequeue, instead of returning an error
 (defun-match cdrr (dequeue)
-  ((Dequeue :size-f 0 :size-e 0)    dequeue)
-  ((Dequeue size-f :size-e 0 front) (let-match1 (dequeue size-e size-f front end) (split-into-dequeue front size-f)
-                                      (make-dequeue :size-e (1- size-e)
-                                                    :end    (cdr end)
-                                                    :size-f size-f
-                                                    :front  front)))
+  ((Dequeue :size-f 0 :size-e 0)     dequeue)
+  ((Dequeue size-f :size-e 0 front)  (cdrr (split-into-dequeue front size-f))) ; split and try the other cases
   ((Dequeue size-f :size-e 1 front)  (split-into-dequeue front size-f))
   ((Dequeue size-f size-e front end) (make-dequeue :size-e (1- size-e)
                                                    :size-f size-f
@@ -59,12 +54,9 @@
 
 
 (defun carr (dequeue)
-  (cond ((and (null (dequeue-front dequeue)) (null (dequeue-end dequeue))) ; if this were any other lang, signal an error
-         nil)
-        ((not (null (dequeue-end dequeue)))
-         (car (dequeue-end dequeue)))
-        (t                                ; note we car instead of last because this case only happens when the
-         (car (dequeue-front dequeue))))) ; the front is of length 1, if this is not the csae, some precondition was violated
+  (let-match1 (dequeue front end) dequeue
+    (cond (end (car end))      ; note we car front instead of last because this case only happens when the
+          (t   (car front))))) ; the front is of length 1, if this is not the csae, some precondition was violated
 
 (defun carl (dequeue)
   (carr (flip dequeue)))
@@ -84,10 +76,15 @@
   (reduce #'consr seq :from-end t :initial-value dequeue))
 
 ;; helper functions*****************************************************************************************************
-(defun split-at (x lis &optional acc)
+(defun split-at-rev (x lis &optional acc)
+  "Splits a list at a specified location and reverses the first list"
   (if (or (zerop x) (null lis))
-      (list (reverse acc) lis)
-      (split-at (1- x) (cdr lis) (cons (car lis) acc))))
+      (list acc lis)
+      (split-at-rev (1- x) (cdr lis) (cons (car lis) acc))))
+
+(defun split-at (x list &optional acc)
+  (let ((split-rev (split-at-rev x list acc)))
+    (cons (reverse (car split-rev)) (cdr split-rev))))
 
 (defun flip (dequeue)
   (make-dequeue :size-e (dequeue-size-f dequeue)
@@ -99,10 +96,10 @@
   "splits a list into a queue of two equal parts with the front getting 1 more element than the back"
   (let* ((end-size   (ceiling (/ length 2)))        ; the first half of the elements ceilinged if even
          (front-size (floor (/ length 2)))        ; the second half of the elements floored if odd
-         (splited    (split-at front-size list))
+         (splited    (split-at-rev front-size list))
          (front-list (car splited))
          (end-list   (cadr splited)))
      (make-dequeue :size-e end-size
                    :size-f front-size
                    :front  front-list
-                   :end    (reverse end-list))))
+                   :end    end-list)))
