@@ -53,13 +53,11 @@
   (flip (cdrr (flip dequeue))))
 
 
-(defun carr (dequeue)
-  (let-match1 (dequeue front end) dequeue
-    (cond (end (car end))      ; note we car front instead of last because this case only happens when the
-          (t   (car front))))) ; the front is of length 1, if this is not the csae, some precondition was violated
-
-(defun carl (dequeue)
-  (carr (flip dequeue)))
+;; note we car front instead of last because this case only happens when the
+;; the front is of length 1, if this is not the csae, some precondition was violated
+;; Also note that if we were in any other language we should signal an error for dequeuing an empty queue
+(defun carr (dequeue) (or (car (dequeue-end dequeue)) (car (dequeue-front dequeue))))
+(defun carl (dequeue) (carr (flip dequeue)))
 
 
 ;;; adding many things
@@ -96,10 +94,10 @@
   "splits a list into a queue of two equal parts with the front getting 1 more element than the back"
   (let* ((end-size   (ceiling (/ length 2)))        ; the first half of the elements ceilinged if even
          (front-size (floor (/ length 2)))        ; the second half of the elements floored if odd
-         (splited    (split-at-rev front-size list))
+         (splited    (split-at front-size list))
          (front-list (car splited))
          (end-list   (cadr splited)))
      (make-dequeue :size-e end-size
                    :size-f front-size
                    :front  front-list
-                   :end    end-list)))
+                   :end    (reverse end-list))))

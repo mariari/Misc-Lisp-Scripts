@@ -119,19 +119,16 @@
 (declaim (type function bar))
 
 (defun make-s-node (&key measure one two three (bar bar) (<> <>))
-  (let ((node (if three
-                  (make-node-3 :one one :two two :three three)
-                  (make-node-2 :one one :two two))))
+  (let* ((node       (if three
+                         (make-node-3 :one one :two two :three three)
+                         (make-node-2 :one one :two two)))
+         (delay-node (delay (f <> (f bar (node-one node))
+                                  (f bar (node-two node))))))
     (setf (node-measure node)
-          (if measure
-              measure
-              (flet ((delayed-node ()
-                       (f <> (f bar (node-one node))
-                             (f bar (node-two node)))))
-                (if three
-                    (delay (f <> (delayed-node)
-                                 (f bar (node-3-three node))))
-                    (delay (delayed-node))))))
+          (cond (measure measure)
+                (three   (delay (f <> (force delay-node)
+                                      (f bar (node-3-three node)))))
+                (t       delay-node)))
     node))
 
 (defun make-s-deep (&key measure (left (make-digit)) (spine :empty) (right (make-digit)))
@@ -259,26 +256,28 @@
      (make-split :left :empty :ele ele :right :empty))
 
     ((deep left spine right)
-     (let ((value-left (f <> current-iter (f bar left))))
-       (if (f measure-pred value-left)
-           (let-match1 (split :left l :ele e :right r)
-                       (split-digit measure-pred current-iter left)
-             (make-split :left  (to-finger l)
-                         :ele   e
-                         :right (deep-l r spine right)))
-           (let ((value-middle (f <> value-left (f bar spine))))
-             (if (f measure-pred value-middle)
-                 (let-match* (((split :left lt :ele et :right rt) (split-tree measure-pred value-left spine))
-                              (bar-value-spine                    (f <> value-left (f bar lt)))
-                              ((split :left ld :ele ed :right rd) (split-digit measure-pred bar-value-spine et)))
-                   (make-split :left  (deep-r left lt ld)
-                               :ele   ed
-                               :right (deep-l rd rt right)))
-                 (let-match1 (split :left l :ele e :right r)
-                             (split-digit measure-pred value-middle right)
-                   (make-split :left  (deep-r left spine l)
-                               :ele   e
-                               :right (to-finger r))))))))
+     (let* ((value-left          (f <> current-iter (f bar left)))
+            (value-middle (delay (f <> value-left (f bar spine)))))
+       (cond ((f measure-pred value-left)
+              (let-match1 (split :left l :ele e :right r)
+                          (split-digit measure-pred current-iter left)
+                (make-split :left (to-finger l)
+                            :ele e
+                            :right (deep-l r spine right))))
+
+             ((f measure-pred (force-and-update value-middle))
+              (let-match* (((split :left lt :ele et :right rt) (split-tree measure-pred value-left spine))
+                           ((split :left ld :ele ed :right rd) (split-digit measure-pred (f <> value-left (f bar lt)) et)))
+                (make-split :left (deep-r left lt ld)
+                            :ele ed
+                            :right (deep-l rd rt right))))
+
+             (t
+              (let-match1 (split :left l :ele e :right r)
+                          (split-digit measure-pred value-middle right)
+                (make-split :left (deep-r left spine l)
+                            :ele e
+                            :right (to-finger r)))))))
     (_ (error "send in a finger-tree"))))
 
 ;;; generic functions===================================================================================================
