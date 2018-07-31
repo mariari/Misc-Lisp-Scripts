@@ -128,13 +128,13 @@
                      :measure (or measure (delay (delayed-node)))))))
 
 (defun make-s-deep (&key measure (left (make-digit)) (spine :empty) (right (make-digit)))
-  (let ((deep (make-deep :left left :spine spine :right right)))
-    (setf (deep-measure deep)
-          (delay (if measure measure
-                     (f <> (f <> (f bar left)
-                                 (f bar (deep-spine-l deep)))
-                           (f bar right)))))
-    deep))
+  (make-deep :left left
+             :spine spine
+             :right right
+             :measure (if measure measure
+                          (f <> (f <> (f bar left)
+                                      (f bar (force-eval spine)))
+                        (f bar right)))))
 
 ;;;; Functions==========================================================================================================
 ;;; time to convert some functions!

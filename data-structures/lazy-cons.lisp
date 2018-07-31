@@ -12,6 +12,11 @@
 (defmacro force-and-update (x)
   `(setf ,x (force ,x)))
 
+(defmacro force-eval (x)
+  `(if (lazy-p ,x)
+       (setf ,x (force ,x))
+       ,x))
+
 (defmacro scons (x xs)
   `(cons (delay ,x) (delay ,xs)))
 
