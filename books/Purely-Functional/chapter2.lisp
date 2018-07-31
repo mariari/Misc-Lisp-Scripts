@@ -7,9 +7,8 @@
           (t                             (for 0     to     first)))))
 
 (defun suffixes (xs)
-  (if (null xs)
-      nil
-      (cons xs (suffixes (cdr xs)))))
+  (when xs
+    (cons xs (suffixes (cdr xs)))))
 
 (defun suffixes-cps (xs &optional (cps #'identity))
   (if (null xs)

@@ -119,20 +119,13 @@
 (declaim (type function bar))
 
 (defun make-s-node (&key measure one two three (bar bar) (<> <>))
-  (let ((node (if three
-                  (make-node-3 :one one :two two :three three)
-                  (make-node-2 :one one :two two))))
-    (setf (node-measure node)
-          (if measure
-              measure
-              (flet ((delayed-node ()
-                       (f <> (f bar (node-one node))
-                             (f bar (node-two node)))))
-                (if three
-                    (delay (f <> (delayed-node)
-                                 (f bar (node-3-three node))))
-                    (delay (delayed-node))))))
-    node))
+  (flet ((delayed-node () (f <> (f bar one)
+                                (f bar two))))
+    (if three
+        (make-node-3 :one one :two two :three three
+                     :measure (or measure (delay (f <> (delayed-node) (f bar three)))))
+        (make-node-2 :one one :two two
+                     :measure (or measure (delay (delayed-node)))))))
 
 (defun make-s-deep (&key measure (left (make-digit)) (spine :empty) (right (make-digit)))
   (let ((deep (make-deep :left left :spine spine :right right)))
@@ -473,7 +466,7 @@
      (labels ((>-.  (acc xs) (foldl f acc xs))
               (>-.. (acc xs) (tree-foldl #'>-. acc xs))) ; foldl does not swap args, so we are safe!
        (declare (inline >-. >-..))
-       (>-. (>-.. (>-. z right) spine) left)))))
+       (>-. (>-.. (>-. z left) spine) right)))))
 
 (defun lift-cons-gen (f seq tree)
   (reduce f seq :initial-value tree :from-end t))
@@ -491,10 +484,7 @@
   (lift-cons-r seq :empty))
 
 (defun finger-to-list (tree &optional acc)
-  (let ((view (view-l tree)))
-    (if (view-ele-l view)
-        (finger-to-list (view-tree-l view) (cons (view-ele-l view) acc))
-        (reverse acc))))
+  (tree-foldr #'cons acc tree))
 
 (defun finger-to-stream (tree)
   (let ((view (view-l tree)))
@@ -604,10 +594,6 @@
 
 (defun nodes-l (xs)
   "a lazy conversion of [a] |-> [Node a] "
-  (scdr (scdr (scdr (scdr xs))))
-  (scar xs)
-  (scar (scdr xs))
-  (scar (scdr (scdr xs)))
   (match xs
     (nil           (error "it requires at least 2 elements to be a node, not 0"))
     ((list _)      (error "it requires at least 2 elements to be a node, not 1"))
@@ -678,3 +664,15 @@
                    (rest     (butlast dig-list)))
               (make-view :ele (car dig list)
                          :Tree (make-s-deep :left left :spine spine :right (to-digit rest))))))))
+
+
+
+(defun update-nth (x n xs)
+  (cond ((null xs) (list x))
+        ((= 0 n)   (cons x (cdr xs)))
+        (t         (cons (car xs) (update-nth x (1- n) (cdr xs))))))
+
+
+(defparameter *x* (list 1 2 3 4 5))
+
+(defparameter *y* (cdr *x*))
