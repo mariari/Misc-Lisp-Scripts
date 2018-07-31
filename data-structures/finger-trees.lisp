@@ -119,17 +119,13 @@
 (declaim (type function bar))
 
 (defun make-s-node (&key measure one two three (bar bar) (<> <>))
-  (let* ((node       (if three
-                         (make-node-3 :one one :two two :three three)
-                         (make-node-2 :one one :two two)))
-         (delay-node (delay (f <> (f bar (node-one node))
-                                  (f bar (node-two node))))))
-    (setf (node-measure node)
-          (cond (measure measure)
-                (three   (delay (f <> (force delay-node)
-                                      (f bar (node-3-three node)))))
-                (t       delay-node)))
-    node))
+  (flet ((delayed-node () (f <> (f bar one)
+                                (f bar two))))
+    (if three
+        (make-node-3 :one one :two two :three three
+                     :measure (or measure (delay (f <> (delayed-node) (f bar three)))))
+        (make-node-2 :one one :two two
+                     :measure (or measure (delay (delayed-node)))))))
 
 (defun make-s-deep (&key measure (left (make-digit)) (spine :empty) (right (make-digit)))
   (let ((deep (make-deep :left left :spine spine :right right)))
@@ -670,15 +666,3 @@
                    (rest     (butlast dig-list)))
               (make-view :ele (car dig list)
                          :Tree (make-s-deep :left left :spine spine :right (to-digit rest))))))))
-
-
-
-(defun update-nth (x n xs)
-  (cond ((null xs) (list x))
-        ((= 0 n)   (cons x (cdr xs)))
-        (t         (cons (car xs) (update-nth x (1- n) (cdr xs))))))
-
-
-(defparameter *x* (list 1 2 3 4 5))
-
-(defparameter *y* (cdr *x*))

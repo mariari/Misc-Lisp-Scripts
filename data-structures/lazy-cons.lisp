@@ -9,6 +9,9 @@
 
 (defun force (n) (funcall (lazy-expr n)))
 
+(defmacro force-and-update (x)
+  `(setf ,x (force ,x)))
+
 (defmacro scons (x xs)
   `(cons (delay ,x) (delay ,xs)))
 
