@@ -12,7 +12,8 @@
   :description "miscellaneous scripts"
   :long-description "various ideas I play around with and implement in LISP"
 
-  :components ((:file "./CL/macros")
+  :components ((:file "./data-structures/ref")
+               (:file "./CL/macros")
                (:file "./CL/functions"
                       :depends-on ("./CL/macros"))
                (:file "threadstest"

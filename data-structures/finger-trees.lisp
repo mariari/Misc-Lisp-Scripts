@@ -56,7 +56,7 @@
     one two three four)
 
   (defstruct-l node
-      "a node either has two or three things in it"
+    "a node either has two or three things in it"
     (measure 0))
 
   (defstruct-l (node-2 (:include node))
@@ -66,14 +66,12 @@
       one two three)
 
   (defstruct-l view
-      "a view of a finger-tree, gives back an element and the rest of the tree"
+    "a view of a finger-tree, gives back an element and the rest of the tree"
     (ele nil)
     (tree :empty :type finger-tree))
   (defstruct-l split
-      "splits a data structure by singling out an element"
-    left
-    ele
-    right))
+    "splits a data structure by singling out an element"
+    left ele right))
 
 ;; it's best to describe the structure with its type signature
 ;; data split f a = Split (f a) a (f a)

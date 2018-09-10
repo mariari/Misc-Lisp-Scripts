@@ -1,17 +1,18 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (ql:quickload '(:trivia
                   :fset))
-  (rename-package 'fset 'fset '(:f))
+  (rename-package 'fset 'fset '(:fs))
   (use-package 'trivia))
 
 ;; Leftist heaps **************************************************************************************************
 
 (defconstant empty-heap :empty)
 
-(defstruct heap (rank 1)
-                value
-                (left empty-heap :type (or heap symbol))
-                (right empty-heap :type (or heap symbol)))
+(defstruct heap
+  (rank 1)
+  value
+  (left empty-heap :type (or heap symbol))
+  (right empty-heap :type (or heap symbol)))
 
 
 (defun heap-empty-p (heap)
