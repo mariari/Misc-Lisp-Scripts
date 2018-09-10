@@ -46,26 +46,6 @@
                         ,tail nil)))
          (t (pop ,head))))
 
-;;; Pointers from lol-----------------------------------------------------------------------------------
-(defmacro pointer-& (obj)
-  "Simulates a pass by reference"
-  (let ((g!set (gensym))
-        (g!temp (gensym)))
-    `(lambda (&optional (,g!set ',g!temp))
-       (if (eq ,g!set ',g!temp)
-           ,obj
-           (setf ,obj ,g!set)))))
-
-(defun pointer-* (addr)
-  "Emulates a pass by value"
-  (funcall addr))
-
-(defsetf pointer-* (addr) (val)
-  `(funcall ,addr ,val))
-
-(defsetf pointer-& (addr) (val)
-  `(setf (pointer-* ,addr) ,val))
-
 ;;; Indirect way-----------------------------------------------------------------------------------------------
 
 ;; doesn't update by itself for some reason... most likely due to how passing via value instead of by reference works
@@ -156,39 +136,35 @@
 
 
 ;;; Pointer style from LOL (uses Closures)---------------------------------------------------------------------
-(defun defnode%%% (name graph &rest neighbors)
-  (setf (gethash name graph)
-        (let ((new-hash (make-hash-table)))
-          (mapc (lambda (x) (setf (gethash x new-hash) (pointer-& (gethash x graph)))) neighbors)
-          new-hash)))
 
-(defun defnode-bi-or-uni-ptr (name graph bip &rest neighbors)
-  (setf (gethash name graph)
-        (let ((new-hash (make-hash-table)))
-          (mapc (lambda (x)
-                  (unless #1=(gethash x graph)                    ; if the node we are setting does not exist
-                          (if bip
-                              (let ((new-node (make-hash-table))) ; bi direct
-                                (setf (gethash x new-node) (pointer-& (gethash name graph)))
-                                (setf #1# new-node))
-                              (setf #1# (make-hash-table))))
-                  (setf (gethash x new-hash) (pointer-& (gethash x graph)))) ; set the newhash to it
-                neighbors)
-          new-hash)))
-
+(defun defnode-bi-or-uni-ptr (name graph creation &rest neighbors)
+  (let ((node (if (gethash name graph)
+                  (gethash name graph)
+                  (setf (gethash name graph) (ref (make-hash-table))))))
+    (mapc (lambda (x)
+            (unless (gethash x graph)                      ; creates the node with the given function
+              (funcall creation x))                        ; if it's not already in the hash-table
+            (setf (gethash x (! node)) (gethash x graph))) ; already a reference
+          neighbors)))
 
 (defun defnode (name graph &rest neighbors)
-  (apply (curry defnode-bi-or-uni-ptr name graph t) neighbors))
+  "Creates a graph with bidirectional edges"
+  (apply (curry defnode-bi-or-uni-ptr name graph
+                (lambda (neighbor)                                   ; creation function if it's not in global node
+                  (let ((neighbor-contents (make-hash-table))        ; this will be the contents of the neighbor
+                        (node              (gethash name graph)))    ; node is a reference
+                    (setf (gethash neighbor neighbor-contents) node) ; make the neighbor have the node
+                    (setf (gethash neighbor graph)    (ref neighbor-contents))))) ; put a ref to this in the global
+         neighbors))
 
 (defun defnode-uni (name graph &rest neighbors)
-  (apply (curry defnode-bi-or-uni-ptr name graph nil) neighbors))
-
+  (apply (curry defnode-bi-or-uni-ptr name graph
+                (lambda (neighbor)           ; creation function if it's not in the global node
+                  (setf (gethash neighbor graph) (ref (make-hash-table)))))
+         neighbors))
 
 (defun get-node (sym graph)
-  (let ((val (gethash sym graph)))
-    (if (functionp val)
-        (funcall val)
-        val)))
+  (! (gethash sym graph)))
 
 
 (defun breadth-search-gen (start graph pred &key (key #'identity) limit)
@@ -236,7 +212,7 @@
                                 (setf (gethash x seen) t)
                                 (if (funcall key find x)
                                     (return-from depth-search (reverse (cons find path)))
-                                    (rec (funcall y) (cons x path) (1- lim)))))
+                                    (rec (! y) (cons x path) (1- lim)))))
                             node))))
       (rec (get-node start graph) (list start) limit))))
 
@@ -353,33 +329,9 @@
 (defnode 'D *nodes*  'A 'B 'E 'G)
 ;; (time (defnode 'D *nodes*  'A 'B))
 (loop for i from 0 to 1000
-      :do (apply #'defnode i *nodes* (loop for i from 0 to (random 100) collect (random 1000))))
+   :do (apply #'defnode i *nodes* (loop for i from 0 to (random 100) collect (random 1000))))
 
 (defnode 'B *nodes* 'A 'D)
-
-;; (defun grab-node (term graph)
-;;   (let ((val (gethash term graph)))
-;;     (cond ((functionp val) (funcall val))       ;the closure version will show up as a function
-;;           ((hash-table-p val) val)              ; the indirect one can either grab the graph table
-;;           ((symbolp val) (gethash val graph))))) ; or the symbol that leads to the graph
-
-
-
-;; foldr is much slower than (sappend (smap ...)) for some reason
-(defun depth-searchl%% (start graph find &key (key #'eq) (limit -1))
-  (labels ((rec (node node-list lim seen path)
-             (flet ((recurse (nodes-list)
-                      (let ((next (scar nodes-list)))
-                        (rec (car next) (scdr nodes-list) (caddr next) (fs:with seen node) (scar (cdr next)))))
-                    (prune (lis)   (remove-if (lambda (x) (fs:contains? seen x)) lis))
-                    (add   (x acc) (scons (list x (scons node path) (1- lim)) acc)))
-
-               (cond ((null node-list)          '())
-                     ((funcall key find node)    (sreverse (scons find path)))
-                     ((or (null node) (= lim 0)) (recurse node-list))
-                     (t                          (recurse (sfoldr #'add node-list
-                                                                  (prune (hash-keys (get-node node graph))))))))))
-    (make-strict (rec start '(()) limit (fs:empty-set) '()))))
 
 
 ;; (time (defparameter *result* (make-strict (depth-searchl% 1 *nodes* 21))))
