@@ -12,13 +12,18 @@
   :description "miscellaneous scripts"
   :long-description "various ideas I play around with and implement in LISP"
 
-  :components ((:file "./data-structures/ref")
+  :components ((:file "./cl-user"
+                      :depends-on ("./data-structures/ref"
+                                   "./data-structures/lazy-cons"))
                (:file "./CL/macros")
                (:file "./CL/functions"
                       :depends-on ("./CL/macros"))
                (:file "threadstest"
                       :depends-on ("./CL/functions"))
-               (:file "./data-structures/lazy-cons")
+               (:file "./data-structures/ref")
+               (:file "./data-structures/lazy")
+               (:file "./data-structures/lazy-cons"
+                      :depends-on ("./data-structures/lazy"))
                (:file "./data-structures/lazy-struct"
                       :depends-on ("./data-structures/lazy-cons"))
                (:file "./data-structures/tuple")

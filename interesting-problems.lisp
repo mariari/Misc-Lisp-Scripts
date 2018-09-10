@@ -8,8 +8,8 @@
                   :trivia.quasiquote
                   :trivia))
   (use-package 'trivia))
-(named-readtables:in-readtable :fare-quasiquote)
 
+(named-readtables:in-readtable :fare-quasiquote)
 
 (defun water-sustained (xs)
   (let* ((max-l (max-left xs))

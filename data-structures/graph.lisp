@@ -1,32 +1,23 @@
-;; Hash table version
+(defpackage #:graph
+  (:documentation "provides an imperative graph data structure")
+  (:use :cl
+        :ref
+        :lcons)
+  (:export :defnode
+           :defnode-uni
+           :get-node
+           :remove-outgoing-edges
+           :breadth-search
+           :depth-search
+           :depth-searchl))
+
+(in-package :graph)
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (ql:quickload '(:fset))
   (rename-package 'fset 'fset '(:fs)))
 
-
-(defparameter *nodes-clos* (make-hash-table))
-(defparameter *nodes-indirect* (make-hash-table))
-(defparameter *nodes* (make-hash-table))
-
 ;; Helper Macros-----------------------------------------------------------------------------------------------
-
-(defmacro curry (fn . args)
-  "Creates a partially applied function that takes 1 argument if it is a macro
-   (a limitation of &rest closures in CL) and multiple if it is a function"
-  (if (functionp (macro-function fn))
-      `(currym ,fn ,@args)
-      `(curryf #',fn ,@args)))
-
-(defmacro currym (fn . args)
-  "Creates a partially applied function that takes 1 argument"
-  (let ((arg (gensym)))
-    `(lambda (,arg) (,fn ,@args ,arg))))
-
-(declaim (ftype (function (function &rest t) function) curryf)
-         (inline curryf))
-(defun curryf (fn &rest args)
-  "Creates a partially applied function that takes many argument"
-  (lambda (&rest args2) (apply fn (append args args2))))
 
 (defmacro queue (node+ head tail)
   (let ((node (gensym)))
@@ -46,96 +37,7 @@
                         ,tail nil)))
          (t (pop ,head))))
 
-;;; Indirect way-----------------------------------------------------------------------------------------------
-
-;; doesn't update by itself for some reason... most likely due to how passing via value instead of by reference works
-;; !!Abandon this one!!
-(defun defnode%% (name graph &rest neighbors)
-  (setf (gethash name graph)
-        (let ((new-hash (make-hash-table)))
-          (mapc (lambda (x) (if #1=(gethash x graph)
-                           (setf (gethash x new-hash) #1#)
-                           (setf (gethash x new-hash) (setf #1# t))))
-                neighbors)
-          new-hash)))
-
-;; Just stores the symbol in the hash-table instead a reference to the top graph table
-(defun defnode-bi-or-uni-ind (name graph bip &rest neighbors)
-  (setf (gethash name graph)
-        (let ((new-hash (make-hash-table)))
-          (mapc (lambda (x)
-                  (unless #1=(gethash x graph)              ; if the node we are setting does not exist
-                    (if bip
-                        (let ((new-node (make-hash-table))) ; bi direct
-                          (setf (gethash x new-node) name)
-                          (setf #1# new-node))
-                        (setf   #1# (make-hash-table)))) ;uni direct
-                  (setf (gethash x new-hash) x))
-                neighbors)
-          new-hash)))
-
-(defun defnode-ind (name graph &rest neighbors)
-  (apply (curry defnode-bi-or-uni-ind name graph t) neighbors))
-
-(defun defnode-uni-ind (name graph &rest neighbors)
-  (apply (curry defnode-bi-or-uni-ind name graph nil) neighbors))
-
-;;; Testing Indirect
-;; (time (defnode-ind 'A *nodes-indirect* 'B 'C 'D 'E))
-(defnode-ind 'A *nodes-indirect* 'B 'C 'D 'E)
-(defnode-ind 'B *nodes-indirect* 'A 'D 'F)
-(defnode-ind 'C *nodes-indirect*  'A 'F)
-(defnode-ind 'D *nodes-indirect*  'A 'B)
-;; (time (defnode-ind 'D *nodes-indirect*  'A 'B))
-
-(gethash 'b (gethash 'A *nodes-indirect*))
-
-;; (time (gethash (gethash 'a (gethash (gethash 'b (gethash 'A *nodes-indirect*)) *nodes-indirect*)) *nodes-indirect*))
-
-;;;  Closure style with proper nesting Worse than the ptr way--------------------------------------------------
-(defun defnode-bi-or-uni-clos (name graph bip &rest neighbors)
-  (setf (gethash name graph)
-        (let ((new-hash (make-hash-table))
-              (compiled nil))
-          (lambda (&optional (comp compiled))
-            (unless comp
-              (mapc (lambda (x) (setf (gethash x new-hash) (gethash x graph))) neighbors) ; update the current node
-              (setf compiled t))
-            new-hash)))
-  (mapc (lambda (x)
-          (cond ((gethash x graph) (funcall (gethash x graph) nil))           ; update neighboring nodes to the current one if it exists
-                (bip               (defnode-bi-or-uni-clos x graph bip name)) ; else make a bi-directional node
-                (t                 (defnode-bi-or-uni-clos x graph bip))))    ; uni-directional node
-        neighbors)
-  (gethash name graph))
-
-
-(defun defnode-clos (name graph &rest neighbors)
-  (apply (curry defnode-bi-or-uni-clos name graph t) neighbors))
-
-(defun defnode-uni-clos (name graph &rest neighbors)
-  (apply (curry defnode-bi-or-uni-clos name graph nil) neighbors))
-
-
-;; (maphash (lambda (x y) (princ x) (princ (funcall y))) (get-node 'a *nodes-clos*))
-
-(defnode-clos 'A *nodes-clos* 'B 'C 'D 'E)
-;; (time (defnode-clos 'A *nodes-clos* 'B 'C 'D 'E))
-(defnode-clos 'B *nodes-clos* 'A 'D 'F)
-(defnode-clos 'C *nodes-clos*  'A 'F)
-(defnode-clos 'D *nodes-clos*  'A 'B 'E 'G)
-;; (time (defnode-clos 'D *nodes-clos*  'A 'B))
-
-
-(gethash 'B (funcall (gethash 'A *nodes-clos*)))
-(gethash 'B (funcall (gethash 'A *nodes-clos*))) ; every node inside A is compiled
-
-;; (time (funcall (gethash 'a (funcall (gethash 'b (funcall (gethash 'a *nodes-clos*)))))))
-
-(defnode-clos 'B *nodes-clos* 'A 'D)
-
-
-;;; Pointer style from LOL (uses Closures)---------------------------------------------------------------------
+;;; Ref style from OCAML --------------------------------------------------------------------------------------
 
 (defun defnode-bi-or-uni-ptr (name graph creation &rest neighbors)
   (let ((node (if (gethash name graph)
@@ -149,23 +51,31 @@
 
 (defun defnode (name graph &rest neighbors)
   "Creates a graph with bidirectional edges"
-  (apply (curry defnode-bi-or-uni-ptr name graph
-                (lambda (neighbor)                                ; creation function if it's not in global node
-                  (let ((neighbor-contents (make-hash-table))     ; this will be the contents of the neighbor
-                        (node              (gethash name graph))) ; node is a reference
-                    (setf (gethash name neighbor-contents) node)  ; make the neighbor have the node
-                    (setf (gethash neighbor graph)    (ref neighbor-contents))))) ; put a ref to this in the global
+  (apply #'defnode-bi-or-uni-ptr
+         name graph
+         (lambda (neighbor)                                ; creation function if it's not in global node
+           (let ((neighbor-contents (make-hash-table))     ; this will be the contents of the neighbor
+                 (node              (gethash name graph))) ; node is a reference
+             (setf (gethash name neighbor-contents) node)  ; make the neighbor have the node
+             (setf (gethash neighbor graph) (ref neighbor-contents)))) ; put a ref to this in the global
          neighbors))
 
 (defun defnode-uni (name graph &rest neighbors)
-  (apply (curry defnode-bi-or-uni-ptr name graph
-                (lambda (neighbor)           ; creation function if it's not in the global node
-                  (setf (gethash neighbor graph) (ref (make-hash-table)))))
+  (apply #'defnode-bi-or-uni-ptr
+         name graph
+         (lambda (neighbor) ; creation function if it's not in the global node
+           (setf (gethash neighbor graph) (ref (make-hash-table))))
          neighbors))
 
 (defun get-node (sym graph)
-  (when (gethash sym graph)
-    (! (gethash sym graph))))
+  (let ((val (gethash sym graph)))
+    (when val (! val))))
+
+(defun remove-outgoing-edges (sym graph)
+  (let ((val (gethash sym graph)))
+    (:= val (make-hash-table))))
+
+;; Algorithms on the graph------------------------------------------------------------------------------------
 
 
 (defun breadth-search-gen (start graph pred &key (key #'identity) limit)
@@ -184,17 +94,17 @@
       (queue (list start (list start)) head tail) ; start the first node
       (see start)
       (loop :until (null head) :do
-         (let ((curr (dequeue head tail)))
-           (when (end-condition curr)
-             (return-from breadth-search-gen (list (car curr)
-                                                   (nreverse (cadr curr)))))
-           (when (= lim 0)
-             (return-from breadth-search-gen nil)) ; end prematurely if we hit our neighbor cap
-           (decf lim)
-           (loop :for sym :being :the hash-keys :of (get-node (car curr) graph) :do
-              (unless (seenp sym)
-                (queue (make-node+ sym curr) head tail)
-                (see sym))))))))
+           (let ((curr (dequeue head tail)))
+             (when (end-condition curr)
+               (return-from breadth-search-gen (list (car curr)
+                                                     (nreverse (cadr curr)))))
+             (when (= lim 0)
+               (return-from breadth-search-gen nil)) ; end prematurely if we hit our neighbor cap
+             (decf lim)
+             (loop :for sym :being :the hash-keys :of (get-node (car curr) graph) :do
+                  (unless (seenp sym)
+                    (queue (make-node+ sym curr) head tail)
+                    (see sym))))))))
 
 (defun breadth-search (start graph target &key (key #'identity) limit)
   (breadth-search-gen start graph (lambda (x) (eq target x)) :key key :limit limit))
@@ -320,20 +230,3 @@
                                                                              (hash-keys (get-node node graph)))
                                                                   :initial-value node-list)))))))
     (rec start '(()) limit '() '())))
-
-(defnode 'A *nodes* 'B 'C 'D 'E)
-;; (time (defnode 'A *nodes* 'B 'C 'D 'E))
-(defnode 'B *nodes* 'A 'D 'F)
-(defnode 'C *nodes*  'A 'F)
-(defnode 'D *nodes*  'A 'B 'E 'G)
-(defnode 'D *nodes*  'A 'B 'E 'G)
-(defnode 'D *nodes*  'A 'B 'E 'G)
-;; (time (defnode 'D *nodes*  'A 'B))
-(loop for i from 0 to 1000
-   :do (apply #'defnode i *nodes* (loop for i from 0 to (random 100) collect (random 1000))))
-
-(defnode 'B *nodes* 'A 'D)
-
-
-;; (time (defparameter *result* (make-strict (depth-searchl% 1 *nodes* 21))))
-;; (time (defparameter *result* (depth-search% 1 *nodes* 21)))

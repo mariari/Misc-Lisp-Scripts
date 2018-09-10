@@ -1,3 +1,13 @@
+(defpackage #:ref
+  (:documentation "Provides a reference")
+  (:use #:cl)
+  (:export :ref
+           :ref-p
+           :!
+           ::=))
+
+(in-package ref)
+
 (defstruct ref contents)
 
 (defun ref (x)
