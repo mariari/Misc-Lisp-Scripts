@@ -1,7 +1,7 @@
 (defpackage #:graph
   (:documentation "provides an imperative graph data structure")
   (:use :cl
-        :ref
+        :reference
         :lcons)
   (:export :defnode
            :defnode-uni
@@ -39,7 +39,7 @@
 
 ;;; Ref style from OCAML --------------------------------------------------------------------------------------
 
-(defun defnode-bi-or-uni-ptr (name graph creation &rest neighbors)
+(defun defnode-bi-or-uni-ptr (name graph creation neighbors)
   (let ((node (if (gethash name graph)
                   (gethash name graph)
                   (setf (gethash name graph) (ref (make-hash-table))))))
@@ -51,21 +51,21 @@
 
 (defun defnode (name graph &rest neighbors)
   "Creates a graph with bidirectional edges"
-  (apply #'defnode-bi-or-uni-ptr
-         name graph
-         (lambda (neighbor)                                ; creation function if it's not in global node
-           (let ((neighbor-contents (make-hash-table))     ; this will be the contents of the neighbor
-                 (node              (gethash name graph))) ; node is a reference
-             (setf (gethash name neighbor-contents) node)  ; make the neighbor have the node
-             (setf (gethash neighbor graph) (ref neighbor-contents)))) ; put a ref to this in the global
-         neighbors))
+  (defnode-bi-or-uni-ptr
+      name graph
+    (lambda (neighbor)                                ; creation function if it's not in global node
+      (let ((neighbor-contents (make-hash-table))     ; this will be the contents of the neighbor
+            (node              (gethash name graph))) ; node is a reference
+        (setf (gethash name neighbor-contents) node)  ; make the neighbor have the node
+        (setf (gethash neighbor graph) (ref neighbor-contents)))) ; put a ref to this in the global
+    neighbors))
 
 (defun defnode-uni (name graph &rest neighbors)
-  (apply #'defnode-bi-or-uni-ptr
-         name graph
-         (lambda (neighbor) ; creation function if it's not in the global node
-           (setf (gethash neighbor graph) (ref (make-hash-table))))
-         neighbors))
+  (defnode-bi-or-uni-ptr
+      name graph
+    (lambda (neighbor) ; creation function if it's not in the global node
+      (setf (gethash neighbor graph) (ref (make-hash-table))))
+    neighbors))
 
 (defun get-node (sym graph)
   (let ((val (gethash sym graph)))

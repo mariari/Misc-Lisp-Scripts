@@ -309,8 +309,8 @@
 (defmethod to-stream ((tree single))       (finger-to-stream tree))
 (defmethod to-stream ((tree (eql :empty))) (finger-to-stream tree))
 
-(defmethod foldr (f x (single single))     (tree-foldr f x single))
-(defmethod foldr (f x (deep deep))         (tree-foldr f x deep))
+(defmethod foldr (f x (single single))      (tree-foldr f x single))
+(defmethod foldr (f x (deep deep))          (tree-foldr f x deep))
 (defmethod foldr (f x (empty (eql :empty))) (tree-foldr f x empty))
 
 (defmethod foldl (f x (single single))      (tree-foldl f x single))

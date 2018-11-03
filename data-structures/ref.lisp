@@ -1,4 +1,4 @@
-(defpackage #:ref
+(defpackage #:reference
   (:documentation "Provides a reference")
   (:use #:cl)
   (:export :ref
@@ -6,7 +6,7 @@
            :!
            ::=))
 
-(in-package ref)
+(in-package reference)
 
 (defstruct ref contents)
 

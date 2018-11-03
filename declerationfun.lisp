@@ -78,20 +78,30 @@
 
   (declaim (ftype (function (fixnum &optional (or fixnum null) fixnum) (simple-array fixnum (*))) range-v))
   (defun range-v (first &optional (second) (step 1))
-  "returns a range in a vector, much faster than range, but only supports fixnums"
-  (flet ((compute (first second)
-           (let ((vec      (make-array (1+ (floor (abs (- second first)) step))
-                                       :element-type 'fixnum))
-                 (new-step (if (< second first) (- step) step)))
-             (dotimes (i (length vec) vec)
-               (setf (aref vec i) (+ first (the fixnum (* new-step i))))))))
-    (declare (inline compute))
-    (if second
-        (compute first second)
-        (compute 0     first)))))
+    "returns a range in a vector, much faster than range, but only supports fixnums"
+    (flet ((compute (first second)
+             (let ((vec      (make-array (1+ (floor (abs (- second first)) step))
+                                         :element-type 'fixnum))
+                   (new-step (if (< second first) (- step) step)))
+               (dotimes (i (length vec) vec)
+                 (setf (aref vec i) (+ first (the fixnum (* new-step i))))))))
+      (declare (inline compute))
+      (if second
+          (compute first second)
+          (compute 0     first))))
 
-(locally (declare (optimize (speed 3) (space 2) (safety 0) (debug 0) (compilation-speed 0)))
-  (time (defparameter *x* (range 100000))))
+  (declaim (ftype (function (fixnum &optional (or fixnum null) fixnum) (simple-array fixnum (*))) range-v%))
+  (defun range-v% (first &optional (second) (step 1))
+    "returns a range in a vector, much faster than range, but only supports fixnums"
+    (unless second
+      (setf second first first 0))
+    (let ((vec      (make-array (1+ (floor (abs (- second first)) step)) :element-type 'fixnum))
+          (new-step (if (< second first) (- step) step)))
+      (dotimes (i (length vec) vec)
+        (setf (aref vec i) (+ first (the fixnum (* new-step i))))))))
+
+;; (locally (declare (optimize (speed 3) (space 2) (safety 0) (debug 0) (compilation-speed 0)))
+;;   (time (defparameter *x* (range 100000))))
 
 
 ;; (print (range-v 10))
@@ -100,20 +110,51 @@
 (declaim (inline range range-v))
 
 
+;; Imutable updates
+(defstruct ta
+  (iter 0 :type fixnum)
+  (count 0 :type fixnum))
 
 
+
+(defun test-mut (t1)
+  (let ((iter (ta-iter t1)))
+    (if (zerop iter)
+        t1
+        (progn
+          (setf (ta-iter t1)  (- iter 1))
+          (setf (ta-count t1) (+ (ta-count t1) 1))
+          (test-mut t1)))))
+
+(defun test-imut (t1)
+  (let ((iter (ta-iter t1)))
+    (if (zerop iter)
+        t1
+        (let ((iters2 (- iter 1))
+              (count2 (+ (ta-count t1) 1)))
+          (test-imut (make-ta :iter iters2 :count count2))))))
+
+
+(defparameter *iter*  (make-ta :iter 100 :count 0))
+(defparameter *iter1* (make-ta :iter 100 :count 0))
+
+
+(time (test-mut *iter*))
+(time (test-imut *iter1*))
+(time (test-imut *iter*))
+
+(time (test-mut *iter*))
+(time (test-imut *iter*))
 
 (let ((var 2))
   (defun fun1 (x)
     (+ x var))
-    
+
   (defun fun2 (x)
     (+ x var)))
 
 
 (defun reverse* (lis)
-  
-  
   (labels ((_reverse* (lis lis2)
              (if (null lis)
                  lis2

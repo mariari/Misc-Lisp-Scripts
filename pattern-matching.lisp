@@ -16,6 +16,21 @@
 
 (match '(1 . 2) ((cons a b) (+ a b)))
 
+(let ((x :x)
+      (to-match '(:x :y :z)))
+  (cond ((eq x (car to-match)) (cdr to-match))))
+
+;; (let ((x :x))
+;;   (match '(:x :y :z)
+;;     (guard (`(,a ,@y) y) (eq x a) y)))
+
+
+(defun my-pred (x) (evenp x))
+
+(let-match* ((x :x)
+             ((list* (eq x) y) '(:x :y :z)))
+  y)
+
 (match '(a b c d) (`(a b ,@x) x))
 
 
@@ -35,7 +50,7 @@
   (`(1 ,x ,@y) (list x y)))
 ;; (in-optimizer :trivia)
 ;; (in-optimizer :balland2006)
-(match '(a b c d) 
+(match '(a b c d)
   ((list* _ _ x) x))
 ;; broken?
 (match '((a . 1) (b . 2) (c . 3))
