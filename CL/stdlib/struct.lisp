@@ -1,9 +1,15 @@
+(defpackage #:struct
+  (:documentation "Provides functions for struct definitions")
+  (:use #:common-lisp)
+  (:export defstruct-l))
+
+(in-package :struct)
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (ql:quickload '(:let-over-lambda :trivia)))
 
 ;; EXTRA DEPENDENCEIS :: we don't require lazy, but this is made
 ;; explicitly for lazy-cons
-
 
 ;; so far this macro only supports the :type keyword
 ;; this macro does not support conc-n yet, but at a later date I'll add it
@@ -24,7 +30,7 @@
                                               slot
                                               (mapcan (lambda (x) ; we just want to inject the lazy type to make consistent types
                                                         (if (eq (car x) :type)
-                                                            `(:type (or lazy ,(cadr x)))
+                                                            `(:type (or lazy:lazy ,(cadr x)))
                                                             x))
                                                       (lol:group slot 2))))
                                         slot-descriptions))
@@ -46,8 +52,8 @@
            ,@(mapcar (lambda (maker-symb-l maker-symb)
                        `(defun ,maker-symb-l (,name)
                           (let ((,value (,maker-symb ,name)))
-                            (if (lazy-p ,value)
-                                (setf (,maker-symb ,name) (force ,value))
+                            (if (lazy:lazy-p ,value)
+                                (setf (,maker-symb ,name) (lazy:force ,value))
                                 ,value))))
                      new-symbs-make-l new-symbs-make)
            (defmacro ,struct-creator-l (&key ,@new-symbs-default)
@@ -55,7 +61,7 @@
              (list ',struct-creator ,@(mapcar (lambda (x) ; (list '...) because we are doing ` expansion by hand
                                                 (if (keywordp x) ; as we need to compile into a defmacro form
                                                     x ; and double ` would add extra , which is uneeded
-                                                    `(list 'delay ,x))) ; make the elements delayed, as we want them to be lazy
+                                                    `(list 'lazy:delay ,x))) ; make the elements delayed, as we want them to be lazy
                                               (lol:flatten (mapcar (lambda (symb)
                                                                      (list (turn-into-key-word symb) symb))
                                                                    new-symbs))))))))))

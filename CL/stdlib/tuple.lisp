@@ -1,5 +1,3 @@
-
-
 (defpackage #:tuple
   (:nicknames #:t)
   (:documentation "provides the tuple data structure and some functions")

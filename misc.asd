@@ -13,23 +13,26 @@
   :long-description "various ideas I play around with and implement in LISP"
 
   :components ((:file "./cl-user"
-                      :depends-on ("./data-structures/ref"
-                                   "./data-structures/lazy-cons"))
+                      :depends-on ("./CL/stdlib/ref"
+                                   "./CL/stdlib/lazy-cons"))
                (:file "./CL/macros")
+               (:file "./CL/stdlib/list")
+               (:file "./CL/stdlib/vector")
+               (:file "./CL/stdlib/string")
                (:file "./CL/functions"
                       :depends-on ("./CL/macros"))
                (:file "threadstest"
                       :depends-on ("./CL/functions"))
-               (:file "./data-structures/ref")
-               (:file "./data-structures/lazy")
-               (:file "./data-structures/lazy-cons"
-                      :depends-on ("./data-structures/lazy"))
-               (:file "./data-structures/lazy-struct"
-                      :depends-on ("./data-structures/lazy-cons"))
-               (:file "./data-structures/tuple")
+               (:file "./CL/stdlib/ref")
+               (:file "./CL/stdlib/lazy")
+               (:file "./CL/stdlib/lazy-cons"
+                      :depends-on ("./CL/stdlib/lazy"))
+               (:file "./CL/stdlib/struct"
+                      :depends-on ("./CL/stdlib/lazy-cons"))
+               (:file "./CL/stdlib/tuple")
                (:file "./data-structures/functor-applicative-monad")
                (:file "./data-structures/state"
-                      :depends-on ("./data-structures/tuple"
+                      :depends-on ("./CL/stdlib/tuple"
                                    "./data-structures/functor-applicative-monad"))
                (:file "./data-structures/reader"
                       :depends-on ("./data-structures/functor-applicative-monad"))))

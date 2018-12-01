@@ -12,7 +12,6 @@
 
 
 (defpackage #:shell
-  (:nicknames #:fun :sh)
   (:use #:let-over-lambda)
   (:import-from #:alexandria #:parse-body)
   (:shadowing-import-from #:let-over-lambda #:when-match #:if-match #:symb)
@@ -34,26 +33,6 @@
 (in-package :shell)
 
 (named-readtables:in-readtable :fare-quasiquote)
-
-
-(defmacro curry (fn . args)
-  "Creates a partially applied function that takes 1 argument if it is a macro
-   (a limitation of &rest closures in CL) and multiple if it is a function"
-  (if (functionp (macro-function fn))
-      `(currym ,fn ,@args)
-      `(curryf #',fn ,@args)))
-
-(defmacro currym (fn . args)
-  "Creates a partially applied function that takes 1 argument"
-  (let ((arg (gensym)))
-    `(lambda (,arg) (,fn ,@args ,arg))))
-
-(declaim (ftype (function (function &rest t) function) curryf)
-         (inline curryf))
-(defun curryf (fn &rest args)
-  "Creates a partially applied function that takes many argument"
-  (lambda (&rest args2) (apply fn (append args args2))))
-
 
 (defun num-threads ()
   (uiop:os-cond ((uiop:os-unix-p)    (read-from-string (run/s `(nproc --all)))) ; works
@@ -107,9 +86,9 @@
 (defun plmapcar (fn list &rest more-lists)
   "works like mapcar except every process is wrapped around a new thread and the computation gets passed
    onto the user to evaluate when they wish and evaluates (parallel lazy mapcar)"
-  (apply (curry mapcar (lambda (&rest x)
-                         (make-thread (lambda () (apply fn x))))
-                       list)
+  (apply (f:curry mapcar (lambda (&rest x)
+                           (make-thread (lambda () (apply fn x))))
+                  list)
          more-lists))
 
 (macrolet ((pmap-gen (&optional result-type)
@@ -117,16 +96,16 @@
              `(let* ((thread-lim (1- (num-open-threads)))
                      (mutex (make-semaphore :count thread-lim))
                      (finished (make-semaphore :count 0))
-                     (vals (prog1 (apply (curry ,@(if result-type
-                                                      `(map result-type)
-                                                      `(mapcar))
-                                                (lambda (&rest x)
-                                                  (wait-on-semaphore mutex)
-                                                  (make-thread (lambda () (prog1 (apply fn x)
-                                                                            (signal-semaphore mutex)))))
-                                                list)
+                     (vals (prog1 (apply (f:curry ,@(if result-type
+                                                        `(map result-type)
+                                                        `(mapcar))
+                                                  (lambda (&rest x)
+                                                    (wait-on-semaphore mutex)
+                                                    (make-thread (lambda () (prog1 (apply fn x)
+                                                                         (signal-semaphore mutex)))))
+                                                  list)
                                          more-lists)
-                                  (signal-semaphore finished))))
+                             (signal-semaphore finished))))
                 (wait-on-semaphore finished)
                 ,(if result-type
                      `(map result-type #'join-thread vals)
@@ -300,7 +279,7 @@
               (sleep .3)
               (print x)
               (signal-semaphore lock) x)
-            (range 10))))
+            (list:range 10))))
 ;; What!??!?!
 ;; works
 
@@ -339,14 +318,14 @@
              `(let* ((thread-lim (1- (num-open-threads)))
                      (mutex (make-semaphore :count thread-lim))
                      (vals (apply
-                            (curry ,@(if result-type
-                                         `(map result-type)
-                                         `(mapcar))
-                                   (lambda (&rest x)
-                                     (wait-on-semaphore mutex)
-                                     (make-thread (lambda () (prog1 (apply fn x)
-                                                          (signal-semaphore mutex)))))
-                                   list)
+                            (f:curry ,@(if result-type
+                                           `(map result-type)
+                                           `(mapcar))
+                                     (lambda (&rest x)
+                                       (wait-on-semaphore mutex)
+                                       (make-thread (lambda () (prog1 (apply fn x)
+                                                            (signal-semaphore mutex)))))
+                                     list)
                             more-lists)))
                 (loop :while (/= (semaphore-count mutex) thread-lim))
                 ,(if result-type
@@ -358,3 +337,20 @@
 
   (defun pmapcar* (fn list &rest more-lists)
     (pmap-gen)))
+
+
+
+
+(defun fibonacci (n)
+  (labels ((rec (n)
+             (if (= n 0)
+                 (list 0 1)
+                 (let* ((ls (rec (truncate n 2)))
+                        (z (car ls))
+                        (f (cadr ls))
+                        (c (* z (- (* 2 f) z)))
+                        (d (+ (* f f) (* z f))))
+                   (if (= (mod n 2) 0)
+                       (list c d)
+                       (list d (+ c d)))))))
+    (car (rec n))))

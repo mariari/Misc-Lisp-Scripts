@@ -19,7 +19,7 @@
 
 (defmacro global-var-to-filename% (name extension)
   "Converts a global variable NAME to a string and appends EXTENSION on it *my-db-album lisp --> MY-DB-ALUM.lisp"
-  (let ((g (gensym)))                   ; Avoid unwanted variable capture 
+  (let ((g (gensym)))                   ; Avoid unwanted variable capture
     `(let ((,g (string ',name)))
        (concatenate 'string (subseq ,g 1 (1- (length ,g))) ,extension))))
 
@@ -40,8 +40,8 @@
 
 (defun my-dump-db ()
   "Dumps the database in a readable way"
-  (maphash (lambda (keys values)             
-             (mapcar (lambda (value)         ; The values are like ((:title) (:title)) so map through it 
+  (maphash (lambda (keys values)
+             (mapcar (lambda (value)         ; The values are like ((:title) (:title)) so map through it
                        (format t "~{~a:~10t~a~%~}~%" value)) values)) *my-db-album*))
 
 (defun my-add-cds ()

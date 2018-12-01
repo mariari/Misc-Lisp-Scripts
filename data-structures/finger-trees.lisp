@@ -18,7 +18,7 @@
   (defconstant +empty-t+ :empty
     "Used for the empty type of current-iter tree")
 
-  (defstruct-l single
+  (struct:defstruct-l single
       "single will be of type FingerTree"
     ele)
 
@@ -28,7 +28,7 @@
         (satisfies single-p)
         (satisfies deep-p)))
 
-  (defstruct-l deep
+  (struct:defstruct-l deep
       "this is the spine of the current-iter tree, along with some digits on the sides"
     measure
     (left (make-digit) :type digit) ; the default values are a hack and should thus never be used!
@@ -55,21 +55,21 @@
     "a digit can hold either 1 or 2 or 3 or 4 things in it"
     one two three four)
 
-  (defstruct-l node
+  (struct:defstruct-l node
     "a node either has two or three things in it"
     (measure 0))
 
-  (defstruct-l (node-2 (:include node))
+  (struct:defstruct-l (node-2 (:include node))
       one two)
 
-  (defstruct-l (node-3 (:include node))
+  (struct:defstruct-l (node-3 (:include node))
       one two three)
 
-  (defstruct-l view
+  (struct:defstruct-l view
     "a view of a finger-tree, gives back an element and the rest of the tree"
     (ele nil)
     (tree :empty :type finger-tree))
-  (defstruct-l split
+  (struct:defstruct-l split
     "splits a data structure by singling out an element"
     left ele right))
 

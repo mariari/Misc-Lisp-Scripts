@@ -1,8 +1,8 @@
 
 
-(time (defparameter *y* (add-seqr (f:range 20) (make-dequeue))))
+(time (defparameter *y* (add-seqr (list:range 20) (make-dequeue))))
 
-(time (defparameter *x* (to-finger (f:range 20))))
+(time (defparameter *x* (to-finger (list:range 20))))
 
 
 (time
@@ -22,7 +22,7 @@
                      ((= 8 rand) (consl 0 acc))
                      ((= 1 rand) (consr 0 acc))
                      ((= 0 rand) (consl 0 acc)))))
-           (f:range-v 50000)
+           (vector:range 50000)
            :initial-value *y*)))
 
 (time (let ((swap1 *x*)
@@ -41,7 +41,7 @@
                           ((= 9 rand) (cons-r 0 acc))
                           ((= 8 rand) (cons-l 0 acc))
                           ((= 0 rand) (cons-l 0 acc)))))
-                (f:range-v 50000)
+                (vector:range 50000)
                 :initial-value *x*)))
 
 (time (let ((half-way))
@@ -49,7 +49,7 @@
                   (if (= ele 500)
                       (setf half-way acc)
                       (cdrr acc)))
-                (f:range-v 5000)
+                (vector:range 5000)
                 :initial-value *y*)
         ;; (reduce (lambda (acc ele)
         ;;           (declare (ignore ele))
@@ -59,7 +59,7 @@
         (reduce (lambda (acc ele)
                   (declare (ignore ele))
                   (cdrl acc))
-                (f:range-v 5000)
+                (vector:range 5000)
                 :initial-value *y*)))
 
 (time (let ((half-way))
@@ -67,7 +67,7 @@
                   (if (= ele 500)
                       (setf half-way acc)
                       (view-tree-l (view-r acc))))
-                (f:range-v 5000)
+                (vector:range 5000)
                 :initial-value *x*)
         ;; (reduce (lambda (acc ele)
         ;;           (declare (ignore ele))
@@ -77,7 +77,7 @@
         (reduce (lambda (acc ele)
                   (declare (ignore ele))
                   (view-tree-l (view-l acc)))
-                (f:range-v 5000)
+                (vector:range 5000)
                 :initial-value *x*)))
 
 

@@ -2,7 +2,7 @@
   (ql:quickload 'trivia)
   (use-package 'trivia)
 
-  (defstruct-l queue
+  (struct:defstruct-l queue
     (f      nil :type list)
     (f-size 0   :type Integer)
     (e      nil :type list)
@@ -41,4 +41,4 @@
    (check (make-queue :f (scdr f) :f-size (1- f-size)
                       :e e        :e-size e-size))))
 
-(defparameter *example-queue* (reduce #'snoc (f:range 1000) :from-end t :initial-value (make-queue)))
+(defparameter *example-queue* (reduce #'snoc (list:range 1000) :from-end t :initial-value (make-queue)))

@@ -1,0 +1,27 @@
+* Misc Lisp Scripts
+
+This is just a bunch of Miscellaneous code I've played around with.
+the asd file loads functions that are important to other functions in the project, for example finger-tree.lisp relies on lazy-struct which relies on lazy-list which the asd file loads for you
+** Some notable files are
+1. =CL/stdlib/= - This is a collection of functions that augment the
+   Common Lisp language
+   - =struct= - This module currently includes a lazy-struct macro
+     that injects lazy semantics into struct definitions
+   - =ref= - This provides ML like references to CL, this gets auto
+     loaded into the name space in the asd
+   - =lazy= - defines lazy semantics for CL
+   - =lazy-cons= - defines a lazy list data structure
+2. =data-structures= - this has a few data structures I've decided to
+   make
+   - =finger-tree= - defines a full fledged finger tree for use from
+     the paper seen [[http://www.staff.city.ac.uk/~ross/papers/FingerTree.html][here]]
+   - =state= - the state monad
+   - =reader= - the reader monad
+   - =functor-applicative-monad= - this defines a bunch of
+     abstraction methods and some derived forms.
+3. =threadtest.lisp= - parallel mapcar, and a S! macro that injects
+   thread locking to a critical section of code
+
+4. =numberConverter= - a simple little program that converts numbers
+   to different redixes, made when I was first learning lisp
+

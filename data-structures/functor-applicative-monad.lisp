@@ -1,5 +1,5 @@
 (defpackage #:generic
-  (:nicknames #:g)
+  (:nicknames #:gen)
   (:documentation "provides generic functions, fn* denotes the generic function that takes n things")
   (:use #:common-lisp)
   (:export :<$
