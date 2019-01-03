@@ -1,3 +1,16 @@
+;;; General functions---------------------------------------------------------------------------------
+
+(defun call-s (module name &rest args)
+  "Finds a function-symbol in a namespace and calls it on args"
+  (apply #'funcall
+         (find-symbol (symbol-name name) module)
+         args))
+
+(defun val-s (module name)
+  "Finds a symbol-value in a module"
+  (symbol-value (find-symbol (symbol-name name) module)))
+
+;;;; Query Handler-----------------------------------------------------------------------------------
 
 (defmacro make-query-module (name)
   `(defpackage ,name
@@ -47,22 +60,28 @@
 
 (defparameter *test-dir* (list-dir:create "/home/loli/"))
 
-
 ;; In OCaml we need a nested module, in order to make this work, we will follow suit, but a struct would work
 
 (defmacro build-instance (module config &optional (gensym-name "G"))
   (let* ((gensym (gensym gensym-name))
          (package (make-package gensym :use '(#:cl))))
     `(progn
-       (export (defparameter ,(intern (symbol-name 'q) package) ,module)
+       (export (defparameter ,(intern (symbol-name 'query-handler) package) ,module)
                ,package)
 
        (export (defparameter ,(intern (symbol-name 'this) package)
-                 (funcall (find-symbol (symbol-name 'create) ,module) ,config))
+                 (call-s ,module 'create ,config))
                ,package)
        ,package)))
 
-(defparameter *unique-instance*   (build-instance *unique* 0 "GE"))
-(defparameter *list-dir-instance* (build-instance *list-dir* "/home/loli/" "LIS"))
+(defparameter *unique-instance*   (build-instance *unique* 0))
+(defparameter *list-dir-instance* (build-instance *list-dir* "~/"))
 
-
+(defun build-dispatch-tables (handlers)
+  (let ((table (make-hash-table :test 'equalp)))
+    (mapc (lambda (instance)
+            (setf (gethash (val-s (val-s instance 'query-handler) 'name)
+                           table)
+                  instance))
+          handlers)
+    table))
