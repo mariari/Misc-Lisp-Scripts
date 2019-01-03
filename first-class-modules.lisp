@@ -27,12 +27,13 @@
 (defparameter name "unique")
 
 (defun create (start-at)
-  start-at)
+  (reference:ref start-at))
 
 (defun eval-t (state sexp)
-  (if (null sexp)
-      (list :ok (prog1 state (incf state)))
-      (list :error "sexp is not empty")))
+  (let ((val (reference:! state)))
+    (if (null sexp)
+        (list :ok (prog1 val (setf (reference:! state) (1+ val))))
+        (list :error "sexp is not empty"))))
 
 (in-package cl-user)
 
@@ -74,9 +75,6 @@
                ,package)
        ,package)))
 
-(defparameter *unique-instance*   (build-instance *unique* 0))
-(defparameter *list-dir-instance* (build-instance *list-dir* "~/"))
-
 (defun build-dispatch-tables (handlers)
   (let ((table (make-hash-table :test 'equalp)))
     (mapc (lambda (instance)
@@ -85,3 +83,21 @@
                   instance))
           handlers)
     table))
+
+(defun dispatch (dispatch-table name-and-query)
+  (if (and (not (null name-and-query)) (listp name-and-query))
+      (let* ((name   (car name-and-query))
+             (query  (cadr name-and-query))
+             (module (gethash name dispatch-table)))
+        (if module
+            (call-s (val-s module 'query-handler) 'eval-t
+                    (val-s module 'this)
+                    query)
+            (list :error "Could not find matching handler")))
+      (list :error "malformed query")))
+
+;; (defparameter *unique-instance*   (build-instance *unique* 0))
+;; (defparameter *list-dir-instance* (build-instance *list-dir* "~/"))
+;; (defparameter *table* (build-dispatch-tables (list *unique-instance* *list-dir-instance*)))
+;; (dispatch *table* (list "ls" "./"))
+;; (dispatch *table* (list "unique" '()))
