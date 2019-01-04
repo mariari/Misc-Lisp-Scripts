@@ -59,7 +59,7 @@
 
 (in-package cl-user)
 
-(defparameter *test-dir* (list-dir:create "/home/loli/"))
+(defparameter *test-dir* (list-dir:create "~/"))
 
 ;; In OCaml we need a nested module, in order to make this work, we will follow suit, but a struct would work
 
@@ -96,6 +96,7 @@
             (list :error "Could not find matching handler")))
       (list :error "malformed query")))
 
+;; interestingly enough gensym breaks at top level
 ;; (defparameter *unique-instance*   (build-instance *unique* 0))
 ;; (defparameter *list-dir-instance* (build-instance *list-dir* "~/"))
 ;; (defparameter *table* (build-dispatch-tables (list *unique-instance* *list-dir-instance*)))

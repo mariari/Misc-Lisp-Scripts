@@ -19,9 +19,13 @@ the asd file loads functions that are important to other functions in the projec
    - =reader= - the reader monad
    - =functor-applicative-monad= - this defines a bunch of
      abstraction methods and some derived forms.
-3. =threadtest.lisp= - parallel mapcar, and a S! macro that injects
+3. =first-class-modules= - This is an experiment to see how well CL's
+   first class module system works. It translates the Real World Ocaml
+   chapter. When a future project gets done, this should get a whole
+   lot less awkward.
+
+4. =threadtest.lisp= - parallel mapcar, and a S! macro that injects
    thread locking to a critical section of code
 
-4. =numberConverter= - a simple little program that converts numbers
+5. =numberConverter= - a simple little program that converts numbers
    to different redixes, made when I was first learning lisp
-
