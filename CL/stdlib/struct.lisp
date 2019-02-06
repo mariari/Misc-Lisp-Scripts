@@ -28,7 +28,7 @@
              (new-body          (mapcar (lambda (slot)
                                           (if (atom slot)
                                               slot
-                                              (mapcan (lambda (x) ; we just want to inject the lazy type to make consistent types
+                                              (mapcan (lambda (x) ; inject the lazy type to make consistent types
                                                         (if (eq (car x) :type)
                                                             `(:type (or lazy:lazy ,(cadr x)))
                                                             x))
@@ -48,7 +48,7 @@
         `(prog1
              ,(if doc-string
                   `(defstruct ,name-and-options ,doc-string ,@new-body)
-                  `(defstruct ,name-and-options ,@new-body)) ; of any kind will use the old version, and ruin our code!
+                  `(defstruct ,name-and-options ,@new-body))
            ,@(mapcar (lambda (maker-symb-l maker-symb)
                        `(defun ,maker-symb-l (,name)
                           (let ((,value (,maker-symb ,name)))
@@ -58,10 +58,13 @@
                      new-symbs-make-l new-symbs-make)
            (defmacro ,struct-creator-l (&key ,@new-symbs-default)
              "creates a lazy version of the struct, delaying all the arguments"
-             (list ',struct-creator ,@(mapcar (lambda (x) ; (list '...) because we are doing ` expansion by hand
-                                                (if (keywordp x) ; as we need to compile into a defmacro form
-                                                    x ; and double ` would add extra , which is uneeded
-                                                    `(list 'lazy:delay ,x))) ; make the elements delayed, as we want them to be lazy
+             ;; (list '...) because we are doing ` expansion by hand
+             ;; as we need to compile into a defmacro form
+             ;; and double ` would add extra , which is uneeded
+             (list ',struct-creator ,@(mapcar (lambda (x)
+                                                (if (keywordp x)
+                                                    x
+                                                    `(list 'lazy:delay ,x))) ; make the elements delayed
                                               (lol:flatten (mapcar (lambda (symb)
                                                                      (list (turn-into-key-word symb) symb))
                                                                    new-symbs))))))))))

@@ -13,6 +13,8 @@
                  (if num
                      (rec (subseq seq (+ length num))
                           (lambda (x)
-                            (funcall cps (list* (subseq seq 0 num) (subseq seq num (+ length num)) x))))
+                            (funcall cps (list* (subseq seq 0 num)
+                                                (subseq seq num (+ length num))
+                                                x))))
                      (funcall cps (list seq))))))
       (rec seq #'identity))))
