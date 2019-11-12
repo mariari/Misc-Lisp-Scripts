@@ -24,8 +24,14 @@ the asd file loads functions that are important to other functions in the projec
    chapter. When a future project gets done, this should get a whole
    lot less awkward.
 
-4. =threadtest.lisp= - parallel mapcar, and a S! macro that injects
+4. =threadtest= - parallel mapcar, and a S! macro that injects
    thread locking to a critical section of code
 
 5. =numberConverter= - a simple little program that converts numbers
    to different redixes, made when I was first learning lisp
+
+6. =cache-fstar-source= - a simple script which recursively creates
+   caches of verified F^{★} files.
+
+   - Useful for verifying the standard library, or one's own standard
+     library
