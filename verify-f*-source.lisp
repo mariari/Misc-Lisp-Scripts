@@ -1,0 +1,46 @@
+
+(ql:quickload "inferior-shell")
+
+(asdf:load-system :uiop)
+
+(defpackage #:fix-script
+  (:nicknames #:fun :times)
+  (:use #:optima)
+  (:use #:inferior-shell)
+  (:use #:uiop)
+  (:use #:common-lisp)
+  (:export :generate-cache))
+
+(in-package :fix-script)
+
+;; This does not work for ulib sadly, it has many finicky parameters see here
+;; https://github.com/FStarLang/FStar/issues/1790
+;; for some reason if you qualify the entire file instead of assuming current file, it
+;; may fail with errors (looking at you FStar.Seq.Base.fst)
+;; , this script does not account for that. Please fix those ones manually,
+;; or add custom lisp logic to solve that certain case!!!!!!
+
+(defun generate-cache (starting-file &key (r-limit 5))
+  (labels ((rec (current-file tried-list)
+             (let* ((tried           (nth-value 1
+                                                (run `(fstar.exe ,current-file
+                                                                 --cache_checked_modules
+                                                                 --record_hints
+                                                                 --use_hints
+                                                                 --z3rlimit ,r-limit)
+                                                     :show t
+                                                     :error-output :lines)))
+                    ;; if it cannot be checked then it will display
+                    ;; file.checked does not exist
+                    (maybe-not-exist (last (split-string (car (last tried)))
+                                           4)))
+               (println tried)
+               (cond ((equal (cdr maybe-not-exist) '("does" "not" "exist"))
+                      (let ((new-file
+                              ;; removed the checked off the file, as it doesn't exist
+                              (string-trim ".checked" (car maybe-not-exist))))
+                        (rec new-file (cons current-file tried-list))))
+                     ;; put some logic here popping off dat list
+                     ((null tried-list) nil)
+                     (t                 (rec (car tried-list) (cdr tried-list)))))))
+    (rec starting-file '())))
