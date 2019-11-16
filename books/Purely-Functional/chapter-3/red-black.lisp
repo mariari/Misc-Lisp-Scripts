@@ -15,8 +15,6 @@
   "colors for a red-black tree"
   `(member ,+red+ ,+black+))
 
-(list-length)
-
 (deftype red-black ()
   `(or (eql :rb-Empty)
       (satisfies rb-tree-p)))

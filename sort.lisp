@@ -10,11 +10,11 @@
     (labels ((sift (root count)
                (let ((cl (+ (* 2 root) 1))
                      (cr (+ (* 2 root) 2)))
-                 (if (< cl count)
-                     (let ((c (if (and (< cr count) (ref< cl cr)) cr cl)))
-                       (when (ref< root c)
-                         (swap root c)
-                         (sift c count)))))))
+                 (when (< cl count)
+                   (let ((c (if (and (< cr count) (ref< cl cr)) cr cl)))
+                     (when (ref< root c)
+                       (swap root c)
+                       (sift c count)))))))
 
       (loop for start from (1- (floor count 2)) downto 0
          do (sift start count))

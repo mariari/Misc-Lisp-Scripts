@@ -6,31 +6,28 @@
   (ql:quickload '(:fare-quasiquote-readtable
                   :fare-quasiquote
                   :let-over-lambda
-                  :trivia))
-  ;; (asdf:load-system :uiop)
-  )
+                  :trivia)))
 
 
-(defpackage #:shell
+(defpackage #:thread-test
   (:use #:let-over-lambda)
   (:import-from #:alexandria #:parse-body)
   (:shadowing-import-from #:let-over-lambda #:when-match #:if-match #:symb)
   (:use #:inferior-shell)
   (:shadowing-import-from #:inferior-shell #:<>)
-  (:use
-        #:functions
+  (:use #:functions
         #:bordeaux-threads
-        #:bt-semaphore
         #:macros
         #:trivia
         #:common-lisp)
+  (:import-from #:bt-semaphore #:semaphore-count)
   (:export :pmapcar
            :pmap
            :plmapcar
            :defun-s!
            :my-command-line :split-by-delim))
 
-(in-package :shell)
+(in-package :thread-test)
 
 (named-readtables:in-readtable :fare-quasiquote)
 
