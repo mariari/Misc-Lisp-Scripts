@@ -30,8 +30,9 @@
                                                                  --z3rlimit ,r-limit)
                                                      :show t
                                                      :error-output :lines)))
-                    ;; if it cannot be checked then it will display
-                    ;; file.checked does not exist
+                    ;; maybe-not-exist can be either of these two if something is wrong
+                    ;; not exist   ==> (file.checked does not exist)
+                    ;; stale check ==> (digest mismatch for file)
                     (maybe-not-exist (last (split-string (car (last tried)))
                                            4)))
                (println tried)
@@ -39,6 +40,10 @@
                       (let ((new-file
                               ;; removed the checked off the file, as it doesn't exist
                               (string-trim ".checked" (car maybe-not-exist))))
+                        (rec new-file (cons current-file tried-list))))
+                     ((equal (butlast maybe-not-exist) '("(digest" "mismatch" "for"))
+                      (let ((new-file
+                              (string-trim ")" (car (last maybe-not-exist)))))
                         (rec new-file (cons current-file tried-list))))
                      ;; put some logic here popping off dat list
                      ((null tried-list) nil)
