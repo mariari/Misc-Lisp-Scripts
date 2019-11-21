@@ -1,13 +1,10 @@
 
-(ql:quickload "inferior-shell")
-
-(asdf:load-system :uiop)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (ql:quickload "inferior-shell")
+  (asdf:load-system :uiop))
 
 (defpackage #:fix-script
-  (:nicknames #:fun :times)
-  (:use #:optima)
-  (:use #:inferior-shell)
-  (:use #:uiop)
+  (:use #:uiop #:inferior-shell)
   (:use #:common-lisp)
   (:export :generate-cache))
 
