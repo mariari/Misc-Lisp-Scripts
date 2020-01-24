@@ -142,4 +142,6 @@
 (declaim (ftype (function (function list) list) on-car))
 (defun on-car (f xs)
   "applies a function f onto the car of a list"
-  (cons (funcall f (car xs)) (cdr xs)))
+  (if (null xs)
+      xs
+      (cons (funcall f (car xs)) (cdr xs))))
