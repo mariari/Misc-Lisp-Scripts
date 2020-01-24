@@ -138,3 +138,8 @@
                                    (cdr xs)
                                    (on-car (lambda (as) (cons (car xs) as)) acc))))))
     (rec n xs '())))
+
+(declaim (ftype (function (function list) list) on-car))
+(defun on-car (f xs)
+  "applies a function f onto the car of a list"
+  (cons (funcall f (car xs)) (cdr xs)))
