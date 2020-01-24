@@ -124,3 +124,17 @@
                                            acc))))
                  (funcall cps (list (car xs))))))
     (and xs (rec xs #'identity))))
+
+(declaim (ftype (function (fixnum list) list) group))
+(defun group (n xs)
+  "groups a list into lists of size n"
+  (labels ((rec (i xs acc)
+             (cond ((null xs) (reverse (on-car #'reverse acc)))
+                   ((zerop i) (rec (1- n)
+                                   (cdr xs)
+                                   (cons (list (car xs))
+                                         (on-car #'reverse acc))))
+                   (t         (rec (1- i)
+                                   (cdr xs)
+                                   (on-car (lambda (as) (cons (car xs) as)) acc))))))
+    (rec n xs '())))
