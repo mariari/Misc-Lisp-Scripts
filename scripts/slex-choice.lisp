@@ -138,3 +138,43 @@
   (format t "you are a ~a ~a"
           (random-element races)
           (random-element roles)))
+
+(defun pick ()
+  (labels ((pass-all (f races)
+             (let ((race      (random-element races))
+                   (role      (random-element *roles*))
+                   (gender    (random-element *gender*))
+                   (alignment (random-element *alignment*)))
+               (funcall f race role gender alignment races)))
+           ;;
+           (pick-race (curr-races &optional (print t))
+             (when print
+               (format t "g - good races~%a - all races~%d - decent races~%"))
+             (case (read-char)
+               (#\g *good-races*)
+               (#\a *races*)
+               (#\d *decent-races*)
+               (#\Newline (pick-race curr-races nil))
+               (t curr-races)))
+           ;;
+           (roll (race role gender alignment curr-races)
+             (case (read-char)
+               (#\1 (pass-all #'print-info curr-races))
+               (#\2 (print-info (random-element curr-races) role gender alignment curr-races))
+               (#\3 (print-info race (random-element *roles*) gender alignment curr-races))
+               (#\4 (print-info race role gender (random-element *alignment*) curr-races))
+               (#\5 (print-info race role (random-element *gender*) alignment curr-races))
+               (#\Newline (roll race role gender alignment curr-races))
+               (#\c
+                (let ((new-races (pick-race curr-races)))
+                  (print-info (random-element new-races) role gender alignment new-races)))
+               (t nil)))
+           ;;
+           (print-info (race role gender alignment curr-races)
+             (format t "you are a ~a ~a ~a ~a~%"
+                     alignment gender race role)
+             (format t "1 - reroll all~%2 - reroll race~%3 - reroll role~%")
+             (format t "4 - reroll alignment~%5 - reroll gender~%")
+             (format t "c - change races to pick from~%q - quit~%")
+             (roll race role gender alignment curr-races)))
+    (pass-all #'print-info *races*)))
