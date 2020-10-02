@@ -15,7 +15,6 @@
     (front '() :type list)
     (end   '() :type list)))
 
-
 (defun consl (val dequeue)
   "cons on an element to the front of the dequeue"
   (let-match1 (dequeue size-f size-e front end)

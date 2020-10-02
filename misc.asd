@@ -21,8 +21,8 @@
                (:file "./CL/stdlib/string")
                (:file "./CL/functions"
                       :depends-on ("./CL/macros"))
-               (:file "threadstest"
-                      :depends-on ("./CL/functions"))
+               ;; (:file "threadstest"
+               ;;        :depends-on ("./CL/functions"))
                (:file "./CL/stdlib/ref")
                (:file "./CL/stdlib/lazy")
                (:file "./CL/stdlib/lazy-cons"
