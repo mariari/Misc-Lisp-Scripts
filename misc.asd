@@ -5,6 +5,7 @@
 
 
 (defsystem misc
+  :depends-on (:trivia :fare-quasiquote-readtable :let-over-lambda)
   :name "misc scripts"
   :version "0.0.0.0"
   :maintainer "mariari"

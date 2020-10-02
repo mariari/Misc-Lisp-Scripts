@@ -1,14 +1,14 @@
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (ql:quickload "inferior-shell")
-  (asdf:load-system :uiop))
+;; (eval-when (:compile-toplevel :load-toplevel :execute)
+;;   (ql:quickload "inferior-shell")
+;;   (asdf:load-system :uiop))
 
-(defpackage #:fix-script
+(defpackage #:scripts.cache-fstar
   (:use #:uiop #:inferior-shell)
   (:use #:common-lisp)
   (:export :generate-cache))
 
-(in-package :fix-script)
+(in-package :scripts.cache-fstar)
 
 ;; This does not work for ulib sadly, it has many finicky parameters see here
 ;; https://github.com/FStarLang/FStar/issues/1790
