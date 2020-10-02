@@ -14,7 +14,7 @@
 ;; +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 ;; good format call
-;; (format t "~{~20a~^ ~20a~^ ~20a~^ ~20a~^ ~20a~^~%~}" (map 'list #'identity *roles*))
+;; (format t "~{~21a~^ ~21a~^ ~21a~^ ~21a~^ ~21a~^~%~}" (map 'list #'identity *roles*))
 
 (defparameter *good-races*
   '#(angel devil illithid))
@@ -30,38 +30,38 @@
 
 (defparameter *roles*
   '#(
-    ACID                  MAGE                  ACTIVISTOR            AKLYST                ALTMER
-    AMAZON                ANACHRONIST           ANACHRONOUNBINDER     ARCHEOLOGIST          ARTIST
-    ASSASSIN              ASTRONAUT             AUGURER               BARBARIAN             BARD
-    BINDER                BLEEDER               BLOODSEEKER           BOSMER                BULLY
-    CAMPERSTRIKER         CARTOMANCER           CAVEMAN/CAVEWOMAN     CELLAR-CHILD          CHAOS-SORCEROR
-    CHEVALIER             COMBATANT             CONVICT               COOK                  COURIER
-    CRACKER               CRUEL                 ABUSER                CYBERNINJA            DEATH
-    EATER                 DEMAGOGUE             DISSIDENT             DIVER                 DOLL-MISTRESS
-    DOOM-MARINE           DQ-SLIME              DRAGONMASTER          DRUID                 DRUNK
-    DUNMER                ELECTRIC-MAGE         ELEMENTALIST          ELPH                  EMERA
-    EMPATH                ERDRICK               FAILED-EXISTENCE      FEAT-MASTER           FEMINIST
-    FENCER                FIGHTER               FIREFIGHTER           FJORDE                FLAME-MAGE
-    FORM-CHANGER          FOXHOUND-AGENT        GAMER                 GANG-SCHOLAR          GANGSTER
-    GEEK                  GENDERSTARIST         GLADIATOR             GOFF                  GOLDMINER
-    GRADUATE              GRENADONIN            GUNNER                HEALER                HUSSY
-    ICE-MAGE              INTEL-SCRIBE          JANITOR               JEDI                  JESTER
-    JUSTICE-KEEPER        KNIGHT                KORSAIR               KURWA                 LADIESMAN
-    LIBRARIAN             LOCKSMITH             LUNATIC               MAHOU-SHOUJO          MASON
-    MASTERMIND            MEDIUM                MIDGET                MILL-SWALLOWER        MONK
-    MURDERER              MUSICIAN              MYSTIC                NECROMANCER           NINJA
-    NOBLEMAN/NOBLEWOMAN   NUCLEAR-PHYSICIST     OCCULT-MASTER         OFFICER               ORDINATOR
-    OTAKU                 PALADIN               PICKPOCKET            PIRATE                POISON-MAGE
-    POKEMON               POLITICIAN            PRACTICANT            PRIEST/PRIESTESS      PROSTITUTE
-    PSION                 PSYKER                QUARTERBACK           RANGER                RINGSEEKER
-    ROCKER                ROGUE                 SAGE                  SAIYAN                SAMURAI
-    SCIENTIST             SHAPESHIFTER          SLAVE-MASTER          SOCIAL-JUSTICE-WARRIOR SOFTWARE-ENGINEER
-    SPACE-MARINE          SPACEWARS-FIGHTER     STORMBOY              SUPERMARKET-CASHIER   SYMBIANT
-    THALMOR               TOPMODEL              TOSSER                TOURIST               TRACER
-    TRANSSYLVANIAN        TRANSVESTITE          TWELPH                UNBELIEVER            UNDEAD-SLAYER
-    UNDERTAKER            USER-OF-STAND         VALKYRIE              WALSCHOLAR            WANDKEEPER
-    WARRIOR               WEIRDBOY              WILD-TALENT           WIZARD                XELNAGA
-    YAUTJA                YEOMAN                YSEXYMATE             ZOOKEEPER             ZYBORG))
+    ACID                  MAGE                  ACTIVISTOR             AKLYST                ALTMER
+    AMAZON                ANACHRONIST           ANACHRONOUNBINDER      ARCHEOLOGIST          ARTIST
+    ASSASSIN              ASTRONAUT             AUGURER                BARBARIAN             BARD
+    BINDER                BLEEDER               BLOODSEEKER            BOSMER                BULLY
+    CAMPERSTRIKER         CARTOMANCER           CAVEMAN/CAVEWOMAN      CELLAR-CHILD          CHAOS-SORCEROR
+    CHEVALIER             COMBATANT             CONVICT                COOK                  COURIER
+    CRACKER               CRUEL                 ABUSER                 CYBERNINJA            DEATH-EATER
+    DEMAGOGUE             DISSIDENT             DIVER                  DOLL-MISTRESS         DOOM-MARINE
+    DQ-SLIME              DRAGONMASTER          DRUID                  DRUNK                 DUNMER
+    ELECTRIC-MAGE         ELEMENTALIST          ELPH                   EMERA                 EMPATH
+    ERDRICK               FAILED-EXISTENCE      FEAT-MASTER            FEMINIST              FENCER
+    FIGHTER               FIREFIGHTER           FJORDE                 FLAME-MAGE            FORM-CHANGER
+    FOXHOUND-AGENT        GAMER                 GANG-SCHOLAR           GANGSTER              GEEK
+    GENDERSTARIST         GLADIATOR             GOFF                   GOLDMINER             GRADUATE
+    GRENADONIN            GUNNER                HEALER                 HUSSY                 ICE-MAGE
+    INTEL-SCRIBE          JANITOR               JEDI                   JESTER                JUSTICE-KEEPER
+    KNIGHT                KORSAIR               KURWA                  LADIESMAN             LIBRARIAN
+    LOCKSMITH             LUNATIC               MAHOU-SHOUJO           MASON                 MASTERMIND
+    MEDIUM                MIDGET                MILL-SWALLOWER         MONK                  MURDERER
+    MUSICIAN              MYSTIC                NECROMANCER            NINJA                 NOBLEMAN/NOBLEWOMAN
+    NUCLEAR-PHYSICIST     OCCULT-MASTER         OFFICER                ORDINATOR             OTAKU
+    PALADIN               PICKPOCKET            PIRATE                 POISON-MAGE           POKEMON
+    POLITICIAN            PRACTICANT            PRIEST/PRIESTESS       PROSTITUTE            PSION
+    PSYKER                QUARTERBACK           RANGER                 RINGSEEKER            ROCKER
+    ROGUE                 SAGE                  SAIYAN                 SAMURAI               SCIENTIST
+    SHAPESHIFTER          SLAVE-MASTER          SOCIAL-JUSTICE-WARRIOR SOFTWARE-ENGINEER     SPACE-MARINE
+    SPACEWARS-FIGHTER     STORMBOY              SUPERMARKET-CASHIER    SYMBIANT              THALMOR
+    TOPMODEL              TOSSER                TOURIST                TRACER                TRANSSYLVANIAN
+    TRANSVESTITE          TWELPH                UNBELIEVER             UNDEAD-SLAYER         UNDERTAKER
+    USER-OF-STAND         VALKYRIE              WALSCHOLAR             WANDKEEPER            WARRIOR
+    WEIRDBOY              WILD-TALENT           WIZARD                 XELNAGA               YAUTJA
+    YEOMAN                YSEXYMATE             ZOOKEEPER              ZYBORG))
 
 (defparameter *races*
   '#(
