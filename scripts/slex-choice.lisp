@@ -146,7 +146,7 @@
                    (gender    (random-element *gender*))
                    (alignment (random-element *alignment*)))
                (funcall f race role gender alignment races)))
-           ;;
+
            (pick-race (curr-races &optional (print t))
              (when print
                (format t "g - good races~%a - all races~%d - decent races~%"))
@@ -156,7 +156,7 @@
                (#\d       *decent-races*)
                (#\Newline (pick-race curr-races nil))
                (t         curr-races)))
-           ;;
+
            (roll (race role gender alignment curr-races)
              (case (read-char)
                (#\1 (pass-all #'print-info curr-races))
@@ -169,7 +169,7 @@
                 (let ((new-races (pick-race curr-races)))
                   (print-info (random-element new-races) role gender alignment new-races)))
                (t nil)))
-           ;;
+
            (print-info (race role gender alignment curr-races)
              (format t "you are a ~a ~a ~a ~a~%"
                      alignment gender race role)

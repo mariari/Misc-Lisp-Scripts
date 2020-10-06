@@ -26,6 +26,7 @@
                ;;        :depends-on ("./CL/functions"))
                (:file "./CL/stdlib/ref")
                (:file "./CL/stdlib/lazy")
+               (:file "./CL/stdlib/package")
                (:file "./CL/stdlib/lazy-cons"
                       :depends-on ("./CL/stdlib/lazy"))
                (:file "./CL/stdlib/struct"
