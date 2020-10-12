@@ -5,6 +5,7 @@
    :random-element
    :pick-all
    :pick-core
+   :pick
    :*races* :*roles* :*good-races* :*decent-races* :*gender* :*alignment*))
 
 (in-package :scripts.slex)
@@ -17,12 +18,14 @@
 ;; (format t "~{~21a~^ ~21a~^ ~21a~^ ~21a~^ ~21a~^~%~}" (map 'list #'identity *roles*))
 
 (defparameter *good-races*
-  '#(angel devil illithid))
+  '#(angel devil illithid spirit))
 
 (defparameter *decent-races*
   (concatenate 'vector
                *good-races*
-               '#()))
+               '#(
+                 elf moon-elf myrkalfr troll dunadan loli orc dwarf egymid deep-elf breton
+                 etheraloid veela viking)))
 
 (defparameter *gender* '#(male female))
 (defparameter *alignment* '#(Chaotic Neutral Lawful))
@@ -65,58 +68,58 @@
 
 (defparameter *races*
   '#(
-    ADDICT                 AGGRAVATOR             AK-THIEF-IS-DEAD!      ALBAE                  ALCHEMIST
-    ALIEN                  AMERICAN               AMNESIAC               ANCIENT                ANCIPITAL
-    ANDROID                ANGBANDER              ANGEL                  AQUARIAN               ARGONIAN
-    ASGARDIAN              ASURA                  ATLANTEAN              AZTPOK                 BACTERIA
-    BASTARD                BATMAN                 BEACHER                BLAIT                  BODYMORPHER
-    BORG                   BOSSRUSHER             BOVER                  BRETON                 BURNINATOR
-    CARTHAGE               CELTIC                 CENTAUR                CERBERUS               CHIQUAI
-    CHIROPTERAN            CLOCKWORK-AUTOMATON    COCKATRICE             COLORATOR              CORTEX
-    CUPID                  CURSER                 DARK                   SEDUCER                DEATHMOLD
-    DEEP-ELF               DESTABILIZER           DEVELOPER              DEVIL                  DINOSAUR
-    DOLGSMAN               DOPPELGANGER           DORIAN                 DRAGON                 DROW
-    DRYAD                  DUFFLEPUD              DUNADAN                DUTHOL                 DWARF
-    DYNAMO                 EGYMID                 ELEMENTAL              ELF                    ENGCHIP
-    ENT                    EROSATOR               ETHERALOID             EVILVARIANT            EXPERT
-    EXTRAVATOR             FAIRY                  FAWN                   FELID                  FEMINIZER
-    FENEK                  FIEND                  FIXER                  FRENDIAN               FRO
-    GASTLY                 GAVIL                  GELATINOUS-CUBE        GERTEUT                GIANT
-    GLORKUM                GNOME                  GOAULD                 GOLDEN-SAINT           GOLEM
-    GREEN-SLIME            GREMLIN                GREURO                 GRID                   BUG
-    GROUPER                HALLUCINATOR           HAXOR                  HC-ALIEN               HEMI-DOPPELGANGER
-    HEMOPHAGE              HERALD                 HERBALIST              HERETIC                HOBBIT
-    HOMICIDER              HOUND                  HIDDEN-ELF             HUMAN                  HYBRIDRAGON
-    HYPOTHERMIC            ILLITHID               IMMUNIZER              IMP                    IMPERIAL
-    INCANTIFIER            INDRAENIAN             INHERITOR              INKA                   INSECTOID
-    IRAHA                  IRONMAN                IRRITATOR              ITAQUE                 JABBERWOCK
-    JAPURA                 JAVA                   JELLY                  KHAJIIT                KLACKON
-    KOBOLD                 KOP                    KORONST                KUTAR                  LEPRECHAUN
-    LEVELSCALER            LEVITATOR              LICH                   LISTENER               LIZARDMAN
-    LOLI                   LYCANTHROPE            MACTHEIST              MAGYAR                 MAIA
-    MATRAYSER              MAYMES                 MAZEWALKER             METAL                  MIMIC
-    MINIMALIST             MISSINGNO              MONGUNG                MONKEY                 MONSTER
-    MOON                   ELF                    MOULD                  MUMMY                  MUSHROOM
-    MYRKALFR               NAGA                   NASTINATOR             NAVI                   NEMESIS
-    NIBELUNG               NORD                   NULL                   NYMPH                  OCTOPODE
-    OGRE                   ORC                    OUTSIDER               PEACEMAKER             PERVERT
-    PHANTOM                PIERCER                POISONER               POLYINITOR             PROBLEMATIC
-    QUANTUM-MECHANIC       RACE-THAT-DOESNT-EXIST RACE-X                 RANDOMIZER             REDDITOR
-    REDGUARD               RETICULAN              RODNEYAN               ROHIRRIM               ROOMMATE
-    ROUGELIKE              RUSMOT                 SALAMANDER             SATRE                  SCRIPTOR
-    SCURRIER               SEA                    ELF                    SEGFAULTER             SENSER
-    SERB                   SHEEP                  SHELL                  SHOE                   SINNER
-    SKELETON               SKILLOR                SNAIL                  SNAKEMAN               SOKOSOLVER
-    SOVIET                 SPAMMER                SPARD                  SPECIALIST             SPIDERMAN
-    SPIRIT                 SPRIGGAN               STAIRSEEKER            STICKER                SUSTAINER
-    SUXXOR                 SYLPH                  TECHLESS               THUNDERLORD            TONBERRY
-    TRAINER                TRANSFORMER            TRAPPER                TROLL                  TUMBLRER
-    TURMENE                TURTLE                 UMBER-HULK             UNALIGNMENT-THING      UNBALANCOR
-    UNDEFINED              UNGENOMOLD             UNICORN                UNMAGIC                URIAN
-    VAMGOYLE               VAMPIRE                VEELA                  VENTURE-CAPITALIST     VIETIS
-    VIKING                 VORTEX                 WARPER                 WIND-INHABITANT        WISP
-    WOOKIE                 WORM-THAT-WALKS        WRAITH                 XORN                   YEEK
-    YOKUDA                 YUGGER                 YUKI-ONNA              ZRUTY))
+    ADDICT                 AGGRAVATOR            AK-THIEF-IS-DEAD!     ALBAE                 ALCHEMIST
+    ALIEN                  AMERICAN              AMNESIAC              ANCIENT               ANCIPITAL
+    ANDROID                ANGBANDER             ANGEL                 AQUARIAN              ARGONIAN
+    ASGARDIAN              ASURA                 ATLANTEAN             AZTPOK                BACTERIA
+    BASTARD                BATMAN                BEACHER               BLAIT                 BODYMORPHER
+    BORG                   BOSSRUSHER            BOVER                 BRETON                BURNINATOR
+    CARTHAGE               CELTIC                CENTAUR               CERBERUS              CHIQUAI
+    CHIROPTERAN            CLOCKWORK-AUTOMATON   COCKATRICE            COLORATOR             CORTEX
+    CUPID                  CURSER                DARK                  SEDUCER               DEATHMOLD
+    DEEP-ELF               DESTABILIZER          DEVELOPER             DEVIL                 DINOSAUR
+    DOLGSMAN               DOPPELGANGER          DORIAN                DRAGON                DROW
+    DRYAD                  DUFFLEPUD             DUNADAN               DUTHOL                DWARF
+    DYNAMO                 EGYMID                ELEMENTAL             ELF                   ENGCHIP
+    ENT                    EROSATOR              ETHERALOID            EVILVARIANT           EXPERT
+    EXTRAVATOR             FAIRY                 FAWN                  FELID                 FEMINIZER
+    FENEK                  FIEND                 FIXER                 FRENDIAN              FRO
+    GASTLY                 GAVIL                 GELATINOUS-CUBE       GERTEUT               GIANT
+    GLORKUM                GNOME                 GOAULD                GOLDEN-SAINT          GOLEM
+    GREEN-SLIME            GREMLIN               GREURO                GRID                  BUG
+    GROUPER                HALLUCINATOR          HAXOR                 HC-ALIEN              HEMI-DOPPELGANGER
+    HEMOPHAGE              HERALD                HERBALIST             HERETIC               HOBBIT
+    HOMICIDER              HOUND                 HIDDEN-ELF            HUMAN                 HYBRIDRAGON
+    HYPOTHERMIC            ILLITHID              IMMUNIZER             IMP                   IMPERIAL
+    INCANTIFIER            INDRAENIAN            INHERITOR             INKA                  INSECTOID
+    IRAHA                  IRONMAN               IRRITATOR             ITAQUE                JABBERWOCK
+    JAPURA                 JAVA                  JELLY                 KHAJIIT               KLACKON
+    KOBOLD                 KOP                   KORONST               KUTAR                 LEPRECHAUN
+    LEVELSCALER            LEVITATOR             LICH                  LISTENER              LIZARDMAN
+    LOLI                   LYCANTHROPE           MACTHEIST             MAGYAR                MAIA
+    MATRAYSER              MAYMES                MAZEWALKER            METAL                 MIMIC
+    MINIMALIST             MISSINGNO             MONGUNG               MONKEY                MONSTER
+    MOON-ELF               MOULD                 MUMMY                 MUSHROOM              MYRKALFR
+    NAGA                   NASTINATOR            NAVI                  NEMESIS               NIBELUNG
+    NORD                   NULL                  NYMPH                 OCTOPODE              OGRE
+    ORC                    OUTSIDER              PEACEMAKER            PERVERT               PHANTOM
+    PIERCER                POISONER              POLYINITOR            PROBLEMATIC           QUANTUM-MECHANIC
+    RACE-THAT-DOESNT-EXIST RACE-X                RANDOMIZER            REDDITOR              REDGUARD
+    RETICULAN              RODNEYAN              ROHIRRIM              ROOMMATE              ROUGELIKE
+    RUSMOT                 SALAMANDER            SATRE                 SCRIPTOR              SCURRIER
+    SEA                    ELF                   SEGFAULTER            SENSER                SERB
+    SHEEP                  SHELL                 SHOE                  SINNER                SKELETON
+    SKILLOR                SNAIL                 SNAKEMAN              SOKOSOLVER            SOVIET
+    SPAMMER                SPARD                 SPECIALIST            SPIDERMAN             SPIRIT
+    SPRIGGAN               STAIRSEEKER           STICKER               SUSTAINER             SUXXOR
+    SYLPH                  TECHLESS              THUNDERLORD           TONBERRY              TRAINER
+    TRANSFORMER            TRAPPER               TROLL                 TUMBLRER              TURMENE
+    TURTLE                 UMBER-HULK            UNALIGNMENT-THING     UNBALANCOR            UNDEFINED
+    UNGENOMOLD             UNICORN               UNMAGIC               URIAN                 VAMGOYLE
+    VAMPIRE                VEELA                 VENTURE-CAPITALIST    VIETIS                VIKING
+    VORTEX                 WARPER                WIND-INHABITANT       WISP                  WOOKIE
+    WORM-THAT-WALKS        WRAITH                XORN                  YEEK                  YOKUDA
+    YUGGER                 YUKI-ONNA             ZRUTY))
 
 ;; +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ;; Main functions

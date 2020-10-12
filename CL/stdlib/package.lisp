@@ -1,7 +1,7 @@
 (defpackage #:package
   (:documentation "Provides functions for packages")
   (:use #:common-lisp)
-  (:export #:export-all))
+  (:export #:export-all #:all-function-symbols))
 
 (in-package :package)
 
