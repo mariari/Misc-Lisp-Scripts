@@ -15,7 +15,7 @@ before running this command."
       (echo "Slynk server started at port ~a" slynk-port)))
 
 
-(setf lparallel:*kernel* (lparallel:make-kernel 12))
+;; (setf lparallel:*kernel* (lparallel:make-kernel 12))
 
 
 
@@ -26,9 +26,8 @@ currently active buffer."
    "open video in mpv"
    (lambda (hint)
      (case (type-of hint)
-       (nyxt/web-mode::LINK-HINT
-        (lparallel:submit-task (lparallel:make-channel)
-                               (lambda () (uiop:run-program `("mpv" ,(nyxt:object-string hint))))))
+       (nyxt/web-mode::link-hint
+        (chanl:pexec () (uiop:run-program `("mpv" ,(nyxt:object-string hint)))))
        (t
         (print (type-of hint))
         (print hint))))
@@ -37,9 +36,8 @@ currently active buffer."
 
 (define-command mpv-here ()
   "open the current buffer in mpv"
-  (lparallel:submit-task (lparallel:make-channel)
-                         (lambda ()
-                           (uiop:run-program `("mpv" ,(object-string (url (current-buffer))))))))
+  (chanl:pexec ()
+      (uiop:run-program `("mpv" ,(object-string (url (current-buffer)))))))
 
 
 ;; not used
