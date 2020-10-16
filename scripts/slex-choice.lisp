@@ -25,7 +25,7 @@
                *good-races*
                '#(
                  elf moon-elf myrkalfr troll dunadan loli orc dwarf egymid deep-elf breton
-                 etheraloid veela viking)))
+                 etheraloid veela vikingd)))
 
 (defparameter *gender* '#(male female))
 (defparameter *alignment* '#(Chaotic Neutral Lawful))
