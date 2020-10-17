@@ -27,7 +27,7 @@ currently active buffer."
    (lambda (hint)
      (case (type-of hint)
        (nyxt/web-mode::link-hint
-        (chanl:pexec () (uiop:run-program `("mpv" ,(nyxt:object-string hint)))))
+        (chanl:pexec () (uiop:run-program `("mpv" ,(nyxt:object-string hint)) :ignore-error-status t)))
        (t
         (print (type-of hint))
         (print hint))))
@@ -37,7 +37,30 @@ currently active buffer."
 (define-command mpv-here ()
   "open the current buffer in mpv"
   (chanl:pexec ()
-      (uiop:run-program `("mpv" ,(object-string (url (current-buffer)))))))
+    (uiop:run-program `("mpv" ,(object-string (url (current-buffer)))) :ignore-error-status t)))
+
+;; TODO ∷ figure out how to make text spawn if things fail
+(define-command mpv-url (&key prefill-current-url-p)
+  "open an url in mpv"
+  (let ((history (minibuffer-set-url-history *browser*)))
+    (when history
+      (containers:insert-item history (url (current-buffer))))
+    (let* ((url (prompt-minibuffer
+                 :input-prompt        (format nil "Launch mpv on")
+                 :input-buffer        (if prefill-current-url-p
+                                          (object-string (url (current-buffer))) "")
+                 :default-modes      '(set-url-mode minibuffer-mode)
+                 :suggestion-function (history-suggestion-filter
+                                       :prefix-urls (list (object-string
+                                                           (url (current-buffer)))))
+                 :history      history
+                 :must-match-p nil))
+          (url-string
+            (cond ((typep url 'history-entry) (object-string (url url)))
+                  ((stringp url)              url)
+                  (t                          (format nil "error: url on mpv-url is ~a" url)))))
+      (chanl:pexec ()
+        (uiop:run-program `("mpv" ,url-string) :ignore-error-status t)))))
 
 
 ;; not used
@@ -51,17 +74,17 @@ currently active buffer."
   "Dummy mode for the custom key bindings in `*custom-keymap*'."
   ((keymap-scheme (define-scheme "custom-mode"
                     scheme:vi-normal (list
-                                      "; x"   'mpv-launch
-                                      "; s-x" 'mpv-launch
-                                      "x"     'mpv-here)
+                                      "; x" 'mpv-launch
+                                      "X"   'mpv-url
+                                      "x"   'mpv-here)
                     scheme:emacs     (list
-                                      "; x"   'mpv-launch
-                                      "; s-x" 'mpv-launch
-                                      "x"     'mpv-here)
+                                      "; x" 'mpv-launch
+                                      "X"   'mpv-url
+                                      "x"   'mpv-here)
                     scheme:cua       (list
-                                      "; x"   'mpv-launch
-                                      "; s-x" 'mpv-launch
-                                      "x"     'mpv-here)))))
+                                      "; x" 'mpv-launch
+                                      "X"   'mpv-url
+                                      "x"   'mpv-here)))))
 
 
 (define-configuration (buffer web-buffer)
