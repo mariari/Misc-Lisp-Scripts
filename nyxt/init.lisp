@@ -17,6 +17,10 @@ before running this command."
 
 ;; (setf lparallel:*kernel* (lparallel:make-kernel 12))
 
+(defun execute-mpv (link)
+  (chanl:pexec ()
+    (uiop:run-program (list "mpv" link) :ignore-error-status t)))
+
 
 
 (define-command mpv-launch (&key annotate-visible-only-p)
@@ -27,7 +31,7 @@ currently active buffer."
    (lambda (hint)
      (case (type-of hint)
        (nyxt/web-mode::link-hint
-        (chanl:pexec () (uiop:run-program `("mpv" ,(nyxt:object-string hint)) :ignore-error-status t)))
+        (execute-mpv (nyxt:object-string hint)))
        (t
         (print (type-of hint))
         (print hint))))
@@ -36,8 +40,7 @@ currently active buffer."
 
 (define-command mpv-here ()
   "open the current buffer in mpv"
-  (chanl:pexec ()
-    (uiop:run-program `("mpv" ,(object-string (url (current-buffer)))) :ignore-error-status t)))
+  (execute-mpv (object-string (url (current-buffer)))))
 
 ;; TODO ∷ figure out how to make text spawn if things fail
 (define-command mpv-url (&key prefill-current-url-p)
@@ -59,8 +62,7 @@ currently active buffer."
             (cond ((typep url 'history-entry) (object-string (url url)))
                   ((stringp url)              url)
                   (t                          (format nil "error: url on mpv-url is ~a" url)))))
-      (chanl:pexec ()
-        (uiop:run-program `("mpv" ,url-string) :ignore-error-status t)))))
+      (execute-mpv url-string))))
 
 
 ;; not used
@@ -88,4 +90,5 @@ currently active buffer."
 
 
 (define-configuration (buffer web-buffer)
-  ((default-modes (append '(custom-bind-mode vi-normal-mode) %slot-default))))
+  ((default-modes
+    (list* 'custom-bind-mode 'vi-normal-mode 'blocker-mode %slot-default))))
