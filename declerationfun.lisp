@@ -64,7 +64,8 @@
 
   ;; not my range, this was made by lisp
   (defun range (x &optional (y 0) (z 1) &aux (a (make-array (ceiling (1+ (abs (- x y))) z)
-                                                            :element-type (if (and (>= most-positive-fixnum x) (>= most-positive-fixnum y)) 'fixnum 'integer))))
+                                                            :element-type (if (and (>= most-positive-fixnum x) (>= most-positive-fixnum y))
+                                                                              'fixnum 'integer))))
     (declare (type unsigned-byte x y z))
     (setf (aref a 0) x)
     (prog* ((n 1) (z (if (< x y) z (- z))) (s (+ x z))) :begin

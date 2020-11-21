@@ -74,44 +74,44 @@
 (defun concat-symb (&rest body)
   (lol:symb (apply #'concat-s body)))
 
-;;;; old idea that I would like the answer to sometim
-             ;; FIX ME, for some reason I can't overset the default getters and setters
-             ;; I tired to ways of solving the problem below
+;;;; old idea that I would like the answer to sometime
+;; FIX ME, for some reason I can't overset the default getters and setters
+;; I tired to ways of solving the problem below
 
-             ;; the first uses setf and not inling the functions to get the effect
-             ;; this approach has the issue of using the old definition for some reason
-             ;; it's bizarre
+;; the first uses setf and not inling the functions to get the effect
+;; this approach has the issue of using the old definition for some reason
+;; it's bizarre
 
-             ;; the second makes a new function of the same name and unbinds the original
-             ;; this second method gets stuck in infinite recursion of calling itself over and over
+;; the second makes a new function of the same name and unbinds the original
+;; this second method gets stuck in infinite recursion of calling itself over and over
 
-             ;; 1.
-             ;; ,@(mapcar (lambda (maker-symb)
-             ;;             `(eval-when (:compile-toplevel :load-toplevel :execute)
-             ;;                (setf (symbol-function ',maker-symb)
-             ;;                      (lambda (,name-and-options)
-             ;;                        (let ((,value (,maker-symb ,name-and-options)))
-             ;;                          (if (lazy-p ,value)
-             ;;                              (setf (,maker-symb ,name-and-options) (force ,value))
-             ;;                              ,value))))))
-             ;;           new-symbs-make)
+;; 1.
+;; ,@(mapcar (lambda (maker-symb)
+;;             `(eval-when (:compile-toplevel :load-toplevel :execute)
+;;                (setf (symbol-function ',maker-symb)
+;;                      (lambda (,name-and-options)
+;;                        (let ((,value (,maker-symb ,name-and-options)))
+;;                          (if (lazy-p ,value)
+;;                              (setf (,maker-symb ,name-and-options) (force ,value))
+;;                              ,value))))))
+;;           new-symbs-make)
 
-             ;; 2.
-             ;; ,@(mapcar (lambda (maker-symb)
-             ;;             `(flet ((,maker-symb (,name-and-options)
-             ;;                       (let ((,func #',maker-symb))
-             ;;                         (let ((,value (funcall ,func ,name-and-options)))
-             ;;                           (if (lazy-p ,value)
-             ;;                               (setf (,maker-symb ,name-and-options) (force ,value))
-             ;;                               ,value)))))
-             ;;                (fmakunbound ',maker-symb)
-             ;;                (defun ,maker-symb (,name-and-options)
-             ;;                  (funcall ,maker-symb ,name-and-options))
-             ;;                ;; (declaim (inline ,maker-symb))
-             ;;                ))
-             ;;           new-symbs-make)
+;; 2.
+;; ,@(mapcar (lambda (maker-symb)
+;;             `(flet ((,maker-symb (,name-and-options)
+;;                       (let ((,func #',maker-symb))
+;;                         (let ((,value (funcall ,func ,name-and-options)))
+;;                           (if (lazy-p ,value)
+;;                               (setf (,maker-symb ,name-and-options) (force ,value))
+;;                               ,value)))))
+;;                (fmakunbound ',maker-symb)
+;;                (defun ,maker-symb (,name-and-options)
+;;                  (funcall ,maker-symb ,name-and-options))
+;;                ;; (declaim (inline ,maker-symb))
+;;                ))
+;;           new-symbs-make)
 
-             ;; for the mean time use this definition instead and call -l when the function is lazy, or ∀ calls in general
+;; for the mean time use this definition instead and call -l when the function is lazy, or ∀ calls in general
 
 
 ;;;; Some examples to work if you wish to see the expansion
