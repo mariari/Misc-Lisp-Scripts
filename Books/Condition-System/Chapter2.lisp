@@ -38,7 +38,7 @@
 
 
 ;; Version with before and after *hooks*
-(defun call-people ()
+(defun call-people%% ()
   ;; I had to abstract from the original code instead of 2 separate
   ;; dotimes just use mapc and abstract from the call site
   (setf *csgo-launched-p* nil)
@@ -48,6 +48,22 @@
         (call-hooks *before-hooks*)
         (call-person person)
         (call-hooks *after-hooks*)))))
+
+
+;; version with multiple types of hooks
+(defun call-hooks (kind &rest arguments)
+    (dolist (hook *hooks*)
+    (destructuring-bind (hook-kind hook-function) hook
+      (when (eq kind hook-kind)
+        (apply hook-function arguments)))))
+
+(defun call-people ()
+  (setf *csgo-launched-p* nil)
+  (dolist (person *phonebook*)
+    (catch :do-not-call
+      (call-hooks 'before-call person)
+      (call-person person)
+      (call-hooks 'before-call person))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Hooks Original
@@ -106,4 +122,14 @@
 
 (let ((*before-hooks* (list #'ensure-csgo-launched))
       (*after-hooks*  (list #'call-girlfriend-again)))
+  (call-people%%))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Multiple Types of Hooks
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(let ((*hooks* `((before-call ,#'skip-ex)
+                 (before-call ,#'ensure-csgo-launched)
+                 (before-call ,#'wish-happy-holidays)
+                 (after-call  ,#'call-girlfriend-again))))
   (call-people))
