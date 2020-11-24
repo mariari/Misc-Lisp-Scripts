@@ -1,0 +1,9 @@
+* Class
+This code is the various CL code I wrote in College, some of it is
+interesting, others is quite mundane
+
+** Some notable files are
+- =number-theory/mods= - some functions for math mod p
+- =Cryptology/inverse= - a few egcd functions
+- =AI/homework5= - for those who like graphs
+

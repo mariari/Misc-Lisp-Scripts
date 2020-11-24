@@ -1,0 +1,12 @@
+* How to run
+** Get a Compiler (SBCL, or CLISP)
+** Get Quicklisp up
+- Follow the instructions here
+  https://www.quicklisp.org/beta/
+- I've also included the quicklisp.lisp file if you can't get it from
+  the website
+** Load the file 
+- (load "final.lisp")
+** Get inside the package
+- (in-package :thread-abstract)
+** Have fun running

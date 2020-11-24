@@ -1,7 +1,9 @@
 * Misc Lisp Scripts
 
 This is just a bunch of Miscellaneous code I've played around with.
-the asd file loads functions that are important to other functions in the project, for example finger-tree.lisp relies on lazy-struct which relies on lazy-list which the asd file loads for you
+the asd file loads functions that are important to other functions in
+the project, for example finger-tree.lisp relies on lazy-struct which
+relies on lazy-list which the asd file loads for you
 ** Some notable files are
 1. =CL/stdlib/= - This is a collection of functions that augment the
    Common Lisp language
@@ -35,3 +37,10 @@ the asd file loads functions that are important to other functions in the projec
 
    - Useful for verifying the standard library, or one's own standard
      library
+
+7. =book-adapations= - some adapations from books written in other
+   languages
+
+8. =Class= - Code I wrote while I was in University, the interesting
+   files will be noted in the inner README
+

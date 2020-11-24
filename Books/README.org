@@ -1,0 +1,5 @@
+* Books
+
+This section contains a lot of code copied from books, often Ι tend to
+abstract the code and play with the ideas, this can be seen with
+[[file:LetOverLambda/chapter2-lexical-vs-dynamic.lisp][Let over Lambda dynamic vs lexical scoping]].
