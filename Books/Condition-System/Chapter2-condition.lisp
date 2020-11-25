@@ -58,3 +58,37 @@
 (handler-bind ((before-call #'ensure-csgo-launched)
                (before-call #'skip-non-csgo-people))
   (call-people))
+
+
+(defun maybe-call-parent (condition)
+  (let ((person (person condition)))
+    (when (and (zerop (random 2)) (member :parent person))
+      (format t ";; Nah, not calling ~A this time.~%" (first person))
+      (throw :do-not-call nil))))
+
+(defun skip-non-parents (condition)
+  (let ((person (person condition)))
+    (unless (member :parent person)
+      (throw :do-not-call nil))))
+
+(handler-bind ((before-call #'maybe-call-parent)
+               (before-call #'skip-non-parents))
+  (call-people))
+
+
+(defun skip-ex (condition)
+  (let ((person (person condition)))
+    (when (member :ex person)
+      (throw :do-not-call nil))))
+
+(defun wish-happy-holidays (condition)
+  (format t";; Gonna wish ~A happy holidays!~%" (first (person condition))))
+
+
+(handler-bind ((before-call #'skip-ex)
+               (before-call #'wish-happy-holidays))
+  (call-people))
+
+(handler-bind ((before-call #'skip-ex))
+  (handler-bind ((before-call #'wish-happy-holidays))
+    (call-people)))
