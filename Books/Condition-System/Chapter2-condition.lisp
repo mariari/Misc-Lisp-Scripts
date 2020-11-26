@@ -21,18 +21,36 @@
 ;; Call Site
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun call-people ()
+(defun call-people% ()
   (setf *csgo-launched-p* nil)
   (dolist (person *phonebook*)
     (catch :do-not-call
       (signal 'before-call :person person)
       (call-person person))))
 
+(defun call-people ()
+  (setf *csgo-launched-p* nil)
+  (dolist (person *phonebook*)
+    (catch :do-not-call
+      (signal 'before-call :person person)
+      (call-person person)
+      (signal 'after-call :person person))))
+
+
+(defun receive-phone-call (person)
+  (format t ";; Answering a call from ~A.~%" (first person))
+  (when (member :ex person)
+    (format t ";; About to commit a grave mistake...~%")
+    (we do not want to be here)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Conditions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define-condition before-call ()
+  ((%person :reader person :initarg :person)))
+
+(define-condition after-call ()
   ((%person :reader person :initarg :person)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -47,7 +65,8 @@
         (setf *csgo-launched-p* t)))))
 
 (handler-bind ((before-call #'ensure-csgo-launched))
-  (call-people))
+  (call-people%))
+
 
 (defun skip-non-csgo-people (condition)
   (let ((person (person condition)))
@@ -57,7 +76,7 @@
 
 (handler-bind ((before-call #'ensure-csgo-launched)
                (before-call #'skip-non-csgo-people))
-  (call-people))
+  (call-people%))
 
 
 (defun maybe-call-parent (condition)
@@ -73,7 +92,7 @@
 
 (handler-bind ((before-call #'maybe-call-parent)
                (before-call #'skip-non-parents))
-  (call-people))
+  (call-people%))
 
 
 (defun skip-ex (condition)
@@ -82,13 +101,24 @@
       (throw :do-not-call nil))))
 
 (defun wish-happy-holidays (condition)
-  (format t";; Gonna wish ~A happy holidays!~%" (first (person condition))))
+  (format t ";; Gonna wish ~A happy holidays!~%" (first (person condition))))
 
 
 (handler-bind ((before-call #'skip-ex)
                (before-call #'wish-happy-holidays))
-  (call-people))
+  (call-people%))
 
 (handler-bind ((before-call #'skip-ex))
   (handler-bind ((before-call #'wish-happy-holidays))
-    (call-people)))
+    (call-people%)))
+
+
+(defun call-girlfriend-again (condition)
+  (let ((person (person condition)))
+    (when (member :girlfriend person)
+      (format t ";; Gonna call ~A again.~%" (first person))
+      (call-person person))))
+
+(handler-bind ((before-call #'ensure-csgo-launched)
+               (after-call #'call-girlfriend-again))
+  (call-people))

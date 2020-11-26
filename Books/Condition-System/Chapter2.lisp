@@ -104,7 +104,7 @@
     (throw :do-not-call nil)))
 
 (defun wish-happy-holidays (person)
-  (format t";; Gonna wish ~A happy holidays!~%" (first person)))
+  (format t ";; Gonna wish ~A happy holidays!~%" (first person)))
 
 (let ((*hooks* (list #'wish-happy-holidays)))
   (let ((*hooks* (cons #'skip-ex *hooks*)))
