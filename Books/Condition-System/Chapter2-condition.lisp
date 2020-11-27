@@ -37,11 +37,21 @@
       (signal 'after-call :person person))))
 
 
+;; first version with signal
+(defun receive-phone-call% (person)
+  (format t ";; Answering a call from ~A.~%" (first person))
+  (when (member :ex person)
+    (format t ";; About to commit a grave mistake...~%")
+    (signal 'grave-mistake :reason :about-to-call-your-ex)
+    (error "we do not want to be here")))
+
+;; Now we try erroring out instead of signaling
 (defun receive-phone-call (person)
   (format t ";; Answering a call from ~A.~%" (first person))
   (when (member :ex person)
     (format t ";; About to commit a grave mistake...~%")
-    (we do not want to be here)))
+    (error 'grave-mistake :reason :about-to-call-your-ex)
+    (error "we do not want to be here")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Conditions
@@ -52,6 +62,10 @@
 
 (define-condition after-call ()
   ((%person :reader person :initarg :person)))
+
+(define-condition grave-mistake (error)
+  ((%reason :reader reason :initarg :reason)))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Hooks
@@ -122,3 +136,28 @@
 (handler-bind ((before-call #'ensure-csgo-launched)
                (after-call #'call-girlfriend-again))
   (call-people))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Defusing an argument
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun defuse-error (condition)
+  (declare (ignore condition))
+  (format t ";; Nope nope nope, not answering!~%")
+  (throw :do-not-answer nil))
+
+(defun defuse-grave-error (condition)
+  (let ((reason (reason condition)))
+    (format t ";; Nope nope nope, not answering - reason was, ~A!~%" reason))
+  (throw :do-not-answer nil))
+
+(handler-bind ((error #'defuse-error))
+  (dolist (person *phonebook*)
+    (catch :do-not-answer
+      (receive-phone-call person))))
+
+(handler-bind ((grave-mistake #'defuse-grave-error))
+  (dolist (person *phonebook*)
+    (catch :do-not-answer
+      (receive-phone-call person))))
