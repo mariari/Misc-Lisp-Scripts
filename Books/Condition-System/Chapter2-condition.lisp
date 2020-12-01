@@ -161,3 +161,41 @@
   (dolist (person *phonebook*)
     (catch :do-not-answer
       (receive-phone-call person))))
+
+;; Always unwinds the stack
+(dolist (person *phonebook*)
+  (handler-case (receive-phone-call person)
+    (grave-mistake (condition)
+      (format t ";; Nope nope nope, not answering - reason was, ~A!~%" (reason condition)))))
+
+;; Unwind protect allows us to protect against any sort of non local control flow
+(dolist (person '((:bob :classmate :homework)
+                  (:catherine :classmate :ex)
+                  (:dorthy :classmate :girlfriend :csgo)))
+  (catch :do-not-answer
+    (unwind-protect
+         (handler-case (receive-phone-call person)
+           (grave-mistake (e) (defuse-grave-error e)))
+      (format t ";; Restarting phone.~%"))))
+
+
+;; This is known as clustering
+;; basically the handlers in B are invisible to it
+(handler-bind ((condition (lambda (condition)
+                            (declare (ignore condition))
+                            (format t ";; Outer handler~%"))))
+  (handler-bind ((condition (lambda (condition)
+                              (declare (ignore condition))
+                              (format t ";; Inner Handler A~%")))
+                 (condition (lambda (condition)
+                              (format t ";; Inner Handler B~%")
+                              (signal condition)))
+                 (condition (lambda (condition)
+                              (declare (ignore condition))
+                              (format t ";; Inner Handler C~%"))))
+    (signal 'condition)))
+;; Inner Handler A
+;; Inner Handler B
+;; Outer handler
+;; Inner Handler C
+;; Outer handler
