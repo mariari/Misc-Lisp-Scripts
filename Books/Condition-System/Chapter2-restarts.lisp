@@ -32,12 +32,21 @@
       (error "We do not want to be here")))
 
 (defun try-to-hide-mark ()
-  (let ((restarts (compute-relevant-restarts)))
-    (if restarts
-        (let ((restart (first restarts)))
-          (format t ";; Performing ~A.~%" (restart-name restart))
-          (invoke-restart restart))
-        (format t ";; Kate cannot hide Mark!~%"))))
+  (cond ((find-restart 'escape)
+         (invoke-restart 'escape))
+        (t
+         (format t ";; Kate cannot hide Mark!~%")
+         (when (find-restart 'excuse)
+           (invoke-restart-interactively 'excuse)))))
+
+(defun try-to-hide-mark% ()
+  (cond ((find-restart 'escape)
+         (invoke-restart 'escape))
+        (t
+         (format t ";; Kate cannot hide Mark!~%")
+         (when (find-restart 'excuse)
+           (let ((excuse-text (elt *excuses* (random (length *excuses*)))))
+             (invoke-restart 'excuse excuse-text))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Escape hatches
@@ -49,13 +58,15 @@
 (defun call-with-home-restarts (thunk)
   (let ((*toplevel-restarts* (compute-restarts)))
     (restart-bind ((escape
-                   #'perform-escape-through-front-door
-                   :test-function
-                   #'escape-through-front-door-p)
-                 (escape
-                   #'perform-escape-through-back-door
-                   :test-function
-                   #'escape-through-back-door-p))
+                     #'perform-escape-through-front-door
+                     :test-function
+                     #'escape-through-front-door-p)
+                   (escape
+                     #'perform-escape-through-back-door
+                     :test-function
+                     #'escape-through-back-door-p)
+                   (excuse #'perform-excuse
+                           :interactive-function #'provide-excuse))
       (funcall thunk))))
 
 (restart-bind ((escape-through-front-door
@@ -80,8 +91,8 @@
 (call-with-home-restarts
  (lambda ()
    (let ((*mark-safe-p* nil)
-         (*front-door-locked-p* nil)
-         (*back-door-locked-p* nil))
+         (*front-door-locked-p* t)
+         (*back-door-locked-p* t))
      (parents-come-back))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -108,3 +119,10 @@
 (defun perform-excuse (excuse)
   (format t ";; Mark makes an excuse before leaving:~%;; \"~A\"~%" excuse)
   (setf *mark-safe-p* t))
+
+(defun provide-excuse ()
+  (format t ";; Mark is thinking of an excuse...~%")
+  (let ((excuse-text (read-line)))
+    (list (if (string/= "" excuse-text)
+              excuse-text
+              (elt *excuses* (random (length *excuses*)))))))
