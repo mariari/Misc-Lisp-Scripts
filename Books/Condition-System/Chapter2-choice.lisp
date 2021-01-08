@@ -40,7 +40,7 @@
       (format t ";; Whew... We're safe! for now.~%")
       (error "we do not want to be here")))
 
-;; The book is a bit wrong here
+
 (defun try-to-hide-mark ()
   (let ((choice (find-choice 'escape)))
     (cond (choice
@@ -99,7 +99,6 @@
    :effect-function #'perform-escape-through-back-door
    :test-function #'escape-through-back-door-p))
 
-
 (defun call-with-home-choices% (thunk)
   (let ((*choices* (list *front-door-choice* *back-door-choice*)))
     (funcall thunk)))
@@ -140,7 +139,7 @@
    (let ((*mark-safe-p* nil)
          (*front-door-locked-p* t)
          (*back-door-locked-p* t))
-     (parents-come-back))))
+     (try-to-hide-mark))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Helper Functions

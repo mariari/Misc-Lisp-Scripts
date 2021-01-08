@@ -126,3 +126,37 @@
     (list (if (string/= "" excuse-text)
               excuse-text
               (elt *excuses* (random (length *excuses*)))))))
+
+(block restart
+  ;; Handler effect:
+  ;; [abort : return-from :restart m => m ()]
+  (restart-bind ((abort (lambda () (return-from restart))))
+    ;; restart :abort
+    (invoke-restart 'abort)
+    (format t ";; We do not want to be here.~%")))
+
+(block restart
+  ;; Handler effect:
+  ;; [abort : return-from :restart m => m ()]
+  (tagbody
+     (restart-bind ((abort (lambda () (go :abort))))
+       ;; restart :abort
+       (invoke-restart 'abort)
+       (format t ";; We do not want to be here.~%"))
+   :abort
+     (format t ";; Whew. That was close.~%")
+     (return-from restart)))
+
+(block restart
+  (let (restart-arguments)
+    (tagbody
+       (restart-bind ((abort (lambda (&rest arguments)
+                               (setf restart-arguments arguments)
+                               (go :abort))))
+         (invoke-restart 'abort :about-to-error)
+         (format t ";; We do not want to be here.~%"))
+     :abort
+       (return-from restart
+         (apply (lambda (reason) (format t ";; Wheh: ~A.~%" reason))
+                restart-arguments)))))
+

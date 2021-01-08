@@ -18,7 +18,7 @@ before running this command."
 ;; (setf lparallel:*kernel* (lparallel:make-kernel 12))
 
 (defun execute-mpv (link)
-  (chanl:pexec ()
+  (pexec ()
     (uiop:run-program (list "mpv" link) :ignore-error-status t)))
 
 
@@ -37,10 +37,6 @@ currently active buffer."
         (print hint))))
    :annotate-visible-only-p annotate-visible-only-p))
 
-
-(define-command mpv-here ()
-  "open the current buffer in mpv"
-  (execute-mpv (object-string (url (current-buffer)))))
 
 ;; TODO ∷ figure out how to make text spawn if things fail
 (define-command mpv-url (&key prefill-current-url-p)
@@ -78,17 +74,29 @@ currently active buffer."
                     scheme:vi-normal (list
                                       "; x" 'mpv-launch
                                       "X"   'mpv-url
-                                      "x"   'mpv-here)
+                                      "x"   'mpv-here
+                                      "y f"  'nyxt/web-mode:copy-hint-url)
                     scheme:emacs     (list
                                       "; x" 'mpv-launch
                                       "X"   'mpv-url
-                                      "x"   'mpv-here)
+                                      "x"   'mpv-here
+                                      "y f"  'nyxt/web-mode:copy-hint-url)
                     scheme:cua       (list
                                       "; x" 'mpv-launch
                                       "X"   'mpv-url
-                                      "x"   'mpv-here)))))
+                                      "x"   'mpv-here
+                                      "y f"  'nyxt/web-mode:copy-hint-url)))))
 
 
 (define-configuration (buffer web-buffer)
   ((default-modes
     (list* 'custom-bind-mode 'vi-normal-mode 'blocker-mode %slot-default))))
+
+;;;; Presentation
+
+;; (nyxt:buffer-load "https://www.youtube.com/watch?v=BXmOlCy0oBM"
+;;                   :buffer (nyxt:make-buffer-focus))
+;; (nyxt:buffer-load "https://www.youtube.com/results?search_query=erlang+the+movie"
+;;                   :buffer (nyxt:make-buffer-focus))
+;; (nyxt:buffer-load "https://nyxt.atlas.engineer/"
+;;                   :buffer (nyxt:make-buffer-focus))
