@@ -5,11 +5,19 @@
    :calculate-score
    :round-up-ten
    :total-tsumo-score
+   :tsumo-win
    :ron-win))
 
 (in-package :scripts.mahjong)
 
+;; total-tsumo-score ≥ ron
+;; either it is slightly leser or exactly the same as the values get
+;; higher
+
+
+;; people normally use a scoring table, but we have lisp!
 (defun ron-win (&key han (fu 20) eastp)
+  "Calculates the point you'd get by winning via ron"
   (let ((score (calculate-score :han han :fu fu)))
     (round-up-to
      100
@@ -17,19 +25,20 @@
          (* 6 score)
          (* 4 score)))))
 
-(defun total-tsumo-score (&key han (fu 20) eastp)
-  (let ((payout (tsumo-win :han han :fu fu :eastp eastp)))
-    (trivia:match payout
-      ((list :others score) (* 3 score))
-      ((list :others other :east east) (+ east (* 2 other))))))
-
 (defun tsumo-win (&key han (fu 20) eastp)
+  "Calculates the point you'd get by each player from tsumo"
   (let* ((score          (calculate-score :han han :fu fu))
          (rounded        (round-up-to 100 score))
          (rounded-double (round-up-to 100 (* 2 score))))
     (if eastp
         (list :others rounded-double)
         (list :others rounded :east rounded-double))))
+
+(defun total-tsumo-score (&key han (fu 20) eastp)
+  (let ((payout (tsumo-win :han han :fu fu :eastp eastp)))
+    (trivia:match payout
+      ((list :others score) (* 3 score))
+      ((list :others other :east east) (+ east (* 2 other))))))
 
 (defun calculate-score (&key han (fu 20))
   (cond
