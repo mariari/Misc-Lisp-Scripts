@@ -11,9 +11,11 @@
 
 (defun ron-win (&key han (fu 20) eastp)
   (let ((score (calculate-score :han han :fu fu)))
-    (if eastp
-        (* 6 score)
-        (* 4 score))))
+    (round-up-to
+     100
+     (if eastp
+         (* 6 score)
+         (* 4 score)))))
 
 (defun total-tsumo-score (&key han (fu 20) eastp)
   (let ((payout (tsumo-win :han han :fu fu :eastp eastp)))
