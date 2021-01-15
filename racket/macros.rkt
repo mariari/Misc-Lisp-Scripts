@@ -11,13 +11,13 @@
 (require racket/splicing)
 
 (module a racket
-        (define-syntax (aλ exp)
-          (syntax-case exp ()
-                       [(aλ args body ...)
-                        (with-syntax ([self (datum->syntax exp 'self)])
-                                     #'(letrec ([self (λ args body ...)])
-                                         self))]))
-        (provide aλ))
+  (define-syntax (aλ exp)
+    (syntax-case exp ()
+      [(aλ args body ...)
+       (with-syntax ([self (datum->syntax exp 'self)])
+         #'(letrec ([self (λ args body ...)])
+             self))]))
+  (provide aλ))
 
 (require (for-syntax racket/match 'a))
 
@@ -158,3 +158,42 @@
       1
       (sqrt (+ 1 (s (- n 1))))))
 ;;  converges to phi
+
+
+(define-syntax incf
+  (syntax-rules ()
+    ((_ x) (begin (set! x (+ x 1)) x))
+    ((_ x i) (begin (set! x (+ x i)) x))))
+
+(define-syntax my-and
+  (syntax-rules ()
+    ((_) #t)
+    ((_ e) e)
+    ((_ e1 e2 ...)
+     (if e1
+	 (my-and e2 ...)
+	 #f))))
+
+(define-syntax my-let*
+  (syntax-rules ()
+    ((_ (e1 e2) b ...)
+     (let (e1)
+       (my-let* (e2) b ...)))
+    ((_ (e1) b ...)
+     (let (e1)
+       b ...))
+    ((_ () b ...)
+     (begin  b ...))))
+
+(define-syntax my-cond
+  (syntax-rules (else)
+    ((_ (else e1 ...))
+     (begin e1 ...))
+    ((_ (e1 e2 ...))
+     (when e1 e2 ...))
+    ((_ (e1 e2 ...) c1 ...)
+     (if e1
+	 (begin e2 ...)
+	 (cond c1 ...)))))
+
+

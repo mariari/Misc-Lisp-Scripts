@@ -40,8 +40,8 @@
                 (list :others rounded-double)
                 (list :others rounded :east rounded-double)))))
 
-(defun total-tsumo-score (&key han (fu 20) eastp)
-  (let ((payout (tsumo-win :han han :fu fu :eastp eastp)))
+(defun total-tsumo-score (&key han (fu 20) eastp (honba 0))
+  (let ((payout (tsumo-win :han han :fu fu :eastp eastp :honba honba)))
     (trivia:match payout
       ((list :others score) (* 3 score))
       ((list :others other :east east) (+ east (* 2 other))))))
@@ -66,3 +66,13 @@
 
 (defun add-riichi-sticks (number)
   (* 1000 number))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Shanten calculations
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun minimum-shanten (&key useless-tiles pairs diff-terminals terminal-pairs)
+  (min useless-tiles
+       (- 6 pairs)
+       (- 13 diff-terminals (max 1 terminal-pairs))))
