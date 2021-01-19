@@ -53,16 +53,16 @@
                          ;; we need lib-ai on this path
                          ;; for some reason the linker doesn't work
                          "LD_LIBRARY_PATH=~/.local/lib/akochan \\
-                       akochan-reviewer \\
-                       --lang en \\
-                       -d ~/.local/lib/akochan/akochan/ \\
-                       -c ~/.local/lib/akochan/tactics.json \\
-                       -no-open "
+                          akochan-reviewer \\
+                          --lang en \\
+                          -d ~/.local/lib/akochan/akochan/ \\
+                          -c ~/.local/lib/akochan/tactics.json \\
+                          --no-open "
                          "-a "
                          (format nil "~{~A~^ ~}" body)
                          (or (write-to-string pos) 0)
                          " -i "
                          (namestring file)
                          " -o "
-                         (make-html-name file)))))))
+                         output-name))))))
      files)))
