@@ -64,8 +64,5 @@
                          " -i "
                          (namestring file)
                          " -o "
-                         (concatenate 'string
-                                      (directory-namestring file)
-                                      "analysis/"
-                                      (file-namestring file))))))))
+                         (make-html-name file)))))))
      files)))
