@@ -43,7 +43,8 @@
                        akochan-reviewer \\
                        --lang en \\
                        -d ~/.local/lib/akochan/akochan/ \\
-                       -c ~/.local/lib/akochan/tactics.json "
+                       -c ~/.local/lib/akochan/tactics.json \\
+                       -no-open "
                        "-a "
                        (format nil "~{~A~^ ~}" body)
                        (or (write-to-string pos) 0)
