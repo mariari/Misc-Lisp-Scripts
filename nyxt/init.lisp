@@ -21,8 +21,6 @@ before running this command."
   (pexec ()
     (uiop:run-program (list "mpv" link) :ignore-error-status t)))
 
-
-
 (define-command mpv-launch (&key annotate-visible-only-p)
   "Show a set of element hints, and go to the user inputted one in the
 currently active buffer."
@@ -37,28 +35,37 @@ currently active buffer."
         (print hint))))
    :annotate-visible-only-p annotate-visible-only-p))
 
+(define-command mpv-here ()
+  "executes mpv in the current buffer"
+  (execute-mpv (object-string (url (current-buffer)))))
+
 
 ;; TODO ∷ figure out how to make text spawn if things fail
-(define-command mpv-url (&key prefill-current-url-p)
+(define-command mpv-url (&key (prefill-current-url-p t))
   "open an url in mpv"
-  (let ((history (minibuffer-set-url-history *browser*)))
+  (let ((history (set-url-history *browser*)))
     (when history
       (containers:insert-item history (url (current-buffer))))
-    (let* ((url (prompt-minibuffer
-                 :input-prompt        (format nil "Launch mpv on")
-                 :input-buffer        (if prefill-current-url-p
-                                          (object-string (url (current-buffer))) "")
-                 :default-modes      '(set-url-mode minibuffer-mode)
-                 :suggestion-function (history-suggestion-filter
-                                       :prefix-urls (list (object-string
-                                                           (url (current-buffer)))))
-                 :history      history
-                 :must-match-p nil))
-          (url-string
-            (cond ((typep url 'history-entry) (object-string (url url)))
-                  ((stringp url)              url)
-                  (t                          (format nil "error: url on mpv-url is ~a" url)))))
-      (execute-mpv url-string))))
+    (flet ((func (url)
+             (format nil "~a" url)
+             (print url)
+             (let ((url-string
+                     (cond ((typep url 'history-entry) (object-string (url url)))
+                           ((stringp url)              url)
+                           ((valid-url-p url)          (object-string url))
+                           (t                          (object-string url)))))
+               (execute-mpv url-string))))
+      (prompt
+       :prompt        (format nil "Launch mpv on")
+       :input         (if prefill-current-url-p
+                          (object-string (url (current-buffer))) "")
+       :sources       (list
+                       (make-instance 'prompter:raw-source
+                                      :name "New URL"
+                                      :actions (list (make-unmapped-command func)))
+                       (make-instance 'global-history-source
+                                      :actions (list (make-unmapped-command func))))
+       :history      history))))
 
 
 ;; not used
@@ -100,3 +107,29 @@ currently active buffer."
 ;;                   :buffer (nyxt:make-buffer-focus))
 ;; (nyxt:buffer-load "https://nyxt.atlas.engineer/"
 ;;                   :buffer (nyxt:make-buffer-focus))
+
+
+;; Download files
+
+;; (defparameter *links*
+;;   (butlast (nyxt/web-mode::elements-from-json (nyxt/web-mode::add-element-hints))))
+
+;; (defun grab-audio% (name)
+;;   (let ((link (url (car (nyxt/web-mode::elements-from-json (nyxt/web-mode::add-element-hints))))))
+;;     (inferior-shell:run
+;;      `(curl -o ,name ,link))))
+
+;; (mapc (lambda (link)
+;;         (buffer-load (url link))
+;;         (let* ((name (NYXT/WEB-MODE::BODY link))
+;;                (link (concatenate 'string (subseq name 0 (- (length name) 3)) ".mp3")))
+;;           (print link)
+;;           (grab-audio% link)))
+;;       *links*)
+
+;; (mapcar (lambda (link)
+;;           (buffer-load (url link))
+;;           (let* ((name (NYXT/WEB-MODE::BODY link))
+;;                  (link (concatenate 'string (subseq name 0 (- (length name) 3)) ".mp3")))
+;;             (list link (url (car (nyxt/web-mode::elements-from-json (nyxt/web-mode::add-element-hints)))))))
+;;  *links*)
