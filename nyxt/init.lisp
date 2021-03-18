@@ -68,6 +68,29 @@ currently active buffer."
        :history      history))))
 
 
+
+(defun mdbgt-url (f)
+  (flet ((mdgb-url (url)
+           (funcall f (concatenate 'string "!mdbgt " url))))
+    (let ((history (set-url-history *browser*)))
+      (when history
+        (containers:insert-item history (quri:render-uri (url (current-buffer)))))
+      (prompt
+       :prompt "MDGBT search"
+       :input ""
+       :history history
+       :sources (list (make-instance 'prompter:raw-source
+                                     :name "new MDGB search"
+                                     :actions (list (make-unmapped-command mdgb-url))))))))
+
+(define-command mdbgt-set-buffer ()
+  "Set the URL for the current buffer, completing with history."
+  (mdbgt-url #'buffer-load))
+
+(define-command mdbgt-new-buffer ()
+  "Prompt for a URL and set it in a new focused buffer."
+  (mdbgt-url #'new-buffer-load))
+
 ;; not used
 ;; (defvar *custom-keymap* (make-keymap "custom"))
 
@@ -82,7 +105,9 @@ currently active buffer."
                                       "; x" 'mpv-launch
                                       "X"   'mpv-url
                                       "x"   'mpv-here
-                                      "y f"  'nyxt/web-mode:copy-hint-url)
+                                      "y f" 'nyxt/web-mode:copy-hint-url
+                                      "P"   'mdbgt-new-buffer
+                                      "p"   'mdbgt-set-buffer)
                     scheme:emacs     (list
                                       "; x" 'mpv-launch
                                       "X"   'mpv-url
