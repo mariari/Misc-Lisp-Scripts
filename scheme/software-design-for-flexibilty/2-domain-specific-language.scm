@@ -280,29 +280,50 @@
 ;;; 2.3 a quickie
 ;;; ------------------------------------------------------------
 
-(define (parallel-apply f g)
+;; in the spirit of the book we'll make our own combinators
+(define (construct-arity min max) (cons min max))
+(define (min-arity arity) (car arity))
+(define (max-arity arity) (cdr arity))
+
+;; sadly assert-arity can't be made itno a composition
+(define (assert-arity range f)
+  (let ((min (min-arity range)) (max (max-arity range)))
+    (define (the-combination . args)
+      (assert (in-range (length args) min max))
+      (apply f args))
+    (restrict-arity the-combination min max)))
+
+(define (parallel-check f g)
   (let* ((f-min (get-arity-min f))
          (f-max (get-arity-max f))
-         (g-max (get-arity-max g))
          (g-min (get-arity-min g))
+         (g-max (get-arity-max g))
          (t-min (max f-min g-min))
          (t-max (min f-max g-max)))
     (assert (and (in-range t-min g-min g-max)
                  (in-range t-max g-min g-max)
                  (in-range t-min f-min f-max)
                  (in-range t-max f-min f-max)))
+    (construct-arity t-min t-max)))
+
+(define (parallel-apply f g)
+  (let* ((arity (parallel-check f g)))
     (define (the-combination . args)
-      (assert (in-range (length args) t-min t-max))
       (let-values ((fv (apply f args))
                    (gv (apply g args)))
         (apply values (append fv gv))))
-    (restrict-arity the-combination t-min t-max)))
+    (assert-arity arity the-combination)))
 
 (define (parallel-combine h f g)
   (compose h (parallel-apply f g)))
+
+(arity (parallel-apply list list))
 
 ((parallel-combine list
                    (lambda args (values (cons 'foo args)))
                    (lambda (a b c d) (values (list 'bar a b c d))))
  'a 'b 'c 'd)
 
+;;; ------------------------------------------------------------
+;;; 2.4 a small library
+;;; ------------------------------------------------------------
