@@ -66,9 +66,9 @@
 (define (get-arity proc)
   (or (hash-table-ref/default arity-table proc #f)
       (let ((a (procedure-arity proc))) ; arity not in table
-        (assert (eqv? (procedure-arity-min a)
-                      (procedure-arity-max a)))
-        (procedure-arity-min a))))
+        (assert (eqv? (procedure-arity-min% a)
+                      (procedure-arity-max% a)))
+        (procedure-arity-min% a))))
 
 (define arity-table (make-key-weak-eqv-hash-table))
 
@@ -128,15 +128,63 @@
 ;; that is correct. or we could just eat the smallest for both.
 
 
+(define (spread-combine h f g)
+  (let* ((f-min (get-arity-min f))
+         (g-max (get-arity-max g))
+         (g-min (get-arity-min g))
+         (t-min (+ f-min g-min))
+         (t-max (+ f-min g-max)))
+    (define (the-combination . args)
+      (assert (in-range (length args) t-min t-max))
+      (h (apply f (list-head args f-min))
+         (apply g (list-tail args f-min))))
+    (restrict-arity the-combination t-min t-max)))
+
+((spread-combine list
+                 (lambda (x y) (list 'foo x y))
+                 list)
+ 'a 'b 'c 'd 'e)
+
+(get-arity-list
+ (spread-combine list
+                 (lambda (x y) (list 'foo x y))
+                 list))
+
+
+(define (compose f g)
+  (let* ((g-min (get-arity-min g))
+         (g-max (get-arity-max g)))
+    (define (the-composition . args)
+      (assert (in-range (length args) g-min g-max))
+      (f (apply g args)))
+    (restrict-arity the-composition g-min g-max)))
+
+
+;; ----------------------------------------------
+;; Helpers
+;; ----------------------------------------------
+
+;; in-range checks if ele member [min ... max]
+(define (in-range ele min max)
+  (>= max ele min))
+
+(define (procedure-arity-max% proc)
+  (cdr proc))
+
+(define (procedure-arity-min% proc)
+  (car proc))
+
 (define (get-arity-max proc)
   (or
-   (procedure-arity-max (or (hash-table-ref/default arity-table proc #f)
-                            (procedure-arity proc))))
+   (procedure-arity-max% (or (hash-table-ref/default arity-table proc #f)
+                             (procedure-arity proc))))
   +inf.0)
 
 (define (get-arity-min proc)
-  (procedure-arity-min (or (hash-table-ref/default arity-table proc #f)
-                           (procedure-arity proc))))
+  (or
+   (procedure-arity-min% (or (hash-table-ref/default arity-table proc #f)
+                             (procedure-arity proc)))
+   0))
 
 (define (arity proc)
   (or (hash-table-ref/default arity-table proc #f)
@@ -148,7 +196,7 @@
       (hash-table-set! arity-table proc (cons nargs max)))
   proc)
 
-;; redefining just to keep it backward compatable
+;; redefining just to keep it backward comparable
 (define (get-arity proc)
   (let ((a (or (hash-table-ref/default arity-table proc #f)
                (procedure-arity proc))))
@@ -160,32 +208,74 @@
   (or (hash-table-ref/default arity-table proc #f)
       (procedure-arity proc)))
 
-(define (spread-combine h f g)
+;;; ------------------------------------------------------------
+;;; On wards
+;;; ------------------------------------------------------------
+
+
+;; for this section all my changes for the better checked size
+;; applies, so code is different from the book
+
+;; since we redefine functions a lot, we could generalize the checking
+;; functions, but Ι have decided not to out of laziness, and to try to
+;; stay close to the book
+
+;; all this min max stuff is annoying I'd rather just define
+;; arithmetic on it, to be less annoying
+(define (spread-apply f g)
   (let* ((f-min (get-arity-min f))
          (g-max (get-arity-max g))
          (g-min (get-arity-min g))
          (t-min (+ f-min g-min))
          (t-max (+ f-min g-max)))
     (define (the-combination . args)
-      (assert (>= (length args) t-min))
-      (assert (<= (length args) t-max))
-      (h (apply f (list-head args f-min))
-         (apply g (list-tail args f-min))))
+      (assert (assert (in-range (length args) t-min t-max)))
+      (values (apply f (list-head args f-min))
+              (apply g (list-tail args f-min))))
     (restrict-arity the-combination t-min t-max)))
 
-(define (compose f g)
-  (let* ((m (get-arity g)))
-    (define (the-composition . args)
-      (assert (= (length args) m))
-      (f (apply g args)))
-    (restrict-arity the-composition m)))
+(define (spread-combine h f g)
+  (compose h (spread-apply f g)))
 
+(define (compose f g)
+  (let* ((g-min (get-arity-min g))
+         (g-max (get-arity-max g)))
+    (define (the-composition . args)
+      (assert (in-range (length args) g-min g-max))
+      (call-with-values (lambda () (apply g args))
+        f))
+    (restrict-arity the-composition g-min g-max)))
+
+;; same behavior as before
 ((spread-combine list
                  (lambda (x y) (list 'foo x y))
                  list)
  'a 'b 'c 'd 'e)
 
-(get-arity-list
- (spread-combine list
-                 (lambda (x y) (list 'foo x y))
-                 list))
+((compose (lambda (a b)
+            (list 'foo a b))
+          (lambda (x)
+            (values (list 'bar x) (list 'baz x))))
+ 'z)
+
+(define (spread-apply f g)
+  (let* ((f-min (get-arity-min f))
+         (g-max (get-arity-max g))
+         (g-min (get-arity-min g))
+         (t-min (+ f-min g-min))
+         (t-max (+ f-min g-max)))
+    (define (the-combination . args)
+      (assert (assert (in-range (length args) t-min t-max)))
+      (let-values ((fv (apply f (list-head args f-min)))
+                   (gv (apply g (list-tail args f-min))))
+        (apply values (append fv gv))))
+    (restrict-arity the-combination t-min t-max)))
+
+((spread-combine list
+                 (lambda (x y #!optional opt) (values x y))
+                 (lambda (u v w #!optional z) (values w v u z)))
+ 'a 'b 'c 'd 'e 'f)
+
+;;; ------------------------------------------------------------
+;;; 2.3 a quickie
+;;; ------------------------------------------------------------
