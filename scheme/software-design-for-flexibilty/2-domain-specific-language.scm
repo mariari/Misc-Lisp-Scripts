@@ -138,7 +138,7 @@
   (procedure-arity-min (or (hash-table-ref/default arity-table proc #f)
                            (procedure-arity proc))))
 
-(define (get-arity proc)
+(define (arity proc)
   (or (hash-table-ref/default arity-table proc #f)
       (procedure-arity proc)))
 
@@ -147,6 +147,18 @@
       (hash-table-set! arity-table proc (cons nargs nargs))
       (hash-table-set! arity-table proc (cons nargs max)))
   proc)
+
+;; redefining just to keep it backward compatable
+(define (get-arity proc)
+  (let ((a (or (hash-table-ref/default arity-table proc #f)
+               (procedure-arity proc))))
+    (assert (eqv? (procedure-arity-min a)
+                  (procedure-arity-max a)))
+    (procedure-arity-min a)))
+
+(define (get-arity-list proc)
+  (or (hash-table-ref/default arity-table proc #f)
+      (procedure-arity proc)))
 
 (define (spread-combine h f g)
   (let* ((f-min (get-arity-min f))
@@ -161,7 +173,19 @@
          (apply g (list-tail args f-min))))
     (restrict-arity the-combination t-min t-max)))
 
+(define (compose f g)
+  (let* ((m (get-arity g)))
+    (define (the-composition . args)
+      (assert (= (length args) m))
+      (f (apply g args)))
+    (restrict-arity the-composition m)))
+
 ((spread-combine list
                  (lambda (x y) (list 'foo x y))
                  list)
  'a 'b 'c 'd 'e)
+
+(get-arity-list
+ (spread-combine list
+                 (lambda (x y) (list 'foo x y))
+                 list))
