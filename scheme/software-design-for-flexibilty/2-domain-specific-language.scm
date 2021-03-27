@@ -265,7 +265,7 @@
          (t-min (+ f-min g-min))
          (t-max (+ f-min g-max)))
     (define (the-combination . args)
-      (assert (assert (in-range (length args) t-min t-max)))
+      (assert (in-range (length args) t-min t-max))
       (let-values ((fv (apply f (list-head args f-min)))
                    (gv (apply g (list-tail args f-min))))
         (apply values (append fv gv))))
@@ -279,3 +279,30 @@
 ;;; ------------------------------------------------------------
 ;;; 2.3 a quickie
 ;;; ------------------------------------------------------------
+
+(define (parallel-apply f g)
+  (let* ((f-min (get-arity-min f))
+         (f-max (get-arity-max f))
+         (g-max (get-arity-max g))
+         (g-min (get-arity-min g))
+         (t-min (max f-min g-min))
+         (t-max (min f-max g-max)))
+    (assert (and (in-range t-min g-min g-max)
+                 (in-range t-max g-min g-max)
+                 (in-range t-min f-min f-max)
+                 (in-range t-max f-min f-max)))
+    (define (the-combination . args)
+      (assert (in-range (length args) t-min t-max))
+      (let-values ((fv (apply f args))
+                   (gv (apply g args)))
+        (apply values (append fv gv))))
+    (restrict-arity the-combination t-min t-max)))
+
+(define (parallel-combine h f g)
+  (compose h (parallel-apply f g)))
+
+((parallel-combine list
+                   (lambda args (values (cons 'foo args)))
+                   (lambda (a b c d) (values (list 'bar a b c d))))
+ 'a 'b 'c 'd)
+
