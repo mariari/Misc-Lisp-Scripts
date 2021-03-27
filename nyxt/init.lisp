@@ -47,8 +47,6 @@ currently active buffer."
     (when history
       (containers:insert-item history (url (current-buffer))))
     (flet ((func (url)
-             (format nil "~a" url)
-             (print url)
              (let ((url-string
                      (cond ((typep url 'history-entry) (object-string (url url)))
                            ((stringp url)              url)
