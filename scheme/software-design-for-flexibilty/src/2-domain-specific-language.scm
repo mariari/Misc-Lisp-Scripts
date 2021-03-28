@@ -599,3 +599,69 @@
 ;;;;; 2.2 Regular expressions
 ;;;;; ------------------------------------------------------------
 
+;; wait... wait does he just make parser combiantors
+
+;; matches any character expect newline
+(define (r:dot) ".")
+
+;; matches only the beginning of a line
+(define (r:bol) "^")
+
+;; matches only the end of a line
+(define (r:eol) "$")
+
+;; matches the string
+(define (r:quote string)
+  (r:seq
+   (list->string
+    (append-map (lambda (char)
+                  (if (memv char chars-needing-quoting)
+                      (list #\\ char)
+                      (list char)))
+                (string->list string)))))
+
+;; matches one character that is in the string
+(define (r:char-from string) 3)
+
+;; matches one character that is not in the string
+(define (r:char-not-from string) 3)
+
+;; compounds
+
+;; >>= in parser combinators
+;; this pattern matches each argument pattern in sequence from left to
+;; right
+(define (r:seq . exprs)
+  ;; ( ) here are made to isolate the environment, but we must escape
+  ;; them, as regex treats them oddly
+  (string-append "\\(" (apply string-append exprs) "\\)"))
+
+;; <|>/choice in parser combinators
+;; this pattern tries each argument pattern from left to right, until
+;; one of these alternative matches, if none match then this pattern
+;; does not match
+(define (r:alt . expers)
+  (if (pair? expers)
+      (apply r:seq
+             (cons (car expers)
+                   (append-map (lambda (expr)
+                                 (list "\\|" expr))
+                               (cdr expers))))
+      (r:seq)))
+
+;; many in parser combinators
+;; this pattern tries to match the argument pattern a minimum of min
+;; times but no more than maximum of max times. if max is given as #f
+;; then no maximum is specified. If max equals min, the given pattern
+;; must match exactly that many times
+(define (r:repeat min max pattern) 3)
+
+;; ---------------------------------
+;; Regex helper
+;; ---------------------------------
+
+(define chars-needing-quoting
+  '(#\. #\[ #\\ #\^ #\$ #\*))
+
+
+(r:seq (r:quote "a") (r:dot) (r:quote "c"))

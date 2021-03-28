@@ -3,7 +3,7 @@
 ;;; ------------------------------------------------------------
 
 (define (compose . funs)
-  (let* ((g (last (cons identity funs)))
+  (let* ((g (last (cons values funs)))
          (g-min (get-arity-min g))
          (g-max (get-arity-max g)))
     (restrict-arity
