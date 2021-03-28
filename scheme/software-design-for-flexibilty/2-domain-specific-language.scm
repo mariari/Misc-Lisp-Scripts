@@ -187,8 +187,9 @@
    0))
 
 (define (arity proc)
-  (or (hash-table-ref/default arity-table proc #f)
-      (procedure-arity proc)))
+  (let ((arr (or (hash-table-ref/default arity-table proc #f)
+                 (procedure-arity proc))))
+    (construct-arity (or (car arr) 0) (or (cdr arr) +inf.0))))
 
 (define (restrict-arity proc nargs #!optional max)
   (if (eq? max #!default)
@@ -285,15 +286,15 @@
 (define (min-arity arity) (car arity))
 (define (max-arity arity) (cdr arity))
 
-;; sadly assert-arity can't be made itno a composition
-(define (assert-arity range f)
+;; sadly assert-arity can't be made into a composition
+(define (assert-arity f range)
   (let ((min (min-arity range)) (max (max-arity range)))
     (define (the-combination . args)
       (assert (in-range (length args) min max))
       (apply f args))
     (restrict-arity the-combination min max)))
 
-(define (parallel-check f g)
+(define (parallel-arity f g)
   (let* ((f-min (get-arity-min f))
          (f-max (get-arity-max f))
          (g-min (get-arity-min g))
@@ -307,12 +308,12 @@
     (construct-arity t-min t-max)))
 
 (define (parallel-apply f g)
-  (let* ((arity (parallel-check f g)))
+  (let* ((arity (parallel-arity f g)))
     (define (the-combination . args)
       (let-values ((fv (apply f args))
                    (gv (apply g args)))
         (apply values (append fv gv))))
-    (assert-arity arity the-combination)))
+    (assert-arity the-combination arity)))
 
 (define (parallel-combine h f g)
   (compose h (parallel-apply f g)))
@@ -325,5 +326,105 @@
  'a 'b 'c 'd)
 
 ;;; ------------------------------------------------------------
-;;; 2.4 a small library
+;;; a small library
 ;;; ------------------------------------------------------------
+
+;; personal function
+(define (add-arity i range)
+  (construct-arity (+ i (min-arity range))
+                   (+ i (max-arity range))))
+
+(define (bump-arity-min i arity)
+  (assert (>= (max-arity arity) i))
+  (construct-arity (max (min-arity arity) i)
+                   (max-arity arity)))
+
+;; further for discard argument we'll want to bump the min, if we can
+(define (bump-arity-min i)
+  (compose (parallel-combine construct-arity
+                             (lambda (a) (max (min-arity a) i))
+                             max-arity)
+           (lambda (arity) (assert (>= (max-arity arity) i)) arity)))
+
+(define (discard-argument i)
+  (assert (exact-nonnegative-integer? i))
+  (lambda (f)
+    (let ((m ((bump-arity-min i) (add-arity 1 (arity f)))))
+      (define (the-combination . args)
+        (apply f (list-remove args i)))
+      (assert-arity the-combination m))))
+
+(define (list-remove lst index)
+  (let lp ((lst lst) (index index))
+    (if (zero? index)
+        (cdr lst)
+        (cons (car lst) (lp (cdr lst) (-1+ index))))))
+
+(((discard-argument 2)
+  (lambda (x y z) (list 'foo x y z)))
+ 'a 'b 'c 'd)
+
+;; our assertion tries to keep it 1 below the range itself
+;; however it's not clear per say, unlike the books
+(define (((curry-argument i) . args) f)
+  (let ((arity (add-arity -1 (arity f))))
+    (assert (in-range (length args) (min-arity arity) (max-arity arity)))
+    (lambda (x)
+      (apply f (list-insert args i x)))))
+
+(define (list-insert lst index value)
+  (let lp ((lst lst) (index index))
+    (if (zero? index)
+        (cons value lst)
+        (cons (car lst) (lp (cdr lst) (-1+ index))))))
+
+((((curry-argument 2) 'a 'b 'c)
+  (lambda (x y z w) (list 'foo x y z w)))
+ 'd)
+
+(define (permute-arguments . permspec)
+  (let ((permute (make-permutation permspec)))
+    (lambda (f)
+      (define (the-combination . args)
+        (apply f (permute args)))
+      (let ((n           (arity f))
+            (perm-length (length permspec)))
+        (assert (in-range perm-length (min-arity n) (max-arity n)))
+        (restrict-arity the-combination perm-length)))))
+
+(define (make-permutation permspec)
+  (define (the-permuter lst)
+    (let ((vec (list->vector lst)))
+      (map (lambda (p) (vector-ref vec p))
+           permspec)))
+  the-permuter)
+
+(((permute-arguments 1 2 0 3)
+  (lambda args (cons 'foo args)))
+ 'a 'b 'c 'd)
+
+;;; ------------------------------------------------------------
+;;; 2.4 As compositions?
+;;; ------------------------------------------------------------
+
+;; Make them into a composition between argument manipulations and the
+;; procedure
+
+(define (discard-argument-manipulation i)
+  (assert (exact-nonnegative-integer? i))
+  (define (the-combination . args)
+    (apply values (list-remove args i)))
+  (restrict-arity the-combination (1+ i) +inf.0))
+
+(define ((discard-argument i) f)
+  (compose f (discard-argument-manipulation i)))
+
+(define (curry-argument-manipulation i)
+  (assert (exact-nonnegative-integer? i))
+  (define (the-combination . args)
+    (lambda (x)
+      (apply values (list-insert args i x))))
+  (restrict-arity the-combination i (1+ i)))
+
+(define (((curry-argument i) . args) f)
+  (compose f (apply (curry-argument-manipulation i) args)))
