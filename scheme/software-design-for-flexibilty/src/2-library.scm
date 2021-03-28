@@ -1,5 +1,3 @@
-(load "2-arity.scm")
-
 ;;; ------------------------------------------------------------
 ;;; Main Functions
 ;;; ------------------------------------------------------------
@@ -48,6 +46,7 @@
         (cdr lst)
         (cons (car lst) (lp (cdr lst) (-1+ index))))))
 
+(define (identity x) x)
 ;; -----------------------------------
 ;; Exported Permutation functions    -
 ;; -----------------------------------
@@ -82,6 +81,13 @@
 ;; Updated manipulation functions
 ;; -----------------------------
 
+(define (permute-manipulation permspec)
+  (let* ((permute (make-permutation permspec))
+         (len     (length permspec)))
+    (define (the-combination . args)
+      (apply values (permute args)))
+    (restrict-arity the-combination len)))
+
 (define (discard-manipulation is)
   (map (lambda (i) (assert (exact-nonnegative-integer? i))) is)
   (let ((discard (make-discard is)))
@@ -100,14 +106,12 @@
     (restrict-arity realize-term (length spec)))
   (restrict-arity the-combination (1+ (apply max spec)) +inf.0))
 
-
-(define (discard-argument i)
-  (assert (exact-nonnegative-integer? i))
-  (lambda (f)
-    (let ((m ((bump-arity-min i) (add-arity 1 (arity f)))))
-      (define (the-combination . args)
-        (apply f (list-remove args i)))
-      (assert-arity the-combination m))))
+(define (make-permutation permspec)
+  (define (the-permuter lst)
+    (let ((vec (list->vector lst)))
+      (map (lambda (p) (vector-ref vec p))
+           permspec)))
+  the-permuter)
 
 ; --------------------------------------
 ;; Various apply and permutation applies
@@ -128,9 +132,10 @@
          (t-min (+ f-min g-min))
          (t-max (+ f-min g-max)))
     (define (the-combination . args)
-      (assert (assert (in-range (length args) t-min t-max)))
-      (values (apply f (list-head args f-min))
-              (apply g (list-tail args f-min))))
+      (assert (in-range (length args) t-min t-max))
+      (let-values ((fv (apply f (list-head args f-min)))
+                   (gv (apply g (list-tail args f-min))))
+        (apply values (append fv gv))))
     (restrict-arity the-combination t-min t-max)))
 
 ;; Creates the multiple discard

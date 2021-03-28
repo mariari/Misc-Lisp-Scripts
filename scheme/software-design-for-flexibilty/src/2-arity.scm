@@ -1,4 +1,9 @@
+(define arity-table (make-key-weak-eqv-hash-table))
+
 (define (construct-arity min max) (cons min max))
+
+(define (min-arity arity) (car arity))
+(define (max-arity arity) (cdr arity))
 
 ;; in-range checks if ele member [min ... max]
 (define (in-range ele min max)
@@ -47,7 +52,14 @@
   (construct-arity (+ i (min-arity range))
                    (+ i (max-arity range))))
 
-(define (bump-arity-min i arity)
+(define ((bump-arity-min i) arity)
   (assert (>= (max-arity arity) i))
   (construct-arity (max (min-arity arity) i)
                    (max-arity arity)))
+
+(define (assert-arity f range)
+  (let ((min (min-arity range)) (max (max-arity range)))
+    (define (the-combination . args)
+      (assert (in-range (length args) min max))
+      (apply f args))
+    (restrict-arity the-combination min max)))
