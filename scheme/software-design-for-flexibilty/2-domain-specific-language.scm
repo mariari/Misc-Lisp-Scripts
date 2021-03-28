@@ -579,12 +579,14 @@
   (let* ((g (last (cons identity funs)))
          (g-min (get-arity-min g))
          (g-max (get-arity-max g)))
-    (fold-right (lambda (f calls)
-                  (lambda args
-                    (call-with-values (lambda () (apply calls args))
-                      f)))
-                values
-                funs)))
+    (restrict-arity
+     (fold-right (lambda (f calls)
+                   (lambda args
+                     (call-with-values (lambda () (apply calls args))
+                       f)))
+                 values
+                 funs)
+     g-min g-max)))
 
 ((compose (lambda args
             (cons 'foo args))
