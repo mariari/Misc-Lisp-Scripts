@@ -575,6 +575,29 @@
         (rec (cddr lst)
              (cons (cons (car lst) (cadr lst)) acc)))))
 
+(define (compose . funs)
+  (let* ((g (last (cons identity funs)))
+         (g-min (get-arity-min g))
+         (g-max (get-arity-max g)))
+    (define (the-composition . args)
+      (assert (in-range (length args) g-min g-max))
+      (call-with-values (lambda () (apply g args))
+        f))
+    (fold-right (lambda (f calls)
+                  (lambda args
+                    (call-with-values (lambda () (apply calls args))
+                      f)))
+                values
+                funs)))
+
+((compose (lambda args
+            (cons 'foo args))
+          (lambda (x y)
+            (values (list 'faz x) (list 'fat y)))
+          (lambda (x)
+            (values (list 'bar x) (list 'baz x))))
+ 'z)
+
 ;;;;; ------------------------------------------------------------
 ;;;;; 2.2 Regular expressions
 ;;;;; ------------------------------------------------------------
