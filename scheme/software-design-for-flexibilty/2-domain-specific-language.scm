@@ -494,6 +494,12 @@
 
 ;; the curried arguments are what is left
 ;; the left fold was oddly worse, right fold would have been fine though
+
+;; make-curry takes a spec indexed by 0 of where to placed the
+;; args-not-curried in the arguments-already-curried.
+;; Example
+;; 1 (user) => (((make-curry (list 1 2)) (list 10 20)) (list 0 3 4 5))
+;; ;Value: (0 10 20 3 4 5)
 (define ((make-curry curry-spec) args-not-curried)
   (assert (= (length args-not-curried) (length curry-spec)))
   (let ((tree (alist->rb-tree
