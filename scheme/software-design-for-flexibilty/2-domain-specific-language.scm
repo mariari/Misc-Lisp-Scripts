@@ -56,16 +56,15 @@
          (apply g (list-tail args n))))
     (restrict-arity the-combination t)))
 
-;; ahh stack based calling conventions
-((spread-combine list
-                 (lambda (x y)   (list 'foo x y))
-                 (lambda (u v w) (list 'bar u v w)))
- 'a 'b 'c 'd 'e)
-
-
 (define (restrict-arity proc nargs)
   (hash-table-set! arity-table proc nargs)
   proc)
+
+(define (procedure-arity-max% proc)
+  (cdr proc))
+
+(define (procedure-arity-min% proc)
+  (car proc))
 
 (define (get-arity proc)
   (or (hash-table-ref/default arity-table proc #f)
@@ -75,6 +74,12 @@
         (procedure-arity-min% a))))
 
 (define arity-table (make-key-weak-eqv-hash-table))
+
+;; ahh stack based calling conventions
+((spread-combine list
+                 (lambda (x y)   (list 'foo x y))
+                 (lambda (u v w) (list 'bar u v w)))
+ 'a 'b 'c 'd 'e)
 
 ;; it seems I can screw with the calling conventions, as if I combine
 ;; them which effect goes off first?
@@ -135,6 +140,8 @@
 ;; ----------------------------------------------
 ;; Helpers
 ;; ----------------------------------------------
+
+(define (construct-arity min max) (cons min max))
 
 ;; in-range checks if ele member [min ... max]
 (define (in-range ele min max)
@@ -429,7 +436,7 @@
   (define (the-combination . args)
     (lambda (x)
       (apply values (list-insert args i x))))
-  (restrict-arity the-combination i (1+ i)))
+  (restrict-arity the-combination (1+ i) +inf.0))
 
 (define (permute-manipulation permspec)
   (let* ((permute (make-permutation permspec))
@@ -457,6 +464,112 @@
         (restrict-arity (compose f permute)
                         perm-length)))))
 
+;;; ------------------------------------------------------------
+;;; 2.4 Useful combinators
+;;; ------------------------------------------------------------
+
+(define (foldl-with-index fun initial first)
+  (car
+   (fold-left (lambda (acc x)
+                (cons (fun (car acc) (cdr acc) x) (1+ (cdr acc))))
+              (cons initial 0)
+              first)))
+
+;; ---------------------------------
+;; makes the various permutation lists
+;; ---------------------------------
+
+;; Creates the multiple discard
+;; just realized if I sort then I can remove arguments in reverse order
+;; however that would be slower ☹
+(define (make-discard discard-spec)
+  (let ((tree (alist->rb-tree (map (lambda (x) (cons x #t)) discard-spec) = <)))
+    (define (remove-index acc index x)
+      (if (rb-tree/lookup tree index #f)
+          acc
+          (cons x acc)))
+    (define (the-discard lst)
+      (reverse! (foldl-with-index remove-index '() lst)))
+    the-discard))
+
+;; the curried arguments are what is left
+;; the left fold was oddly worse, right fold would have been fine though
+(define ((make-curry curry-spec) args-not-curried)
+  (assert (= (length args-not-curried) (length curry-spec)))
+  (let ((tree (alist->rb-tree
+               (map (lambda (x y) (cons x y)) curry-spec args-not-curried)
+               = <)))
+    (define (the-added-curry lst)
+      (let rec ((lst lst) (acc '()) (index 0))
+        (let ((ele (rb-tree/lookup tree index #f)))
+          (cond (ele         (rec lst (cons ele acc) (1+ index)))
+                ((null? lst) (reverse! acc))
+                (else        (rec (cdr lst) (cons (car lst) acc) (1+ index)))))))
+    the-added-curry))
+
+
+;; -----------------------------
+;; Updated manipulation functions
+;; -----------------------------
+
+(define (discard-manipulation is)
+  (map (lambda (i) (assert (exact-nonnegative-integer? i))) is)
+  (let ((discard (make-discard is)))
+    (define (the-combination . args)
+      (apply values (discard args)))
+    (restrict-arity the-combination (1+ (apply max is)) +inf.0)))
+
+(define (curry-manipulation spec)
+  (map (lambda (i) (assert (exact-nonnegative-integer? i))) spec)
+
+  (define (the-combination . args)
+    (define (realize-term . arguments-left)
+      (let ((curry ((make-curry spec) arguments-left)))
+        (apply values (curry args))))
+
+    (restrict-arity realize-term (length spec)))
+  (restrict-arity the-combination (1+ (apply max spec)) +inf.0))
+
+;; ---------------------
+;; The Main functionality
+;; ---------------------
+
+(define (((curry-argument . is) . args) f)
+  (let ((manipulated (apply (curry-manipulation is) args)))
+    (lambda arguments-left
+      (apply (compose f manipulated)
+             arguments-left))))
+
+(define ((discard-argument . is) f)
+  (let ((m ((bump-arity-min (apply max is))
+            (add-arity 1 (arity f)))))
+    (restrict-arity (compose f (discard-manipulation is))
+                    (min-arity m)
+                    (max-arity m))))
+
+(((make-curry (list 1 2)) (list 2 3)) (list 0 3 4 5))
+
+(((discard-argument 2 1)
+  (lambda (x y) (list 'foo x y)))
+ 'a 'b 'c 'd)
+
+((((curry-argument 2) 'a 'b 'c)
+  (lambda (x y z w) (list 'foo x y z w)))
+ 'd)
+
+((((curry-argument 2 1) 'a 'b 'c)
+  (lambda (a b c d e) (list 'foo a b c d e)))
+ 2 1)
+
+
+(define (list->alist xs)
+  (let rec ((lst xs) (acc '()))
+    (if (null? lst)
+        (reverse acc)
+        (rec (cddr lst)
+             (cons (cons (car lst) (cadr lst)) acc)))))
+
 ;;;;; ------------------------------------------------------------
 ;;;;; 2.2 Regular expressions
 ;;;;; ------------------------------------------------------------
+
