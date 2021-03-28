@@ -126,17 +126,13 @@
     (assert-arity the-combination arity)))
 
 (define (spread-apply f g)
-  (let* ((f-min (get-arity-min f))
-         (g-max (get-arity-max g))
-         (g-min (get-arity-min g))
-         (t-min (+ f-min g-min))
-         (t-max (+ f-min g-max)))
+  (let ((arity (spread-arity f g))
+        (f-min (get-arity-min f)))
     (define (the-combination . args)
-      (assert (in-range (length args) t-min t-max))
       (let-values ((fv (apply f (list-head args f-min)))
                    (gv (apply g (list-tail args f-min))))
         (apply values (append fv gv))))
-    (restrict-arity the-combination t-min t-max)))
+    (assert-arity the-combination arity)))
 
 ;; Creates the multiple discard
 ;; just realized if I sort then I can remove arguments in reverse order
@@ -175,6 +171,14 @@
 ;; -----------------------------------
 ;; Arity Checker helpers             -
 ;; -----------------------------------
+
+(define (spread-arity f g)
+  (let* ((f-min (get-arity-min f))
+         (g-max (get-arity-max g))
+         (g-min (get-arity-min g))
+         (t-min (+ f-min g-min))
+         (t-max (+ f-min g-max)))
+    (construct-arity t-min t-max)))
 
 (define (parallel-arity f g)
   (let* ((f-min (get-arity-min f))
