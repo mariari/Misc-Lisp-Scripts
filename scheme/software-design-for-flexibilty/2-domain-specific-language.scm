@@ -3,6 +3,10 @@
 ;;;; 2.0 Domain Specific Languages
 ;;;; ------------------------------------------------------------
 
+;;;;; ------------------------------------------------------------
+;;;;; 2.1 Function Combinators
+;;;;; ------------------------------------------------------------
+
 (define (compose f g)
   (lambda args
     (f (apply g args))))
@@ -128,38 +132,6 @@
 ;; that is correct. or we could just eat the smallest for both.
 
 
-(define (spread-combine h f g)
-  (let* ((f-min (get-arity-min f))
-         (g-max (get-arity-max g))
-         (g-min (get-arity-min g))
-         (t-min (+ f-min g-min))
-         (t-max (+ f-min g-max)))
-    (define (the-combination . args)
-      (assert (in-range (length args) t-min t-max))
-      (h (apply f (list-head args f-min))
-         (apply g (list-tail args f-min))))
-    (restrict-arity the-combination t-min t-max)))
-
-((spread-combine list
-                 (lambda (x y) (list 'foo x y))
-                 list)
- 'a 'b 'c 'd 'e)
-
-(get-arity-list
- (spread-combine list
-                 (lambda (x y) (list 'foo x y))
-                 list))
-
-
-(define (compose f g)
-  (let* ((g-min (get-arity-min g))
-         (g-max (get-arity-max g)))
-    (define (the-composition . args)
-      (assert (in-range (length args) g-min g-max))
-      (f (apply g args)))
-    (restrict-arity the-composition g-min g-max)))
-
-
 ;; ----------------------------------------------
 ;; Helpers
 ;; ----------------------------------------------
@@ -205,9 +177,41 @@
                   (procedure-arity-max a)))
     (procedure-arity-min a)))
 
-(define (get-arity-list proc)
-  (or (hash-table-ref/default arity-table proc #f)
-      (procedure-arity proc)))
+;; ----------------------------------------------
+;; main functionality
+;; ----------------------------------------------
+
+
+(define (spread-combine h f g)
+  (let* ((f-min (get-arity-min f))
+         (g-max (get-arity-max g))
+         (g-min (get-arity-min g))
+         (t-min (+ f-min g-min))
+         (t-max (+ f-min g-max)))
+    (define (the-combination . args)
+      (assert (in-range (length args) t-min t-max))
+      (h (apply f (list-head args f-min))
+         (apply g (list-tail args f-min))))
+    (restrict-arity the-combination t-min t-max)))
+
+((spread-combine list
+                 (lambda (x y) (list 'foo x y))
+                 list)
+ 'a 'b 'c 'd)
+
+(arity
+ (spread-combine list
+                 (lambda (x y) (list 'foo x y))
+                 list))
+
+
+(define (compose f g)
+  (let* ((g-min (get-arity-min g))
+         (g-max (get-arity-max g)))
+    (define (the-composition . args)
+      (assert (in-range (length args) g-min g-max))
+      (f (apply g args)))
+    (restrict-arity the-composition g-min g-max)))
 
 ;;; ------------------------------------------------------------
 ;;; On wards
@@ -403,6 +407,10 @@
   (lambda args (cons 'foo args)))
  'a 'b 'c 'd)
 
+;;;; ------------------------------------------------------------
+;;;; 2.1.2 Combinators and body plans
+;;;; ------------------------------------------------------------
+
 ;;; ------------------------------------------------------------
 ;;; 2.4 As compositions?
 ;;; ------------------------------------------------------------
@@ -410,21 +418,45 @@
 ;; Make them into a composition between argument manipulations and the
 ;; procedure
 
-(define (discard-argument-manipulation i)
+(define (discard-manipulation i)
   (assert (exact-nonnegative-integer? i))
   (define (the-combination . args)
     (apply values (list-remove args i)))
   (restrict-arity the-combination (1+ i) +inf.0))
 
-(define ((discard-argument i) f)
-  (compose f (discard-argument-manipulation i)))
-
-(define (curry-argument-manipulation i)
+(define (curry-manipulation i)
   (assert (exact-nonnegative-integer? i))
   (define (the-combination . args)
     (lambda (x)
       (apply values (list-insert args i x))))
   (restrict-arity the-combination i (1+ i)))
 
+(define (permute-manipulation permspec)
+  (let* ((permute (make-permutation permspec))
+         (len     (length permspec)))
+    (define (the-combination . args)
+      (apply values (permute args)))
+    (restrict-arity the-combination len)))
+
+(define ((discard-argument i) f)
+  (let ((m ((bump-arity-min i)
+            (add-arity 1 (arity f)))))
+    (restrict-arity (compose f (discard-manipulation i))
+                    (min-arity m)
+                    (max-arity m))))
+
 (define (((curry-argument i) . args) f)
-  (compose f (apply (curry-argument-manipulation i) args)))
+  (compose f (apply (curry-manipulation i) args)))
+
+(define (permute-arguments . permspec)
+  (let ((permute (permute-manipulation permspec)))
+    (lambda (f)
+      (let ((n           (arity f))
+            (perm-length (length permspec)))
+        (assert (in-range perm-length (min-arity n) (max-arity n)))
+        (restrict-arity (compose f permute)
+                        perm-length)))))
+
+;;;;; ------------------------------------------------------------
+;;;;; 2.2 Regular expressions
+;;;;; ------------------------------------------------------------
