@@ -499,8 +499,8 @@
   (let ((tree (alist->rb-tree
                (map (lambda (x y) (cons x y)) curry-spec args-not-curried)
                = <)))
-    (define (the-added-curry lst)
-      (let rec ((lst lst) (acc '()) (index 0))
+    (define (the-added-curry arguments-already-curried)
+      (let rec ((lst arguments-already-curried) (acc '()) (index 0))
         (let ((ele (rb-tree/lookup tree index #f)))
           (cond (ele         (rec lst (cons ele acc) (1+ index)))
                 ((null? lst) (reverse! acc))
