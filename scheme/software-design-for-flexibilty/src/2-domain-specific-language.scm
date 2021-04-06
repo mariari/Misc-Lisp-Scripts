@@ -599,7 +599,7 @@
 ;;;;; 2.2 Regular expressions
 ;;;;; ------------------------------------------------------------
 
-;; wait... wait does he just make parser combiantors
+;; wait... wait does he just make parser combinators
 
 ;; matches any character expect newline
 (define (r:dot) ".")
@@ -654,7 +654,15 @@
 ;; times but no more than maximum of max times. if max is given as #f
 ;; then no maximum is specified. If max equals min, the given pattern
 ;; must match exactly that many times
-(define (r:repeat min max pattern) 3)
+(define (r:repeat min max expr)
+  (apply r:seq
+         (append (make-list min expr)
+                 (cond ((not max)     (list expr "*"))
+                       ((= max min) '())
+                       ; entails the last check but is faster
+                       (else
+                        (make-list (- max min)
+                                   (r:alt expr "")))))))
 
 ;; ---------------------------------
 ;; Regex helper

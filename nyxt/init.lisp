@@ -18,8 +18,7 @@ before running this command."
 ;; (setf lparallel:*kernel* (lparallel:make-kernel 12))
 
 (defun execute-mpv (link)
-  (pexec ()
-    (uiop:run-program (list "mpv" link) :ignore-error-status t)))
+  (uiop:run-program (list "mpv" link) :ignore-error-status t))
 
 (define-command mpv-launch (&key annotate-visible-only-p)
   "Show a set of element hints, and go to the user inputted one in the
