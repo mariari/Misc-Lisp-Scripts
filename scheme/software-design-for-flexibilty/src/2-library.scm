@@ -58,11 +58,14 @@
                     (min-arity m)
                     (max-arity m))))
 
-(define (((curry-argument . is) . args) f)
+;; curry-arguments takes a series of argument spots to be curried called is
+;; then it takes the arguments in which you wish to seed into the function
+;; then the function takes the function to curry!
+;; we get back a function that takes the arguments that go in the curried lots
+(define ((curry-argument . is) . args)
   (let ((manipulated (apply (curry-manipulation is) args)))
-    (lambda arguments-left
-      (apply (compose f manipulated)
-             arguments-left))))
+    (lambda (f)
+      (compose f manipulated))))
 
 (define (permute-arguments . permspec)
   (let ((permute (permute-manipulation permspec)))

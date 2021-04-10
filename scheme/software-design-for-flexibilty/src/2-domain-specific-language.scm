@@ -621,10 +621,22 @@
                 (string->list string)))))
 
 ;; matches one character that is in the string
-(define (r:char-from string) 3)
+(define (r:char-from string)
+  (case (string-length string)
+    ((0) (r:seq))
+    ((1) (r:quote string))
+    (else
+     (bracket string
+              (lambda (members)
+                (if (lset= eqv? '(#\- #\^) members)
+                    '(#\- #\^)
+                    (quote-bracketed-contents members)))))))
 
 ;; matches one character that is not in the string
-(define (r:char-not-from string) 3)
+(define (r:char-not-from string)
+  (bracket string
+           (lambda (members)
+             (cons #\^ (quote-bracketed-contents members)))))
 
 ;; compounds
 
@@ -664,6 +676,25 @@
                         (make-list (- max min)
                                    (r:alt expr "")))))))
 
+(define (write-bourne-shell-grep-command expr filename)
+  (display (bourne-shell-grep-command-string expr filename)))
+
+(define (bourne-shell-grep-command-string expr filename)
+  (string-append "grep -e "
+                 (bourne-shell-quote-string expr)
+                 " "
+                 filename))
+
+(define (bourne-shell-quote-string string)
+  (list->string
+   (append (list #\')
+           (append-map (lambda (char)
+                         (if (char=? char #\')
+                             (list #\' #\\ char #\')
+                             (list char)))
+                       (string->list string))
+           (list #\'))))
+
 ;; ---------------------------------
 ;; Regex helper
 ;; ---------------------------------
@@ -672,4 +703,38 @@
   '(#\. #\[ #\\ #\^ #\$ #\*))
 
 
+(define (bracket string procedure)
+  (list->string
+   (append '(#\[)
+           (procedure (string->list string))
+           '(#\]))))
+
+(define (quote-bracketed-contents members)
+  (define (optional char)
+    (if (memv char members) (list char) '()))
+  (append (optional #\])
+          (remove
+           (lambda (c)
+             (memv c chars-needing-quoting-in-brackets))
+           members)
+          (optional #\^)
+          (optional #\-)))
+
+(define chars-needing-quoting-in-brackets
+  '(#\] #\^ #\-))
+
 (r:seq (r:quote "a") (r:dot) (r:quote "c"))
+
+(write-bourne-shell-grep-command (r:alt (r:quote "cat") (r:quote "dog")) "fi")
+
+;;; ------------------------------------------------------------
+;;; 2.6 Adding * and + to regex
+;;; ------------------------------------------------------------
+
+(define r:+
+  (((curry-argument 2) 1 #f)
+   r:repeat))
+
+(define r:*
+  (((curry-argument 2) 0 #f)
+   r:repeat))
