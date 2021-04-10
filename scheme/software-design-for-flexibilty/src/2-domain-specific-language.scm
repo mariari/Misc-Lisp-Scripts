@@ -727,14 +727,51 @@
 
 (write-bourne-shell-grep-command (r:alt (r:quote "cat") (r:quote "dog")) "fi")
 
+;; regex a hack, I understand the lesson here is how to deal with
+;; poorly designed systems, however Ι will only do 2 exercises
+
 ;;; ------------------------------------------------------------
 ;;; 2.6 Adding * and + to regex
 ;;; ------------------------------------------------------------
 
 (define r:+
-  (((curry-argument 2) 1 #f)
-   r:repeat))
+  (((curry-argument 2) 1 #f) r:repeat))
 
 (define r:*
-  (((curry-argument 2) 0 #f)
-   r:repeat))
+  (((curry-argument 2) 0 #f) r:repeat))
+
+;;; ------------------------------------------------------------
+;;; 2.7 Adding * and + to regex
+;;; ------------------------------------------------------------
+
+;; many in parser combinators
+;; this pattern tries to match the argument pattern a minimum of min
+;; times but no more than maximum of max times. if max is given as #f
+;; then no maximum is specified. If max equals min, the given pattern
+;; must match exactly that many times
+
+;; Uses the proper {} extension
+(define (r:repeat min max expr)
+  (apply r:seq
+         (if (and (= 0 min) (not max))
+             (list expr "*")
+             (list expr
+                   "\\{"
+                   (number->string min)
+                   ","
+                   (if (not max) "" (number->string max))
+                   "\\}"))))
+
+;;;; ------------------------------------------------------------
+;;;; 2.3 Wrappers
+;;;; ------------------------------------------------------------
+
+(define (gas-law-volume pressure temperature amount)
+  (/ (* amount gas-constant temperature) pressure))
+
+(define gas-constant 8.3144621)         ; J/(k*mol)
+
+(define (sphere-radius volume)
+  (expt (/ volume (* 4/3 pi)) 1/3))
+
+(define pi (* 4 (atan 1 1)))
