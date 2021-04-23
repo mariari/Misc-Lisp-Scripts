@@ -119,7 +119,7 @@ currently active buffer."
 
 (define-configuration (buffer web-buffer)
   ((default-modes
-    (list* 'custom-bind-mode 'vi-normal-mode 'blocker-mode %slot-default))))
+    (list* 'custom-bind-mode 'vi-normal-mode 'blocker-mode %slot-default%))))
 
 ;;;; Presentation
 
