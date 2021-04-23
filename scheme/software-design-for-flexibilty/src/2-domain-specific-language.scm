@@ -775,3 +775,77 @@
   (expt (/ volume (* 4/3 pi)) 1/3))
 
 (define pi (* 4 (atan 1 1)))
+
+(define fahrenheit-to-celsius
+  (make-unit-conversion (lambda (f) (* 5/9 (- f 32)))
+                        (lambda (c) (+ (* c 9/5) 32))))
+
+(define celsius-to-kelvin
+  (let ((zero-celsius 273.15)) ; kelvins
+    (make-unit-conversion (lambda (c) (+ c zero-celsius))
+                          (lambda (k) (- k zero-celsius)))))
+
+;; conversion numbers gotten online
+(define inch-to-meter
+  (make-unit-conversion (lambda (i) (* i 0.0254))
+                        (lambda (m) (* m 39.3701))))
+
+;; conversion numbers gotten online
+(define pound-to-newton
+  (make-unit-conversion (lambda (p) (* p 4.44822))
+                        (lambda (n) (* n 0.224809))))
+
+(define psi-to-nsm
+  (compose pound-to-newton
+           (unit:invert inch-to-meter)
+           (unit:invert inch-to-meter)))
+
+;; never given the actual definition for make-unit-conversion but seems obvious
+
+(define (make-unit-conversion forward backwards)
+  (lambda (x #!optional go-backwards)
+    (if (eq? go-backwards #!default)
+        (forward x)
+        (backwards x))))
+
+(define (unit:invert f)
+  (define (flip x)
+    (if (eq? x #!default) #t #!default))
+  (define (new-f x #!optional flipped)
+    (f x (flip flipped)))
+  new-f)
+
+
+;; need to know radius of a sphere by 1 more of an ideal gas at
+;; 68F and 14.7 psi
+
+((unit:invert inch-to-meter)
+ (sphere-radius
+  (gas-law-volume (psi-to-nsm 14.7)
+                  ((compose celsius-to-kelvin fahrenheit-to-celsius) 68)
+                  1)))
+;; 7.049626759112956
+
+;; unit conversion is hard to read, the physics is separated and so is the geometry
+
+
+;;; ------------------------------------------------------------
+;;; 2.3.1 Specialization wrappers
+;;; ------------------------------------------------------------
+
+(define make-specialized-gas-law-volume
+  (unit-specializer
+   gas-law-volume
+   '(expt meter 3)                      ; output (volume)
+   '(/ newton (expt meter 2))           ; pressure
+   'kelvin                              ; temperature
+   'mole))                              ; amount
+
+(define conventional-gas-law-volume
+  (make-specialized-gas-law-volume
+   '(expt inch 3)                       ; output (volume)
+   '(/ pound (expt inch 2))             ; pressure
+   'fahrenheit                          ; temperature
+   'mole))                              ; amount
+
+(sphere-radius (conventional-gas-law-volume 14.7 68 1))
