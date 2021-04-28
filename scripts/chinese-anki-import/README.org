@@ -24,6 +24,10 @@ are listed below
 - Import into anki for getting the most common words in a book into
   your reps
 ** Dependencies
+- _lisp_
+  + uiop
+  + fset
+  + cl-ppcre
 - _python_
   + jieba
     * =pip install jieba=
