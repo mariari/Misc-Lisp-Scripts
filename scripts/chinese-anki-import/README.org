@@ -1,0 +1,33 @@
+* Chinese Frequency CSV
+
+This program takes any text, pdf, or epub file, and gives back a csv
+file of the frequencies.
+
+Currently to run, you have to load =frequency.asdf= into the repl, and
+then you can run
+
+#+begin_src lisp
+  (freq-csv.convert:pdf-file-to-frequency-csv pdf-in text-out)
+  (freq-csv.convert:epub-file-to-frequency-csv epub-in text-out)
+  (freq-csv.convert:text-file-to-frequency-csv text-in text-out)
+#+end_src
+
+In the future, we will have a shell script that allows you to run it
+on the command line easily.
+
+
+
+** Uses
+The csv file given can be used for anything. Some example use cases
+are listed below
+
+- Import into anki for getting the most common words in a book into
+  your reps
+** Dependencies
+- _python_
+  + jieba
+    * =pip install jieba=
+- _Linux_
+  + ebook-convert
+  + pdftotext
+
