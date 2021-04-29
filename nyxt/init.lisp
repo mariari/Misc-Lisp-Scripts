@@ -47,9 +47,9 @@ currently active buffer."
       (containers:insert-item history (url (current-buffer))))
     (flet ((func (url)
              (let ((url-string
-                     (cond ((typep url 'history-entry) (quri:render-uri (quri:uri (url url))))
+                     (cond ((typep url 'history-entry) (render-url (url url)))
                            ((stringp url)              url)
-                           ((valid-url-p url)          (quri:render-uri (quri:uri url)))
+                           ((valid-url-p url)          (render-url url))
                            (t                          url))))
                (execute-mpv url-string))))
       (prompt
@@ -67,16 +67,26 @@ currently active buffer."
 
 
 (defun mdbgt-url (f)
-  (flet ((mdgb-url (url)
-           (funcall f (concatenate 'string "!mdbgt " url))))
+  (labels ((append-mdbgt (url)
+             (concatenate 'string "!mdbgt " url))
+           (mdgb-url (url)
+             (cond ((typep url 'new-url-query)
+                    ;; ideally we remove the setf, but that requires
+                    ;; copying all fields by hand
+                    (setf (query url)
+                          (append-mdbgt (query url)))
+                    (funcall f url))
+                   ;; this was the old behavior, when it was a string
+                   (t
+                    (funcall f (append-mdbgt url))))))
     (let ((history (set-url-history *browser*)))
       (when history
-        (containers:insert-item history (quri:render-uri (url (current-buffer)))))
+        (containers:insert-item history (render-url (url (current-buffer)))))
       (prompt
        :prompt "MDGBT search"
        :input ""
        :history history
-       :sources (list (make-instance 'prompter:raw-source
+       :sources (list (make-instance 'new-url-or-search-source
                                      :name "new MDGB search"
                                      :actions (list (make-unmapped-command mdgb-url))))))))
 
