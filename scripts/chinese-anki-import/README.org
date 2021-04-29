@@ -15,8 +15,6 @@ then you can run
 In the future, we will have a shell script that allows you to run it
 on the command line easily.
 
-
-
 ** Uses
 The csv file given can be used for anything. Some example use cases
 are listed below

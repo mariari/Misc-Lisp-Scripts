@@ -28,7 +28,7 @@ currently active buffer."
    (lambda (hint)
      (case (type-of hint)
        (nyxt/web-mode::link-hint
-        (execute-mpv (nyxt:object-string hint)))
+        (execute-mpv (url hint)))
        (t
         (print (type-of hint))
         (print hint))))
@@ -36,7 +36,7 @@ currently active buffer."
 
 (define-command mpv-here ()
   "executes mpv in the current buffer"
-  (execute-mpv (object-string (url (current-buffer)))))
+  (execute-mpv (quri:render-uri (url (current-buffer)))))
 
 
 ;; TODO ∷ figure out how to make text spawn if things fail
@@ -47,15 +47,15 @@ currently active buffer."
       (containers:insert-item history (url (current-buffer))))
     (flet ((func (url)
              (let ((url-string
-                     (cond ((typep url 'history-entry) (object-string (url url)))
+                     (cond ((typep url 'history-entry) (quri:render-uri (quri:uri (url url))))
                            ((stringp url)              url)
-                           ((valid-url-p url)          (object-string url))
-                           (t                          (object-string url)))))
+                           ((valid-url-p url)          (quri:render-uri (quri:uri url)))
+                           (t                          url))))
                (execute-mpv url-string))))
       (prompt
        :prompt        (format nil "Launch mpv on")
        :input         (if prefill-current-url-p
-                          (object-string (url (current-buffer))) "")
+                          (quri:render-uri (url (current-buffer))) "")
        :sources       (list
                        (make-instance 'prompter:raw-source
                                       :name "New URL"
@@ -120,6 +120,9 @@ currently active buffer."
 (define-configuration (buffer web-buffer)
   ((default-modes
     (list* 'custom-bind-mode 'vi-normal-mode 'blocker-mode %slot-default%))))
+
+(define-configuration prompt-buffer
+  ((default-modes (list* 'emacs-mode %slot-default%))))
 
 ;;;; Presentation
 
