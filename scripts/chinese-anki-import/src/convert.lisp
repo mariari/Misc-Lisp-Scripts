@@ -11,20 +11,25 @@
 
 (in-package #:freq-csv.convert)
 
-(defun pdf-file-to-frequency-csv (in-file out-file &key ignore-below)
+(defun pdf-file-to-frequency-csv (in-file out-file &key ignore-below (trad t))
   (format:pdf-to-text-file in-file out-file)
-  (text-file-to-frequency-csv out-file out-file :ignore-below ignore-below))
+  (text-file-to-frequency-csv out-file out-file
+                              :ignore-below ignore-below
+                              :trad trad))
 
-(defun epub-file-to-frequency-csv (in-file out-file &key ignore-below)
+(defun epub-file-to-frequency-csv (in-file out-file &key ignore-below (trad t))
   (format:epub-to-text-file in-file out-file)
-  (text-file-to-frequency-csv out-file out-file :ignore-below ignore-below))
+  (text-file-to-frequency-csv out-file out-file
+                              :ignore-below ignore-below
+                              :trad trad))
 
 
-(defun text-file-to-frequency-csv (in-file out-file &key ignore-below)
+(defun text-file-to-frequency-csv (in-file out-file &key ignore-below (trad t))
   "takes a text file filled with chinese characters and produces a
 frequency list of the characters"
   (let ((alist (bag-to-alist
-                (radical-list-to-bag (tokenize:chinese-chars-from-file in-file)))))
+                (radical-list-to-bag
+                 (tokenize:chinese-chars-from-file in-file out-file trad)))))
     (alist-to-csv (sort-alist (if ignore-below
                                   (remove-less-than-alist alist ignore-below)
                                   alist))

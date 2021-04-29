@@ -5,7 +5,7 @@
 
 
 (defsystem freq-csv
-  :depends-on (:inferior-shell :uiop :fset :cl-ppcre)
+  :depends-on (:inferior-shell :uiop :fset :cl-ppcre :alexandria)
   :name "Freuqnecy CSV"
   :version "0.0.0.0"
   :maintainer "mariari"

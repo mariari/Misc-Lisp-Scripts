@@ -28,10 +28,12 @@ are listed below
   + uiop
   + fset
   + cl-ppcre
+  + Alexandria
 - _python_
   + jieba
     * =pip install jieba=
 - _Linux_
   + ebook-convert
   + pdftotext
+  + opencc
 
