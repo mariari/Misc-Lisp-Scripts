@@ -66,6 +66,11 @@ currently active buffer."
 
 
 
+(defun new-buffer-load (suggestion-value)
+  "Load a URL in a new buffer."
+  (make-buffer-focus :url (url suggestion-value)))
+
+
 (defun mdbgt-url (f)
   (labels ((append-mdbgt (url)
              (concatenate 'string "!mdbgt " url))
