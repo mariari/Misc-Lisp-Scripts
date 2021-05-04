@@ -10,7 +10,9 @@
 
 
 (defun epub-to-text-file (input output)
+  "converts a epub file into a text file"
   (shell:run `(ebook-convert ,input ,output)))
 
 (defun pdf-to-text-file (input output)
+  "converts a pdf file into a text file"
   (shell:run `(pdftotext ,input ,output)))

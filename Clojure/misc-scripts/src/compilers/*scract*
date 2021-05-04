@@ -1,0 +1,23 @@
+(defn >>=
+  "Binds parser p to function f which gets p's value and returns
+   a new parser. Function p must define a single parameter. The
+   argument it receives is the value parsed by p, not ps' return
+   value, which is a parser state record."
+  [p f]
+  (fn [s]
+    (let [s1 (p s)]
+      (if (:ok s1)
+        (let [s2 ((f (:value s1)) s1)
+              s3 (assoc s2 :empty (and (:empty s1) (:empty s2)))]
+          (if (:ok s3)
+            s3
+            (assoc s3 :error (merge-err s1 s3))))
+        s1))
+
+    (let [s1 (p s)
+          s2 (delay ((f (:value s1)) s1))
+          s3 (delay (assoc @s2 :empty (and (:empty s1) (:empty @s2))))]
+      (cond
+       (:ok s1)  s1
+       (:ok @s3) @s3
+       :else     (assoc @s3 :error (merge-err s1 @s3))))))
