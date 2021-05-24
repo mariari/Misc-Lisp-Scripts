@@ -18,7 +18,7 @@ before running this command."
 ;; (setf lparallel:*kernel* (lparallel:make-kernel 12))
 
 (defun execute-mpv (link)
-  (uiop:run-program (list "mpv" link) :ignore-error-status t))
+  (uiop:launch-program (list "mpv" link) :ignore-error-status t))
 
 (define-command mpv-launch (&key annotate-visible-only-p)
   "Show a set of element hints, and go to the user inputted one in the
@@ -51,6 +51,7 @@ currently active buffer."
                            ((stringp url)              url)
                            ((valid-url-p url)          (render-url url))
                            (t                          url))))
+               (echo "MPV launched with ~a" url)
                (execute-mpv url-string))))
       (prompt
        :prompt        (format nil "Launch mpv on")
@@ -125,11 +126,7 @@ currently active buffer."
                                       "X"   'mpv-url
                                       "x"   'mpv-here
                                       "y f"  'nyxt/web-mode:copy-hint-url)
-                    scheme:cua       (list
-                                      "; x" 'mpv-launch
-                                      "X"   'mpv-url
-                                      "x"   'mpv-here
-                                      "y f"  'nyxt/web-mode:copy-hint-url)))))
+                    scheme:cua       (list)))))
 
 
 (define-configuration (buffer web-buffer)
@@ -137,7 +134,7 @@ currently active buffer."
     (list* 'custom-bind-mode 'vi-normal-mode 'blocker-mode %slot-default%))))
 
 (define-configuration prompt-buffer
-  ((default-modes (list* 'emacs-mode %slot-default%))))
+  ((default-modes (list* 'emacs-mode 'prompt-buffer-mode nil))))
 
 ;;;; Presentation
 
