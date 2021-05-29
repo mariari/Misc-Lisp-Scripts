@@ -128,13 +128,27 @@ currently active buffer."
                                       "y f"  'nyxt/web-mode:copy-hint-url)
                     scheme:cua       (list)))))
 
+(define-mode prompt-buffer-extra-keys ()
+  "Dummy mode for the custom key bindings in `*custom-keymap*'."
+  ((keymap-scheme (define-scheme "custom-mode"
+                    scheme:emacs (list
+                                  "C-a" 'select-first
+                                  "C-e" 'select-last
+                                  "M-a" 'mark-all)
+                    scheme:cua   (list
+                                  "C-a" 'select-first
+                                  "C-e" 'select-last
+                                  "M-a" 'mark-all)))))
+
+
+(setf (external-editor-program *browser*) "emacs")
 
 (define-configuration (buffer web-buffer)
   ((default-modes
     (list* 'custom-bind-mode 'vi-normal-mode 'blocker-mode %slot-default%))))
 
 (define-configuration prompt-buffer
-  ((default-modes (list* 'emacs-mode 'prompt-buffer-mode nil))))
+  ((default-modes (list* 'prompt-buffer-extra-keys 'emacs-mode 'prompt-buffer-mode nil))))
 
 ;;;; Presentation
 
