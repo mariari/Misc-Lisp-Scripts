@@ -141,7 +141,7 @@ currently active buffer."
                                   "M-a" 'mark-all)))))
 
 
-(setf (external-editor-program *browser*) "emacs")
+;; (setf (external-editor-program *browser*) "emacs")
 
 (define-configuration (buffer web-buffer)
   ((default-modes

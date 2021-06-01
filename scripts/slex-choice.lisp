@@ -1,6 +1,7 @@
 (defpackage #:scripts.slex
   (:documentation "provides random choice of races and classes for slex")
-  (:use #:cl)
+  (:use #:cl #:scripts.slex.entity)
+  (:local-nicknames (:race-role :scripts.slex.race-role-map))
   (:export
    :random-element
    :pick-all
@@ -13,6 +14,10 @@
 ;; +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ;; Race and constant list
 ;; +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+(defrace yuki-onna :syn '(bare-handed cold))
 
 ;; good format call
 ;; (format t "~{~21a~^ ~21a~^ ~21a~^ ~21a~^ ~21a~^~%~}" (map 'list #'identity *roles*))

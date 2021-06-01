@@ -795,10 +795,6 @@
   (make-unit-conversion (lambda (p) (* p 4.44822))
                         (lambda (n) (* n 0.224809))))
 
-(define psi-to-nsm
-  (compose pound-to-newton
-           (unit:invert inch-to-meter)
-           (unit:invert inch-to-meter)))
 
 ;; never given the actual definition for make-unit-conversion but seems obvious
 
@@ -815,6 +811,13 @@
     (f x (flip flipped)))
   new-f)
 
+
+;; Defining this later so we have a chance to compile
+
+(define psi-to-nsm
+  (compose pound-to-newton
+           (unit:invert inch-to-meter)
+           (unit:invert inch-to-meter)))
 
 ;; need to know radius of a sphere by 1 more of an ideal gas at
 ;; 68F and 14.7 psi
