@@ -15,16 +15,16 @@
     :initarg :name
     :accessor name
     :type symbol)
-   (synergies
-    :initform nil
-    :initarg :synergies
-    :accessor synergies
-    :type list)
-   (disadvantages
-    :initform nil
-    :initarg :disadvantages
-    :accessor disadvantages
-    :type list)
+   (description
+    :initarg :description
+    :initform ""
+    :accessor description
+    :type string)
+   (traits
+    :initform (make-hash-table)
+    :initarg :traits
+    :accessor traits
+    :type hash-table)
    (race-role
     :initform :role
     :initarg :type
@@ -33,21 +33,40 @@
 
 (defmethod print-object ((obj entity) stream)
   (print-unreadable-object (obj stream :type nil)
-    (format stream "~a ~a :SYNERGIES ~a :DISADVANTAGES ~a"
+    (format stream "~a ~a ~a"
             (race-role obj)
             (name obj)
-            (synergies obj)
-            (disadvantages obj))))
+            (hashtable->string-keys (traits obj)))))
 
-(defmacro defrace (name &key syn dis)
-  "generates a race with the given name expanding to *name*"
-  (let ((astrix-name (lol:symb (format nil "*~a*" (lol:mkstr name)))))
+(defmacro defrace (name &rest slot-groups)
+  (let* ((astrix-name  (lol:symb (format nil "*~a*" (lol:mkstr name))))
+         (grouped      (lol:group slot-groups 2))
+         (description  (cadar (member :description grouped :key #'car)))
+         (without-desc (remove-if (lambda (x) (equalp x :description)) grouped :key #'car)))
     `(defparameter ,astrix-name
        (make-instance 'entity
-                       :type ,:race
-                       :name ',name
-                       :synergies ,syn
-                       :disadvantages ,dis))))
+                      :name        ',name
+                      :type        ,:race
+                      :traits      (alist->hashtable ',without-desc (make-hash-table))
+                      :description (or ,description "")))))
+
+
+(defrace yuki-onna
+  :description "They take a little extra damage whenever something damages them, but have extra melee power."
+  :bare-handed :ok
+  :cold        :inrinsic)
+
+(defun alist->hashtable (xss table)
+  (dolist (item xss table)
+    (setf (gethash (car item) table)
+          (cadr item))))
+
+(defun hashtable->string-keys (table)
+  (subseq
+   (with-output-to-string (builder)
+     (maphash (lambda (key value) (format builder " :~A ~A" key value)) table))
+   1))
+
 
 (defmacro defrole (name &key syn dis)
   "generates a race with the given name expanding to *name*"

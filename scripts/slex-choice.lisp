@@ -16,8 +16,15 @@
 ;; +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
-
+;; Currently have
 (defrace yuki-onna :syn '(bare-handed cold))
+
+;; We should go towards this
+;; Intelligent systems!!
+;; (defrace yuki-onna
+;;   :ok        bare-handed
+;;   :intrinsic cold
+;;   :bad       damage)
 
 ;; good format call
 ;; (format t "~{~21a~^ ~21a~^ ~21a~^ ~21a~^ ~21a~^~%~}" (map 'list #'identity *roles*))

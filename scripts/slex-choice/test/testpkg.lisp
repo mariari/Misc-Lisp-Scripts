@@ -2,7 +2,8 @@
   (:use #:cl #:fiveam)
   (:local-nicknames (:bi :scripts.slex.bi-table)
                     (:race-role :scripts.slex.race-role-map)
-                    (:entity :scripts.slex.entity))
+                    (:entity :scripts.slex.entity)
+                    (:trait :scripts.slex.trait-table))
   (:export #:run-tests))
 
 (defpackage #:test)
