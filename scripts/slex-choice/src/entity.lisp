@@ -51,11 +51,6 @@
                       :description (or ,description "")))))
 
 
-(defrace yuki-onna
-  :description "They take a little extra damage whenever something damages them, but have extra melee power."
-  :bare-handed :ok
-  :cold        :inrinsic)
-
 (defun alist->hashtable (xss table)
   (dolist (item xss table)
     (setf (gethash (car item) table)
@@ -93,3 +88,8 @@
              (add #'race-role:insert-role))
             (t (error "malfromed entity"))))))
 
+
+(defrace yuki-onna
+  :description "They take a little extra damage whenever something damages them, but have extra melee power."
+  :bare-handed :ok
+  :cold        :inrinsic)
