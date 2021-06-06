@@ -26,12 +26,16 @@ currently active buffer."
   (nyxt/web-mode::query-hints
    "open video in mpv"
    (lambda (hint)
-     (case (type-of hint)
-       (nyxt/web-mode::link-hint
-        (execute-mpv (url hint)))
-       (t
-        (print (type-of hint))
-        (print hint))))
+     (let ((hint (if (listp hint) (car hint) hint)))
+       (echo "~A" hint)
+       (case (type-of hint)
+         (nyxt/web-mode::link-hint
+          (echo "MPV launched with ~a" (url hint))
+          (execute-mpv (quri:render-uri (url hint))))
+         (t
+          (echo "failed to launch mpv")
+          (print (type-of hint))
+          (print hint)))))
    :annotate-visible-only-p annotate-visible-only-p))
 
 (define-command mpv-here ()
