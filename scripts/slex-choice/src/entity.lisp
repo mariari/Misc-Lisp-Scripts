@@ -10,6 +10,13 @@
 
 (in-package :scripts.slex.entity)
 
+;;; ----------------------------------------------------------------------------
+;;; Persistent exported data and types
+;;; ----------------------------------------------------------------------------
+
+(defparameter *synergy-map*      (race-role:make-table))
+(defparameter *disadvantage-map* (race-role:make-table))
+
 (defclass entity ()
   ((name
     :initarg :name
@@ -38,19 +45,40 @@
             (name obj)
             (hashtable->string-keys (traits obj)))))
 
-(defmacro defrace (name &rest slot-groups)
-  (let* ((astrix-name  (lol:symb (format nil "*~a*" (lol:mkstr name))))
-         (grouped      (lol:group slot-groups 2))
-         (description  (cadar (member :description grouped :key #'car)))
-         (without-desc (remove-if (lambda (x) (equalp x :description)) grouped :key #'car)))
-    `(defparameter ,astrix-name
-       (make-instance 'entity
-                      :name        ',name
-                      :type        ,:race
-                      :traits      (alist->hashtable ',without-desc (make-hash-table))
-                      :description (or ,description "")))))
+(flet
+    ((defgen (race/role name &rest slot-groups)
+       (let* ((astrix-name  (lol:symb (format nil "*~a*" (lol:mkstr name))))
+              (grouped      (lol:group slot-groups 2))
+              (description  (cadar (member :description grouped :key #'car)))
+              (without-desc
+                  (remove-if (lambda (x) (equalp x :description)) grouped :key #'car)))
+         `(defparameter ,astrix-name
+            (make-instance 'entity
+                           :name   ',name
+                           :type   ,race/role
+                           :traits (alist->hashtable ',without-desc (make-hash-table))
+                           :description (or ,description ""))))))
+  (defmacro defrace (name &rest slot-groups)
+    "defines a Nethack race. May include a description and various
+trait description associations
+(defrace yuki-onna
+  :description \"description of race here\"
+  :bare-handed :ok
+  :cold        :inrinsic)"
+    (apply #'defgen :race name slot-groups))
+  (defmacro defrole (name &rest slot-groups)
+    "defines a Nethack role. May include a description and various
+trait description associations
+(defrole undead-slayer
+  :description       \"Slow weak fighter whose…\"
+  :bare-handed       :grand-master
+  :bare-handed-style :marital-arts
+  :flavor            \"Undead Slayers are specialists, …\")"
+    (apply #'defgen :role name slot-groups)))
 
-
+;;; ----------------------------------------------------------------------------
+;;; Helpers
+;;; ----------------------------------------------------------------------------
 (defun alist->hashtable (xss table)
   (dolist (item xss table)
     (setf (gethash (car item) table)
@@ -61,20 +89,6 @@
    (with-output-to-string (builder)
      (maphash (lambda (key value) (format builder " :~A ~A" key value)) table))
    1))
-
-
-(defmacro defrole (name &key syn dis)
-  "generates a race with the given name expanding to *name*"
-  (let ((astrix-name (lol:symb (format nil "*~a*" (lol:mkstr name)))))
-    `(defparameter ,astrix-name
-       (make-instance 'entity
-                      :name ',name
-                      :synergies ,syn
-                      :disadvantages ,dis))))
-
-
-(defparameter *synergy-map*      (race-role:make-table))
-(defparameter *disadvantage-map* (race-role:make-table))
 
 (defun insert (entity)
   (flet ((add (f)
@@ -89,7 +103,3 @@
             (t (error "malfromed entity"))))))
 
 
-(defrace yuki-onna
-  :description "They take a little extra damage whenever something damages them, but have extra melee power."
-  :bare-handed :ok
-  :cold        :inrinsic)

@@ -47,13 +47,18 @@ symbol
   (trait  (make-hash-table) :type hash-table)
   (symbol (make-hash-table) :type hash-table))
 
+;; TODO, should we type the qualifier, what if we want other kinds of data?
 (defstruct property
+  "this is a property of a trait. Traits are keywords, with the
+qualifier either being a keyword to describe the trait or flavor text to be inserted into it"
   (trait     (error "fill this in") :type keyword)
-  (qualifier (error "fill this in") :type keyword))
+  (qualifier (error "fill this in") :type (or keyword string)))
 
 (defstruct classification
+  "a classification along with the name the classification belongs
+to. This is usually a symbol, but could be a string in the case of flavor text"
   (name      (error "fill this in"))
-  (qualifier (error "fill this in") :type keyword))
+  (qualifier (error "fill this in") :type (or keyword string)))
 
 (defun insert (table object &rest properties)
   "inserts an object into the table, this object must implement the name-of interface
