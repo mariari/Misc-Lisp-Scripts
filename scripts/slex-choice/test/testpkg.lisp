@@ -9,3 +9,6 @@
 (defpackage #:test)
 
 (in-package :slex-test)
+
+(defmethod trait:name-of ((obj symbol))
+  obj)
