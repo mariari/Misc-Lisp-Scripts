@@ -145,7 +145,13 @@ currently active buffer."
                                   "M-a" 'mark-all)))))
 
 
-;; (setf (external-editor-program *browser*) "emacs")
+
+(define-configuration nyxt/web-mode:search-buffer-source
+  ((nyxt/web-mode:minimum-search-length 1)))
+
+(define-configuration browser
+  ((external-editor-program
+    "emacs")))
 
 (define-configuration (buffer web-buffer)
   ((default-modes
