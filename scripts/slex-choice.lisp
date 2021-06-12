@@ -21,11 +21,11 @@
 
 ;; We should go towards this
 ;; Intelligent systems!!
-;; (defrace yuki-onna
-;;   :description "They take a little extra damage whenever something damages them, but have extra melee power."
-;;   :bare-handed :ok
-;;   :cold        :inrinsic
-;;   :damage      :bad)
+(defrace yuki-onna
+  :description "They take a little extra damage whenever something damages them, but have extra melee power."
+  :bare-handed :ok
+  :cold        :inrinsic
+  :damage      :bad)
 
 ;; good format call
 ;; (format t "~{~21a~^ ~21a~^ ~21a~^ ~21a~^ ~21a~^~%~}" (map 'list #'identity *roles*))

@@ -59,14 +59,18 @@
               (grouped      (lol:group slot-groups 2))
               (description  (cadar (member :description grouped :key #'car)))
               (without-desc
-                  (remove-if (lambda (x) (equalp x :description)) grouped :key #'car)))
-         `(prog1 (defparameter ,astrix-name
-                   (make-instance 'entity
-                                  :name   (intern (lol:mkstr ',name) :keyword)
-                                  :type   ,race/role
-                                  :traits (alist->hashtable ',without-desc (make-hash-table))
-                                  :description (or ,description "")))
-            (insert ,astrix-name)))))
+                  (remove-if (lambda (x) (equalp x :description)) grouped :key #'car))
+              (entity (gensym "ENTITY")))
+
+         `(let ((,entity
+                  (make-instance 'entity
+                                 :name   (intern (lol:mkstr ',name) :keyword)
+                                 :type   ,race/role
+                                 :traits (alist->hashtable ',without-desc (make-hash-table))
+                                 :description (or ,description ""))))
+            (insert ,entity)
+            (defparameter ,astrix-name
+              ,entity)))))
   (defmacro defrace (name &rest slot-groups)
     "defines a Nethack race. May include a description and various
 trait description associations
