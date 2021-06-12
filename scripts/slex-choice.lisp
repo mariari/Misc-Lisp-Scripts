@@ -17,14 +17,15 @@
 
 
 ;; Currently have
-(defrace yuki-onna :syn '(bare-handed cold))
+;; (defrace yuki-onna :syn '(bare-handed cold))
 
 ;; We should go towards this
 ;; Intelligent systems!!
 ;; (defrace yuki-onna
-;;   :ok        bare-handed
-;;   :intrinsic cold
-;;   :bad       damage)
+;;   :description "They take a little extra damage whenever something damages them, but have extra melee power."
+;;   :bare-handed :ok
+;;   :cold        :inrinsic
+;;   :damage      :bad)
 
 ;; good format call
 ;; (format t "~{~21a~^ ~21a~^ ~21a~^ ~21a~^ ~21a~^~%~}" (map 'list #'identity *roles*))

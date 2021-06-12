@@ -38,7 +38,7 @@
 
 trait
 (hash-table
-  :bare-handed -> ((classification yuki :ok))
+  :bare-handed -> (#s(classification yuki :ok))
   :cold        -> ((yuki . :intrinsic)))
 
 symbol
@@ -64,7 +64,8 @@ to. This is usually a symbol, but could be a string in the case of flavor text"
   "inserts an object into the table, this object must implement the name-of interface
 the properties given can be either of type list or type classification"
   (dolist (property (mapcar #'list->property properties) table)
-    (modify-hash (table-trait table) (property-trait property)
+    (modify-hash (table-trait table)
+                 (property-trait property)
                  (lambda (classification-list)
                    (unique-insert
                     (make-classification :name      (name-of object)

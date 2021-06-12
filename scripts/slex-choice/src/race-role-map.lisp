@@ -19,9 +19,9 @@
   (race (trait:make-table) :type trait:table)
   (role (trait:make-table) :type trait:table))
 
-(defun insert-race (table obj &rest traits)
+(defun insert-race (table object &rest traits)
   "inserts the object into the race table"
-  (apply #'trait:insert (table-race table) obj traits)
+  (apply #'trait:insert (table-race table) object traits)
   table)
 
 (defun insert-role (table obj &rest traits)

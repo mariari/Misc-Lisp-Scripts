@@ -25,8 +25,11 @@
   :author     "mariari"
   :description "scripts I've made to make my life easier"
   :pathname "scripts/slex-choice/src"
-  :components ((:file "race-role-map" :depends-on ("trait-table"))
-               (:file "entity" :depends-on ("race-role-map"))
+  :components ((:file "race-role-map"    :depends-on ("trait-table"))
+               (:file "entity"           :depends-on ("race-role-map"))
+               (:file "rules"            :depends-on ("entity"))
+               (:file "queries"          :depends-on ("rules"))
+               (:file "information-base" :depends-on ("rules"))
                (:file "trait-table")
                (:file "bi-table")))
 
