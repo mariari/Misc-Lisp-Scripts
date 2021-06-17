@@ -33,8 +33,8 @@
 (defun binsearch (num arr &optional (length (length arr)))
   "Finds num in arr, and returns the location where it is found, the array has to be sorted"
   (labels ((rec (high low &optional (mid (floor (/ (+ low high) 2))))
-             (cond ((> low high)         mid)
-                   ((< num (elt arr mid) (rec (1- mid) low)))
-                   (t                    (rec high (1+ mid))))))
+             (cond ((> low high)          mid)
+                   ((< num (elt arr mid)) (rec (1- mid) low))
+                   (t                     (rec high (1+ mid))))))
     (let ((mid (rec (1- length) 0)))
       (if (= (elt arr mid) num) mid -1))))
