@@ -130,6 +130,8 @@
 ;;    mutable code
 ;; 2. We change the loop into a =mapci= function which is just map
 ;;    with index, this is because loops are hard to read.
+;; 3. We also abstracted the impure functions into pure counterparts
+;;    with a very small amount of code dedicated to the mutation
 ;; Thus we have a dependency on my standard library for =vector:range=
 ;; and the =ref= module
 
