@@ -120,7 +120,7 @@
   (run-frame-top-level (make-application-frame 'superapp)))
 
 ;;;; ----------------------------------------------------------------------
-;;;; 1.2.8 An application displaying a data structure
+;;;; 1.3 Using incremental redisplay
 ;;;; ----------------------------------------------------------------------
 
 ;; Note we make some changes for efficiency and readability
