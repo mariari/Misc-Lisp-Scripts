@@ -346,7 +346,7 @@
   ((%members :initform *members* :accessor members))
   (:panes
    (main-pane :application :height 500 :width 500
-              :display-function 'display-main-pane
+              :display-function #'display-main-pane
               ;; notice the initialization of the default view of
               ;; the application pane.
               :default-view *members-view*)
@@ -372,14 +372,14 @@
 ;;; for different views.  This one displays the data each member
 ;;; on a line of its own.
 (defmethod display-pane-with-view (frame pane (view members-view))
-  (loop for member in (members frame)
-        do (with-output-as-presentation
-               (pane member 'person)
-             (format pane "~a, ~a, ~a, ~a~%"
-                     (membership-number member)
-                     (last-name member)
-                     (first-name member)
-                     (address member)))))
+  (mapc (lambda (member)
+          (with-output-as-presentation (pane member 'person)
+            (format pane "~a, ~a, ~a, ~a~%"
+                    (membership-number member)
+                    (last-name member)
+                    (first-name member)
+                    (address member))))
+        (members frame)))
 
 ;;; this CLIM view is used to display the information about
 ;;; a single person.  It has a slot that indicates what person
@@ -409,7 +409,22 @@
 ;;; (which is the value of *standard-output*) to the one that
 ;;; shows a member per line.
 (define-views-command (com-show-all :name t) ()
+  ;; *standard-output* is bound the main pain, in particular we are
+  ;; *setting the view inside of STANDARD-EXTENDED-OUTPUT-STREAM.
   (setf (stream-default-view *standard-output*) *members-view*))
+
+;; Slot value of *standard-ouptut*
+
+;; STANDARD-EXTENDED-OUTPUT-STREAM:
+;; ...
+;; [ ]  BASELINE                   = 13307/1024
+;; [ ]  CHAR-HEIGHT                = 0
+;; [ ]  CURSOR                     = #<STANDARD-TEXT-CURSOR 0 1171/16  {10095696C3}>
+;; [ ]  EOL                        = :WRAP
+;; [ ]  EOP                        = :SCROLL
+;; [ ]  VIEW                       = #<MEMBERS-VIEW {10015A51D3}>
+;; [ ]  VSPACE                     = 2
+
 
 ;;; command to switch to a view that displays a single member.
 ;;; this command takes as an argument the person to display.
@@ -418,5 +433,13 @@
 ;;; more elaborate application, you might be able to type a
 ;;; textual representation (using completion) of the person.
 (define-views-command (com-show-person :name t) ((person 'person))
-  (setf (stream-default-view *standard-output*)
-        (make-instance 'person-view :person person)))
+  (if person
+      (setf (stream-default-view *standard-output*)
+            (make-instance 'person-view :person person))
+      (format (frame-standard-input *application-frame*)
+              "Please give a person")))
+
+(define-views-command (com-dump-sto :name t) ()
+  (defparameter *x* *standard-output*)
+  (format (frame-standard-input *application-frame*)
+              "*Standard-output* ~A" *standard-output*))
