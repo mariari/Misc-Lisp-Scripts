@@ -63,6 +63,8 @@ to. This is usually a symbol, but could be a string in the case of flavor text"
 (defun insert (table object &rest properties)
   "inserts an object into the table, this object must implement the name-of interface
 the properties given can be either of type list or type classification"
+  (setf (gethash (name-of object) (table-symbol table))
+        object)
   (dolist (property (mapcar #'list->property properties) table)
     (modify-hash (table-trait table)
                  (property-trait property)
@@ -70,9 +72,7 @@ the properties given can be either of type list or type classification"
                    (unique-insert
                     (make-classification :name      (name-of object)
                                          :qualifier (property-qualifier property))
-                    classification-list)))
-    (setf (gethash (name-of object) (table-symbol table))
-          object)))
+                    classification-list)))))
 
 
 (defun lookup-object (table to-lookup)
