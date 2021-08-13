@@ -25,9 +25,9 @@
 (defun dec->bin (n &optional (cps #'identity))
   "Converts a number to a list contaning its binary representation,
    LSB comes first"
-  (multiple-value-bind (r m) (floor n 2)
-    (if (zerop n)
-        (funcall cps nil)
+  (if (<= n 0)
+      (funcall cps nil)
+      (multiple-value-bind (r m) (floor n 2)
         (dec->bin r (lambda (x) (funcall cps (cons m x)))))))
 
 (defun inverse-fast-power-algo (a p)
