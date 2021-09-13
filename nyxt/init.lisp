@@ -75,30 +75,47 @@ currently active buffer."
   "Load a URL in a new buffer."
   (make-buffer-focus :url (url suggestion-value)))
 
-
-(defun mdbgt-url (f)
-  (labels ((append-mdbgt (url)
-             (concatenate 'string "!mdbgt " url))
-           (mdgb-url (url)
-             (cond ((typep url 'new-url-query)
-                    ;; ideally we remove the setf, but that requires
-                    ;; copying all fields by hand
-                    (setf (query url)
-                          (append-mdbgt (query url)))
-                    (funcall f url))
-                   ;; this was the old behavior, when it was a string
-                   (t
-                    (funcall f (append-mdbgt url))))))
+(defun custom-search-url (&key
+                            (prompt-name "")
+                            (search-form #'identity)
+                            (buffer-load #'new-buffer-load))
+  (labels ((url-function (url)
+             ;; url is of type new-url-query
+             (funcall buffer-load (funcall search-form url))))
     (let ((history (set-url-history *browser*)))
-      (when history
-        (containers:insert-item history (render-url (url (current-buffer)))))
+      (pushnew-url-history history (url (current-buffer)))
       (prompt
-       :prompt "MDGBT search"
+       :prompt prompt-name
        :input ""
        :history history
        :sources (list (make-instance 'new-url-or-search-source
-                                     :name "new MDGB search"
-                                     :actions (list (make-unmapped-command mdgb-url))))))))
+                                     :name (concatenate 'string "new " prompt-name)
+                                     :actions (list (make-unmapped-command url-function))))))))
+(defun mdbgt-url (f)
+  (labels ((append-mdbgt (url)
+             (make-instance 'new-url-query
+                            :query (str:concat "!mdbgt " (query url))
+                            :engine (engine url))))
+    (custom-search-url :prompt-name "MDGBT search"
+                       :search-form #'append-mdbgt
+                       :buffer-load f)))
+
+(defun jukuu-url (f)
+  (labels ((append-jukuu (url)
+             (make-instance 'new-url-query
+                            :query (str:concat "http://jukuu.com/search.php?q="
+                                               (query url)))))
+    (custom-search-url :prompt-name "jukuu chinese search"
+                       :search-form #'append-jukuu
+                       :buffer-load f)))
+
+(define-command jukuu-set-buffer ()
+  "Set the URL for the current buffer, completing with history."
+  (jukuu-url #'buffer-load))
+
+(define-command jukuu-new-buffer ()
+  "Prompt for a URL and set it in a new focused buffer."
+  (jukuu-url #'new-buffer-load))
 
 (define-command mdbgt-set-buffer ()
   "Set the URL for the current buffer, completing with history."
@@ -107,6 +124,8 @@ currently active buffer."
 (define-command mdbgt-new-buffer ()
   "Prompt for a URL and set it in a new focused buffer."
   (mdbgt-url #'new-buffer-load))
+
+
 
 ;; not used
 ;; (defvar *custom-keymap* (make-keymap "custom"))
@@ -124,7 +143,9 @@ currently active buffer."
                                       "x"   'mpv-here
                                       "y f" 'nyxt/web-mode:copy-hint-url
                                       "P"   'mdbgt-new-buffer
-                                      "p"   'mdbgt-set-buffer)
+                                      "p"   'mdbgt-set-buffer
+                                      "\\"  'jukuu-set-buffer
+                                      "|"   'jukuu-new-buffer)
                     scheme:emacs     (list
                                       "; x" 'mpv-launch
                                       "X"   'mpv-url
