@@ -105,7 +105,7 @@ currently active buffer."
              (make-instance 'new-url-query
                             :query (str:concat "http://jukuu.com/search.php?q="
                                                (query url)))))
-    (custom-search-url :prompt-name "jukuu chinese search"
+    (custom-search-url :prompt-name "句酷 search"
                        :search-form #'append-jukuu
                        :buffer-load f)))
 
