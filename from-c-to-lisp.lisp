@@ -22,10 +22,10 @@
          (low 0)
          (mid (floor (/ high 2))))
     (loop :while (<= low high)
-       :do (progn (if (< num (elt arr mid))
-                      (setf high (1- mid))
-                      (setf low  (1+ mid)))
-                  (setf mid (floor (/ (+ low high) 2)))))
+          :do (progn (if (< num (elt arr mid))
+                         (setf high (1- mid))
+                         (setf low  (1+ mid)))
+                     (setf mid (floor (/ (+ low high) 2)))))
 
     (if (= (elt arr mid) num) mid -1)))
 
