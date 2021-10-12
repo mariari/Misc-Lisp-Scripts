@@ -669,4 +669,16 @@ void prints(char *s) {
     blockwrite(s, strlen(s));
 }
 
- main() { return 0; }
+/*
+ * Memory management
+ */
+
+/* all LISP data have indefinite extent */
+
+/* Seems Baker and Moon wrote the Ephemeral GC of the lisp machine */
+
+/* We shall implement a mark-and-sweep collector, with vector
+ * compaction
+ */
+
+int main() { return 0; }
