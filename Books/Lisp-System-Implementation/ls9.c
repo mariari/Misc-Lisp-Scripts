@@ -129,8 +129,8 @@
 
         4
    ------------
-   | 123      |
-   | NIL      |
+   |   123    |
+   |   NIL    |
    | ATOM_TAG |
    ------------
 
@@ -364,6 +364,309 @@ enum {	OP_ILL, OP_APPLIS, OP_APPLIST, OP_APPLY, OP_TAILAPP, OP_QUOTE,
 	OP_VCONC, OP_VECLIST, OP_VECTORP, OP_VFILL, OP_VREF, OP_VSET,
 	OP_VSIZE, OP_WHITEC, OP_WRITEC };
 
+/*
+ * I/O functions
+ */
+
+void prints(char *s);
+void prin(cell x);
+
+#define printb(s) prints((char *) s)
+#define nl()      prints("\n")
+
+/* Sets the current output port to the port number passed to it. */
+int set_outport(int port);
+
+/*
+ * Error reporting and handling
+ */
+
+/* These two variables form a ring buffer with TP pointing to the next
+ * slot to fill in the Trace.
+ */
+
+int Trace[NTRACE];
+int Tp = 0;
+
+/* cltrace clears the buffer by setting all the values in the ring
+ * buffer to -1. Since these values are indexed into the node buffer
+ * and thus offsets can't be negative this works
+ */
+void clrtrace(void) {
+    int i;
+    for (i = 0; i < NTRACE; i++)
+        Trace[i] = -1;
+}
+
+int gottrace(void) {
+    int i;
+    for (i = 0; i < NTRACE; i++)
+        if (Trace[i] != -1)
+            return 1;
+    return 0;
+}
+
+/* The Plimit variable sets a limit to printer output. Printing will be
+ * aborted after passing the threshold
+ */
+
+int Plimit = 0;
+
+/* Current input line number */
+int Line = 1;
+/* Current File ontop of the stack */
+cell Files = NIL;
+
+/* bound to a vector holding all Symbol names known in the system. Used
+ * to report references to free variables
+*/
+cell Symbols;
+
+/* converts a fixnum to a string representing it with some radex
+ * r. Then writes it to an internal buffer returns a pointer to said
+ * buffer.
+*/
+char *ntoa(int x, int r);
+
+/* Signals an error by printing the message s. If the object is not
+ * undefined, we also print the object along with the location in the
+ * file.
+ */
+void report (char *s, cell x) {
+    int i,j;
+
+    int o = set_outport(2);
+    prints("*** error: ");
+    prints(s);
+    if (x != UNDEF) {
+        prints(": ");
+        /* Very silly we set plimit so print works properly */
+        Plimit = 100;
+        prin(x);
+        Plimit = 0;
+    }
+    nl();
+    if (Files != NIL) {
+        prints("*** file: ");
+        printb(string(car(Files)));
+        prints(", line: ");
+        printb(ntoa(Line, 10));
+        nl();
+    }
+    if (gottrace()) {
+        prints("*** trace:");
+        i = Tp;
+        for (j = 0; j < NTRACE; j++) {
+            if (i >= NTRACE)
+                i = 0;
+            if (Trace[i] != -1) {
+                prints(" ");
+                printb(symname(vector(Symbols)[Trace[i]]));
+            }
+            i++;
+        }
+        nl();
+    }
+    set_outport(o);
+}
+
+/* Long jump needed for non local exits */
+
+/* After signaling an error control is abroted passing control to the
+ * Restart Label
+ */
+jmp_buf	Restart;
+jmp_buf	Errtag;
+
+/* The variable handle tag, when no handler is in effect it's bound to
+ * NIL
+*/
+cell Handler = NIL;
+
+/* Forward declaration of variables bound to the global environment */
+cell Glob;
+cell S_errtag, S_errval;
+
+/* assq searches an association list */
+int  assq(cell x, cell a);
+/* binds a new value to the global variable */
+void bindset(cell v, cell a);
+/* mkstr makes a string object */
+cell mkstr(char *s, int k);
 
 
-int main() { return 0; }
+/* If an error tag is signaled, and an error handler is in effect, we
+ * then goto Errtag, otherwise we go to report the error and restart
+ */
+void error(char *s, cell x) {
+    cell n;
+    n = assq(S_errtag, Glob);
+    Handler = (NIL == n) ? NIL : cadr(x);
+    if (Handler != NIL) {
+        n = assq(S_errval, Glob);
+        if (n != NIL && cadr(n) == Handler)
+            bindset(S_errval, mkstr(s, strlen(s)));
+        longjmp(Errtag, 1);
+    }
+    report(s, x);
+    longjmp(Restart, 1);
+}
+
+/* (+ 1 2 "hi") */
+/* *** error: +: expected fixnum: "hi" */
+void expect(char *who, char *what, cell got) {
+    char b[100];
+
+    sprintf(b, "%s: expected %s", who, what);
+    error(b, got);
+}
+
+/* fatal is called when there is no chance at recovery
+ * This happens in instances like
+ * - Unable to allocate to the memory pools
+ * - finding no open input or output port
+ * - attempting to load a corrupted image file
+ * - encountering an error during compilation of the initial heap image
+ * Calling fatal prints a message and terminates the process
+ */
+void fatal(char *s) {
+    fprintf(stderr, "*** fatal error:");
+    fprintf(stderr, "%s\n", s);
+    exit(EXIT_FAILURE);
+}
+
+/*
+ * Low-level input/output
+ */
+
+/* Maps port objects to C FILEs */
+FILE *Ports[NPORTS];
+/* Contains the garbage collector bits used in combination with ports */
+char Port_flags[NPORTS];
+
+/* Bound to stdin */
+int Inport = 0;
+
+/* Bound to stdout */
+int Outport = 1;
+
+/* bound to stdout files */
+int Errport = 2;
+
+cell Outstr = NIL;
+int  Outmax = 0;
+int  Outptr = 0;
+
+char *Instr = NULL;
+char Rejected = -1;
+
+/* Principled input stream. Whenever readc is called it will return the
+ * next character from the current input port (or a string, when Instr
+ * is not NULL).
+ */
+
+int readc(void) {
+    int c;
+    if (Instr != NULL) {
+        if (Rejected > -1) {
+            c = Rejected;
+            Rejected = -1;
+            return c;
+        }
+        if (0 == *Instr) {
+            return EOF;
+        }
+        else {
+            return *Instr++;
+        }
+    }
+    else {
+        if (NULL == Ports[Inport])
+            fatal("readc: input port is not open");
+        return getc(Ports[Inport]);
+    }
+}
+
+/* reject puts the character c back into the current input source When
+ * the source is read for the next time it will produce that character
+ * again
+ */
+void rejectc(int c) {
+    /* We are dealing with a String */
+    if (Instr != NULL) {
+        Rejected = c;
+    }
+    else {
+        ungetc(c, Ports[Inport]);
+    }
+}
+
+/* Creates a port object and wrpas it in the port number in a port
+ * object
+ */
+cell mkport(int p, cell t);
+
+/* flush writes all pending output to the file or device */
+void flush(void) {
+    if (fflush(Ports[Outport]))
+        error("file write error, port", mkport(Outport, T_OUTPORT));
+}
+
+/* Principled output function of the LISP9 system All output is passed
+ * through this interface. The function write k characters from the
+ * string s to the current output port. to or an output string if
+ * Outstr is not NIL. When writing to stdout (1) or stderr (2) port
+ * and the last character is a newline it will flush after writing.
+ * Will also subtract k from Plimit variable and will stop when the
+ * value is below 1. Note that it ignores it if it starts out as 0.
+ */
+void blockwrite(char *s, int k) {
+    cell n;
+
+    if (1 == Plimit)
+        return;
+    if (Outstr != NIL) {
+        while (Outptr + k >= Outmax) {
+            n = mkstr(NULL, Outmax+1000);
+            memcpy(string(n), string(Outstr), Outptr);
+            Outmax += 1000;
+            Outstr = n;
+        }
+        memcpy(&string(Outstr)[Outptr], s, k);
+        Outptr += k;
+        string(Outstr)[Outptr] = 0;
+        return;
+    }
+    if (NULL == Ports[Outport])
+        fatal("blockwrite: output port is not open");
+
+    int writen_chars = fwrite(s, 1, k, Ports[Outport]);
+    if (writen_chars != k)
+        error("file write error, port",
+              mkport(Outport, T_OUTPORT));
+    if ((1 == Outport || 2 == Outport) && '\n' == s[k-1])
+        flush();
+    if (Plimit) {
+        Plimit -= k;
+        if (Plimit < 1) Plimit = 1;
+    }
+}
+
+
+/* write function writes the single character c to the current output
+ * Port (or string)
+ */
+
+void writec(int c) {
+    char b[1];
+    b[0] = c;
+    blockwrite(b, 1);
+}
+
+
+/* prints() writes the string x */
+void prints(char *s) {
+    blockwrite(s, strlen(s));
+}
+
+ main() { return 0; }
