@@ -677,8 +677,159 @@ void prints(char *s) {
 
 /* Seems Baker and Moon wrote the Ephemeral GC of the lisp machine */
 
-/* We shall implement a mark-and-sweep collector, with vector
- * compaction
+/* We shall implement 2 parts a mark-and-sweep collector, and a
+ * compacting collector that defrags the vector pool
  */
+
+/* First step is allocation */
+/* The system allocates 3 arrays Car Cdr and Tag. for the node pool
+ * along with a single array Vectors fro the vector objects
+ */
+
+
+/* Pool allocation is done via these two functions. Failure to allocate
+  is a fatal error */
+
+void alloc_nodepool(void) {
+    size_t size_cell_pool = sizeof(cell) * NNODES;
+
+    Car = malloc(size_cell_pool);
+    Cdr = malloc(size_cell_pool);
+    Tag = malloc(NNODES);
+    if (NULL == Car || NULL == Cdr || NULL == Tag)
+        fatal("alloc_nodepool: out of physical memory");
+    memset(Car, 0, size_cell_pool);
+    memset(Cdr, 0, size_cell_pool);
+    memset(Tag, 0, NNODES);
+}
+
+void alloc_vecpool(void) {
+    size_t size_pool = sizeof(cell) * NVCELLS;
+    Vectors = malloc (size_pool);
+    if (NULL == Vectors)
+        fatal("alloc_vecpool: out of physical memory");
+    memset(Vectors, 0, size_pool);
+}
+
+/* We start the discussion of memory management with reclamation of
+ * unused data objects
+ */
+
+/* Due to forms like
+ *
+ * (defun (f x) (if (= x 0) nil (cons 1 (f (- x 1)))))
+ *
+ * Having objects like 0 nil and 1, once we save the code, we can't
+ * just remove the ast. thus we have an Object table that contains all
+ * data objects that are referenced in compiled code
+ *
+ * These will be stored in a LISP vector bound to the variable Obarray
+ * here at the C level.
+ *
+ * (def foo '(1 2 3)) beinds the object (1 2 3) to the variable
+ * foo. After having a name we need not keep it in the object table
+ * because the binding protects it from being GCd.
+ *
+ * Thus we mark all objects in the OBTAB (object table) that are still
+ * referenced are marked as "used". We then recycle all objects that
+ * are not marked as "used". Hence this is a mark and sweep technique.
+ *
+ * the collector marks slots in a byte vector bound to Obmap. Each
+ * byte in Obmap relates to one slot, all the bytes are "free"
+ * "allocated" or "used"
+*/
+
+/* Just use a struct ☹ */
+
+/* Marked as FREE */
+#define OBFREE  0
+/* Marked as alloc */
+#define OBALLOC 1
+/* Marked as Used */
+#define	OBUSED  2
+
+/* Complications Mark procedure has to know enough about the abstract
+ * machine to be able to locate quote instructions.
+ *
+ * Quote loads objects from object table into registers of the
+ * abstract machine. They can appear anywhere!
+ *
+ * OBTAB     : 『Free』『0』  『Nil』『Free』 『1』『Free』 …
+ *                       ^        ^              ^
+ *                       |         \              \
+ * ByteCode : 『…』『Quote』『…』『Quote』『…』『Quote』『』『』『』『』『』
+ *
+ * This abstract machine is defined carefully to deal with this
+ * issue. If it's infeasible, the compiler could extract all literal
+ * data objects from the program, store them in a list and generate a
+ * single instruction at the start of each chunk. We could then
+ * reference by offsets into the chunk.
+ *
+ * For this compiler we just go through the abstract machine programs
+ * locate instructions then mark them in the OBTAB directly
+ */
+
+/* In the LISP9 compiler we will have abstract machine code witch has
+ * instructions with size:
+ * 0 operand : size 1 byte
+ * 1 operand : size 3 bytes
+ * 2 operand : size 5 bytes
+ */
+
+#define ISIZE0 1
+#define ISIZE1 3
+#define ISIZE2 5
+
+/* We store big endian byte ordering
+ *
+ * fetcharg() macro is used to retrieve an argument at position i from
+ * byte vector a.
+ */
+#define fetcharg(a, i) \
+    (((a)[i] << 8) | (a)[(i) + 1])
+
+/* Yet another Struct of array mapping with no struct */
+cell Obarray, Obmap;
+
+/* marklit function marks literal data objects referenced in program
+ * chunk (byte vector) p. p is bound to a byte vector containing
+ * abstract machine instructions.
+ *
+ * walk through the code, identify instructions with arguments, and
+ * skip over their arguments.
+ *
+ * When it finds OP_QUOTE, it also fetches its arguments and marks the
+ * corresponding OBTAB slot as used
+ */
+
+void marklit(cell p) {
+    int i, k, op;
+    byte *v, *m;
+
+    k = stringlen(p);
+    v = string(p);
+    m = string(Obmap);
+    for (i=0; i<k; ) {
+        op = v[i];
+        if (OP_QUOTE == op) {
+            m[fetcharg(v, i+1)] = OBUSED;
+            i += ISIZE1;
+        }
+        else if (OP_ARG == op || OP_PUSHVAL == op || OP_JMP == op ||
+                 OP_BRF == op || OP_BRT == op || OP_CLOSURE == op ||
+                 OP_MKENV == op || OP_ENTER == op || OP_ENTCOL == op ||
+                 OP_SETARG == op || OP_SETREF == op || OP_MACRO == op)
+            {
+                i += ISIZE1;
+            }
+        else if (OP_REF == op || OP_CPARG == op || OP_CPREF == op) {
+            i += ISIZE2;
+        }
+        else {
+            i += ISIZE0;
+        }
+    }
+}
+
 
 int main() { return 0; }
