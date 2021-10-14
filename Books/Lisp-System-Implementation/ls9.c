@@ -991,4 +991,166 @@ void mark(cell n) {
     }
 }
 
+/* Time for the gc of the node pool!
+ *
+ * We set the following steps
+ *
+ * 1. All ports that have their LOCK_TAG bit set will be marked by
+ * setting their USED_TAG bit, all others will be unmarked
+ *
+ * 2. All objects can be access through a member of the GC_roots array
+ * will be marked.
+ *
+ * 3. All unmarked nodes are consed to Freelist and all other nodes
+ * have their have their MARK_TAG bit cleared
+ *
+ * 4. All ports that don't have their USED_TAG bit set will be closed
+ * and their Ports slots will be freed.
+ *
+ * 5. All OBTAB slots that are not marked OBUSED will be cleared
+ */
+int  GC_verbose = 0;
+cell *GC_roots[];
+cell Rts;
+int  Sp;
+
+int gc(void) {
+    int	i, n, k, sk;
+    char buf[100];
+    cell *a;
+    byte *m;
+
+    /* Mark */
+    for (i = 0; i < NPORTS; i++) {
+        if (Port_flags[i] & LOCK_TAG)
+            Port_flags[i] |= USED_TAG;
+        else if (i == Inport || i == Outport)
+            Port_flags[i] |= USED_TAG;
+        else
+            Port_flags[i] &= ~USED_TAG;
+    }
+    if (Rts != NIL) {
+        sk = stringlen(Rts);
+        stringlen(Rts) = (1 + Sp) * sizeof(cell);
+    }
+    /* Let us mark the GC roots and things inside */
+    for (i = 0; GC_roots[i] != NULL; i++) {
+        mark(*GC_roots[i]);
+    }
+    if (Rts != NIL) {
+        stringlen(Rts) = sk;
+    }
+    /* Time to Sweep */
+    k = 0;
+    Freelist = NIL;
+    for (i = 0; i < NNODES; i++) {
+        if (!(tag(i) & MARK_TAG)) {
+            /* Kind of clever we cons onto Freelist by doing this
+             * trick, where we set the cdr to the free list then set
+             * the tail of the list to the list to the current node.
+             */
+            cdr(i) = Freelist;
+            Freelist = i;
+            k++;
+        }
+        else {
+            tag(i) &= ~MARK_TAG;
+        }
+    }
+    for (i=0; i<NPORTS; i++) {
+        if (!(Port_flags[i] & USED_TAG) && Ports[i] != NULL) {
+            fclose(Ports[i]);
+            Ports[i] = NULL;
+        }
+    }
+    n = NIL == Obarray? 0: veclen(Obarray);
+    a = NIL == Obarray? NULL: vector(Obarray);
+    m = NIL == Obmap? NULL: string(Obmap);
+    for (i = 0; i < n; i++) {
+        if (OBUSED  == m[i]) {
+            m[i] = OBALLOC;
+        }
+        else {
+            m[i] = OBFREE;
+            a[i] = NIL;
+        }
+    }
+    if (GC_verbose) {
+        sprintf(buf, "GC: %d nodes reclaimed", k);
+        prints(buf); nl();
+        flush();
+    }
+    return k;
+}
+
+cell Tmp_car = NIL,
+     Tmp_cdr = NIL;
+
+/* pcar and pcdr are protected from gc by having cells saved here As
+ * it's stored in the GC_Roots itself. An interesting note is that at
+ * the start of the system when all memory is free, we actually run gc
+ * to setup Freelist with some values.
+ */
+cell cons3(cell pcar, cell pcdr, int ptag) {
+    cell n;
+    int  k;
+
+    if (NIL == Freelist) {
+        if (0 == (ptag & ~CONST_TAG))
+            Tmp_car = pcar;
+        if (!(ptag & VECTOR_TAG))
+            Tmp_cdr = pcdr;
+        k = gc();
+        if (k < NNODES / 2) {
+            /* memory low! */
+        }
+        Tmp_car = Tmp_cdr = NIL;
+        if (NIL == Freelist)
+            error("cons3: out of nodes", UNDEF);
+    }
+    n = Freelist;
+    Freelist = cdr(Freelist);
+    car(n) = pcar;
+    cdr(n) = pcdr;
+    tag(n) = ptag;
+    return n;
+}
+
+/* Time to deal with fragmentation.  For this book we will use pool
+ * compaction. During this process all live objects move to one end of
+ * the pool. And then the free space pointer is reset to the end of
+ * the live data. Free space becomes continuous free vector so
+ * allocation is faster after this.
+ *
+ * Our pool makes heavy use of meta data of objects in the vector
+ * pool.
+ *
+ * We will now outline the format of the vectors
+ *
+ *                  Vector Node
+ *                --------------
+ *                | Type |  ●  |
+ *                --------------
+ *                    ^      \
+ *                   /        \
+ *                  /          \
+ *                 /            v
+ * -----------------------------------------------------
+ * | Data …   | Link   | Size | Data …   | Link  | …  |
+ * |          | /Index |      |          | Index | …  |
+ * -----------------------------------------------------
+ *                      Vector Pool
+ *
+ * Link : points back to the node of the vector object
+ * Index: Used by the node collector during graph marking
+ * Size : holds the size of the vector in bytes
+ * Data : which contains the value of the vector object
+ */
+
+#define RAW_VECLINK 0
+#define RAW_VECSIZE 1
+#define RAW_VECDATA 2
+
+
+
 int main() { return 0; }
