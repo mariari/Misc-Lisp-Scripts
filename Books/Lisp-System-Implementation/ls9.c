@@ -267,6 +267,9 @@ cell Freevec = 0;
 #define vector(n)	(&Vectors[Cdr[n]])
 #define veclink(n)	(Vectors[Cdr[n] - 2])
 #define vecndx(n)	veclink(n)
+/* + 2 for link + size data in the vector
+ * this math works
+ */
 #define vecsize(k)	(2 + ((k) + sizeof(cell)-1) / sizeof(cell))
 #define veclen(n)	(vecsize(stringlen(n)) - 2)
 
@@ -1147,10 +1150,41 @@ cell cons3(cell pcar, cell pcdr, int ptag) {
  * Data : which contains the value of the vector object
  */
 
+/* You may have noticed that the Link and Index share a slot, this is
+ * because the link field is only used during compaction and the index
+ * is only used during marking.
+ */
+
+/* Here we have the offsets of the vectors
+ * vector nodes refer to data so from it's perspective
+ * data       = 0
+ * size       = -1
+ * link/index = -2
+ *
+ * The vector pool is really a vector of cells rather than bytes.
+ * Hence:
+ * A 3 byte vector would allocate 1 4 byte cell
+ * A 5 byte vector would allocate 2 4 byte cells
+ */
 #define RAW_VECLINK 0
 #define RAW_VECSIZE 1
 #define RAW_VECDATA 2
 
+/* unmark_vecs unmarks all vectors by breaking their link field setting
+ * it to NIL. Mark phase will later restore this making them live
+ * vector objects.
+ */
+void unmark_vecs(void) {
+    int	p, k, link;
+
+    p = 0;
+    while (p < Freevec) {
+        link = p;
+        k = Vectors[p + RAW_VECSIZE];
+        p += vecsize(k);
+        Vectors[link] = NIL;
+    }
+}
 
 
 int main() { return 0; }
