@@ -835,5 +835,160 @@ void marklit(cell p) {
     }
 }
 
+/* 7.2 Node collection */
+
+/* All objects in the heap have their roots in the node pool
+ *
+ * fixnums, chars, and ports : consist of two nodes that are linked in
+ * the node pool
+ *
+ * String, Symbols, and vectors : are nodes that link to some sequence
+ * of cells in the vector pool.
+ *
+ * List, Trees, and graphs : collections of nodes in the node pool.
+ *
+ * GC roots form a set of cells that reference root nodes in the node
+ * pool. Root nodes must never be recycled by the node collector.
+ *
+ * Such Root Nodes Include:
+ * Symbol Table
+ * Object Table
+ * Runtime Stack
+ * Global Environment
+ * Registers of the abstract machine
+ *
+ */
+
+/* Task of the GC is to find nodes that are live (pointed to by a GC
+ * root), mark them, and then "sweep" them by adding unmakred nodes to
+ * the free list
+ *
+ * Hardest part is to mark the live graphs in the node pool. The Task
+ * can somewhat easily be broken down into.
+ *
+ * 1. for each atom in the set of GC roots R, mark the atom and then
+ * mark the cdr part of the atom.
+ *
+ * 2. for each cons cell in R, mark the cell itself and then mark the
+ * car parts and the cdr parts of the cell.
+ *
+ * 3. for each vector in R, mark the vector node and then mark each
+ * element of the vector in the vector pool (where each element points
+ * back to the element pool).
+ *
+ * For each special object and each already-marked object in R, do
+ * nothing.
+ *
+ * this may seem easy, but consider a list, if you have a list of size
+ * 10k, you'd have to recurse 9999 times. Thus we use the
+ * Deutsch-Schorr-Waitre (DSW) graph marking algorithm for traversing
+ * GC roots.
+ *
+ * We shall thus mark graphs in constant space and only 1 cell of
+ * additional storage.
+ */
+
+/* 7.2.1 the DSW graph marking algorithm */
+
+/* problem solved by DSW as follows
+ * https://youtu.be/2s2_FAf-yQs?t=1868 FROM SICP
+ *
+ * I think I understand the algorithm, we basically reserve a bit on
+ * the node stating where the parent node is, so that we can traverse
+ * back pointer wise. We note that the cdr is unvisited so when we go
+ * back we can traverse the tree that way.... kind of a neat algorithm
+ * actually.
+ */
+
+/*
+ * Mark nodes which can be accessed through N.
+ * Using modified Deutsch/Schorr/Waite pointer reversal algorithm.
+ * S0: M==0, T==0, unvisited, process CAR (vectors: process 1st slot);
+ * S1: M==1, T==1, CAR visited, process CDR (vectors: process next slot);
+ * S2: M==1, T==0, completely visited, return to parent.
+ */
+
+void mark(cell n) {
+    cell x, parent, *v;
+    int i;
+
+    parent = NIL;
+    while (1) {
+        if (specialp(n) || (tag(n) & MARK_TAG)) {
+            if (NIL == parent)
+                break;
+            if (tag(parent) & VECTOR_TAG) { /* S1 --> S1|done */
+                i = vecndx(parent);
+                v = vector(parent);
+                if (tag(parent) & TRAV_TAG && i+1 < veclen(parent)) { /* S1 --> S1 */
+                    x = v[i+1];
+                    v[i+1] = v[i];
+                    v[i] = n;
+                    n = x;
+                    vecndx(parent) = i+1;
+                }
+                else {			/* S1 --> done */
+                    x          = parent;
+                    parent     = v[i];
+                    v[i]       = n;
+                    n          = x;
+                    veclink(n) = n;
+                }
+            }
+            else if (tag(parent) & TRAV_TAG) { /* S1 --> S2 */
+                x = cdr(parent);
+                cdr(parent) = car(parent);
+                car(parent) = n;
+                tag(parent) &= ~TRAV_TAG;
+                n = x;
+            }
+            else {				/* S2 --> done */
+                x      = parent;
+                parent = cdr(x);
+                cdr(x) = n;
+                n      = x;
+            }
+        }
+        else if (tag(n) & VECTOR_TAG) {		/* S0 --> S1 */
+            tag(n) |= MARK_TAG;
+            if (T_VECTOR == car(n) && veclen(n) != 0) {
+                tag(n) |= TRAV_TAG;
+                vecndx(n) = 0;
+                v = vector(n);
+                x = v[0];
+                v[0] = parent;
+                parent = n;
+                n = x;
+            }
+            else {
+                veclink(n) = n;
+            }
+        }
+        else if (tag(n) & ATOM_TAG) {		/* S0 --> S2 */
+            if (cdr(n) != NIL) {
+                if (T_BYTECODE == car(n)) {
+                    marklit(cdr(n));
+                }
+                else if (T_INPORT == car(n) ||
+                         T_OUTPORT == car(n)
+                         )
+                    Port_flags[portno(n)] |= USED_TAG;
+            }
+            x = cdr(n);
+            cdr(n) = parent;
+            parent = n;
+            n = x;
+            tag(parent) |= MARK_TAG;
+        }
+        else {					/* S0 --> S1 */
+            x = car(n);
+            car(n) = parent;
+            tag(n) |= MARK_TAG;
+            parent = n;
+            n = x;
+            tag(parent) |= TRAV_TAG;
+        }
+    }
+}
 
 int main() { return 0; }
