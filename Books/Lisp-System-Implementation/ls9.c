@@ -150,9 +150,9 @@
 /* Upon review of the book, we can see that we use a Struct of arrays
   technique, where the Car Cdr and Tag are all separate arrays instead
   of having a struct with the three fields together. */
-cell	*Car = NULL,
-	*Cdr = NULL;
-byte	*Tag = NULL;
+cell *Car = NULL,
+     *Cdr = NULL;
+byte *Tag = NULL;
 
 /* The vector pool holds the value of all vectors objects such as
  * [symbols, strings, vectors]. They have a VECTOR_TAG instead of an
@@ -161,14 +161,14 @@ byte	*Tag = NULL;
  * of cells.
  */
 
-cell	*Vectors = NULL;
+cell *Vectors = NULL;
 
 /* These variables keep track of free space */
 
 /* List of unused Nodes */
-cell	Freelist = NIL;
+cell Freelist = NIL;
 /* Points to the unallocated part of vectors */
-cell	Freevec = 0;
+cell Freevec = 0;
 
 #define ATOM_TAG	0x01	/* Atom, CAR = type, CDR = next */
 #define MARK_TAG	0x02	/* Mark */
@@ -180,9 +180,9 @@ cell	Freevec = 0;
 #define CONST_TAG	0x80	/* Node is immutable */
 
 /* Accessing the fields of the the nodes */
-#define tag(n)		(Tag[n])
-#define car(x)          (Car[x])
-#define cdr(x)          (Cdr[x])
+#define tag(n) (Tag[n])
+#define car(x) (Car[x])
+#define cdr(x) (Cdr[x])
 
 /* Time to get lisp style accessors */
 
@@ -784,6 +784,10 @@ void alloc_vecpool(void) {
  *
  * fetcharg() macro is used to retrieve an argument at position i from
  * byte vector a.
+ *
+ * We do this janky lookup, because the size of instructions are 2
+ * bytes, as seen in the ISIZE numbers, but since our array is of
+ * bytes, we have to do this shifting to get the 16 bit value
  */
 #define fetcharg(a, i) \
     (((a)[i] << 8) | (a)[(i) + 1])
@@ -809,7 +813,7 @@ void marklit(cell p) {
     k = stringlen(p);
     v = string(p);
     m = string(Obmap);
-    for (i=0; i<k; ) {
+    for (i = 0; i < k; ) {
         op = v[i];
         if (OP_QUOTE == op) {
             m[fetcharg(v, i+1)] = OBUSED;
