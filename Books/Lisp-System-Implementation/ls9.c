@@ -708,7 +708,7 @@ void alloc_nodepool(void) {
 
 void alloc_vecpool(void) {
     size_t size_pool = sizeof(cell) * NVCELLS;
-    Vectors = malloc (size_pool);
+    Vectors = malloc(size_pool);
     if (NULL == Vectors)
         fatal("alloc_vecpool: out of physical memory");
     memset(Vectors, 0, size_pool);
@@ -1186,5 +1186,127 @@ void unmark_vecs(void) {
     }
 }
 
+/* gcv function compacts the vector pool by removing the values of all
+ * dead objects from the pool. It collects all the vectors at the
+ * beginning of the pool.
+ *
+ * Since the data moves, nodes will have to update so it points to the
+ * new address.
+ *
+ * After compacting hte pool, Freevec will point at the cell right
+ * after collected data.
+ */
+
+int gcv(void) {
+    int	v, k, to, from;
+    char buf[100];
+
+    unmark_vecs();
+    /* re-mark live vectors, via mark in gc */
+    gc();
+    to = from = 0;
+    while (from < Freevec) {
+        v = Vectors[from + RAW_VECSIZE];
+        k = vecsize(v);
+        if (Vectors[from + RAW_VECLINK] != NIL) {
+            if (to != from) {
+                memmove( &Vectors[to]
+                       , &Vectors[from]
+                       , k * sizeof(cell) );
+                cdr(Vectors[to + RAW_VECLINK]) =
+                    to + RAW_VECDATA;
+            }
+            to += k;
+        }
+        from += k;
+    }
+
+    k = Freevec - to;
+
+    if (GC_verbose) {
+        sprintf(buf, "GCV: %d cells reclaimed", k);
+        prints(buf);
+        nl();
+        flush();
+    }
+    Freevec = to;
+    return k;
+}
+
+/* 7.5 Vector allocation */
+
+/* newvec function allocates a vector of the given type and size.
+ * Where type is the type tag to be placed in the car field of the
+ * resulting vector node, and size is the desired size in bytes.
+ */
+
+cell newvec(cell type, int size) {
+    cell n;
+    int v, wsize;
+    wsize = vecsize(size);
+    /* check for available memory */
+    if (Freevec + wsize >= NVCELLS) {
+        gcv();
+        if (Freevec + wsize >= NVCELLS)
+            error("newvec: out of vector space", UNDEF);
+    }
+    v        = Freevec;
+    Freevec += wsize;
+    n        = cons3(type, v + RAW_VECDATA, VECTOR_TAG);
+    Vectors[v + RAW_VECLINK] = n;
+    Vectors[v + RAW_VECSIZE] = size;
+    return n;
+}
+
+/* 7.6 GC Protection */
+
+/* When allocating complex structure of multiple nodes we often need to
+ * protect a node while allocating different parts of hte structure
+ *
+ * (cons (cons a b) (cons c d))
+ *
+ * In the above we need to protect (cons a b) while (cons c d)
+ * evaluates.
+ *
+ * We can do this in a few ways:
+ *
+ * 1. By binding object to the GC root Tmp
+ * 2. Pushing it to the Protected stack
+ *
+ * Both of these would do that
+ *
+ * Tmp = (cons a b);
+ * n   = (cons Tmp (cons c d));
+ * Tmp = Nil;
+ *
+ * Or
+ *
+ * protect(n = (cons a b));
+ * n = (cons n (cons c d));
+ * uprot(1);
+ *
+ * the first technique should be used when it's a simple object, while
+ * the later while complex objects are being allocated
+ */
+
+cell Protected = NIL;
+cell Tmp = NIL;
+
+#define protect(n) (Protected = cons((n), Protected))
+
+cell uprot(int k) {
+    cell n = NIL;               /* LINT */
+
+    while (k) {
+        if (NIL == Protected)
+            error("unprot: stack underflow", UNDEF);
+        n = car(Protected);
+        Protected = cdr(Protected);
+        k--;
+    }
+    return n;
+}
+
+/* Chapter 8 - High Level Data Types */
 
 int main() { return 0; }
