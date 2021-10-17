@@ -1766,4 +1766,112 @@ cell nconc(cell a, cell b) {
     return n;
 }
 
+/* 10. High_level Port I/O */
+
+/**
+ * newport allocates an unused port number and returns it. When no
+ * ports are free it gcs. If it fails it returns -1 indicating
+ * failure.
+ */
+int newport(void) {
+    int i, n;
+    for (n = 0; n < 2; n++) {
+        for (i = 0; i < NPORTS; i++) {
+            if (NULL == Ports[i])
+                return i;
+        }
+        if (0 == n)
+            gc();
+    }
+    return -1
+}
+
+/**
+ * open_inport opens the file path for input, associates it with a
+ * port number and returns the port number. If the port can't be
+ * opened or the file, then this returns -1.
+ */
+int open_inport(char *path) {
+    int i;
+
+    i = newport();
+    if (i < 0)
+        return -1;
+    Ports[i] = fopen(path, "r");
+    if (NULL == Ports[i])
+        return -1;
+    return i;
+}
+
+
+
+/**
+ * open_output is similar to open_inport but opens the file for
+ * output. If the file already exists it will be truncated to zero
+ * length, if the append value is non zero then the file is appended
+ * to rather than truncated
+ */
+
+int open_outport(char *path, int append) {
+    int i;
+
+    i = newport();
+    if (i < 0)
+        return -1;
+    Ports[i] = fopen(path, append? "a": "w");
+    if (NULL == Ports[i])
+        return -1;
+    return i;
+}
+
+cell set_inport(cell port) {
+    cell p = Inport;
+
+    Inport = port;
+    return p;
+}
+
+int set_outport(int port) {
+    int p = Outport;
+
+    Outport = port;
+    return p;
+}
+
+void close_port(int port) {
+    if (port < 0 || port >= NPORTS)
+        return;
+    if (NULL == Ports[port]) {
+        Port_flags[port] = 0;
+        return;
+    }
+    fclose(Ports[port]);
+    Ports[port] = NULL;
+    Port_flags[port] = 0;
+}
+
+void reset_stdports(void) {
+    clearerr(stdin);
+    clearerr(stdout);
+    clearerr(stderr);
+    Inport = 0;
+    Outport = 1;
+    Errport = 2;
+}
+
+int lock_port(int port) {
+    if (port < 0 || port >= NPORTS)
+        return -1;
+    Port_flags[port] |= LOCK_TAG;
+    return 0;
+}
+
+int unlock_port(int port) {
+    if (port < 0 || port >= NPORTS)
+        return -1;
+    Port_flags[port] &= ~LOCK_TAG;
+    return 0;
+}
+
+
 int main() { return 0; }
