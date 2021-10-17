@@ -1235,7 +1235,8 @@ int gcv(void) {
 
 /* 7.5 Vector allocation */
 
-/* newvec function allocates a vector of the given type and size.
+/**
+ * newvec function allocates a vector of the given type and size.
  * Where type is the type tag to be placed in the car field of the
  * resulting vector node, and size is the desired size in bytes.
  */
@@ -1294,7 +1295,7 @@ cell Tmp = NIL;
 
 #define protect(n) (Protected = cons((n), Protected))
 
-cell uprot(int k) {
+cell unprot(int k) {
     cell n = NIL;               /* LINT */
 
     while (k) {
@@ -1308,5 +1309,294 @@ cell uprot(int k) {
 }
 
 /* Chapter 8 - High Level Data Types */
+
+/* Here we will define the more abstract types, like
+ * fixnums
+ * Characters
+ * Strings
+ * Vectors
+ * I/O ports
+ * Symbols
+ *
+ * And the Hash Table that isn't available in the LISP level.
+ */
+
+/* The following layout is used for
+ * -----------     ---------------
+ * | Tag | --|---->| Value | Nil |
+ * -----------     ---------------
+ *
+ * Fixnums
+ * Chars
+ * I/O ports
+ */
+
+
+/**
+ * mkfix macro creates a fixnum object and stores the value of a C int
+ * in it's value field.
+ */
+#define mkfix(n) mkatom(T_FIXNUM, mkatom((n), NIL))
+
+/**
+ * fixval extracts that value
+ */
+#define fixval(n) (cadr(n))
+
+/**
+ * add_ovfl and sub_ovfl return 1 if the value would return 1
+ */
+
+#define add_ovfl(a,b) \
+    ((((b) > 0) && ((a) > INT_MAX - (b))) || \
+     (((b) < 0) && ((a) < INT_MIN - (b))))
+
+#define sub_ovfl(a,b) \
+    (   (((b) < 0) && ((a) > INT_MAX + (b))) \
+     || (((b) > 0) && ((a) < INT_MIN + (b))))
+
+#define mkchar(c) mkatom(T_CHAR, mkatom((c) & 0xff, NIL))
+
+#define charval(n) (cadr(n))
+
+cell Nullstr = NIL;
+
+cell mkstr(char *s, int k) {
+    cell n;
+
+    if (0 == k)
+        return Nullstr;
+
+    n = newvec(T_STRING, k+1);
+
+    if (NULL == s) {
+        memset(string(n), 0, k+1);
+    }
+    else {
+        memcpy(string(n), s, k);
+        string(n)[k] = 0;
+    }
+    return n;
+}
+
+/*             Vector Data looks like
+ *
+ *                  Vector Node
+ *                --------------
+ *                | Tag |  ●  |
+ *                --------------
+ *                   ^      \
+ *                  /        \
+ *                 /          \
+ *                /            v
+ * -----------------------------------------------------
+ * | Data …   | Link   | Size | Data …   | Link  | …  |
+ * |          | /Index |      |          | Index | …  |
+ * -----------------------------------------------------
+ *                 Vector Pool
+ */
+
+/**
+ * mkvec creates a vector object of type vector The object returned
+ * will have k slots. When k = 0, Nullvec will be allocated.
+ */
+
+cell Nullvec = NIL;
+
+cell mkvec(int k) {
+    cell n, *v;
+    int i;
+
+    if (0 == k)
+        return Nullvec;
+    n = newvec(T_VECTOR, k * sizeof(cell));
+    v = vector(n);
+    for (i = 0; i < k; i++)
+        v[i] = NIL;
+    return n;
+}
+
+/* type is either T_INPORT or T_OUTPORT
+ *
+ * portno is a port handle as delivered by the newport function.
+ */
+
+cell mkport(int portno, cell type) {
+    cell n;
+    int pf;
+
+    pf = Port_flags[portno];
+    Port_flags[portno] |= LOCK_TAG;
+    n = mkatom(portno, NIL);
+    n = cons3(type, n, ATOM_TAG|PORT_TAG);
+    Port_flags[portno] = pf;
+    return n;
+}
+
+/* Time to implement the hash table
+ *
+ * Weak hash function, so use prime numbers for the vector array
+ */
+int htsize(int n) {
+    if (n < 47)    return 47;
+    if (n < 97)    return 97;
+    if (n < 199)   return 199;
+    if (n < 499)   return 499;
+    if (n < 997)   return 997;
+    if (n < 9973)  return 9973;
+    if (n < 19997) return 19997;
+    return 39989;
+}
+/* The hashtable is a pair with a fixnum as it's car field and a vector
+ * in it's cdr. The fixnum (count) equals the number of associations
+ * currently stored in the hash table.
+ *
+ * each vector slot contains an assoc list of the form
+ * ((key₁ . value₁) … (keyₙ . valueₙ))
+ *
+ * Each key value is an assocaiton. Any empty list is euqal to NIL.
+ *
+ * I believe we store a list of associations in this array (so an array of lists)
+ *
+ * we fit this hash table in the vector of the lisp
+ *
+ * I will not comment on the rest as the algorithms are already
+ * somewhat known/obvious
+ */
+
+cell mkht(int k) {
+    cell n;
+
+    n = mkfix(0); /* mutable, can't use Zero */
+    protect(n);
+    n = cons(n, mkvec(htsize(k)));
+    unprot(1);
+    return n;
+}
+
+#define htlen(d)   veclen(cdr(d))
+#define htelts(d)  fixval(car(d))
+#define htdata(d)  cdr(d)
+#define htslots(d) vector(cdr(d))
+
+uint hash(byte *s, uint k) {
+    uint h = 0xabcd;
+
+    while (*s)
+        h = ((h << 5) + h) ^ *s++;
+    return h % k;
+}
+
+uint obhash(cell x, uint k) {
+    if (specialp(x))
+        return abs(x) % k;
+    if (symbolp(x))
+        return hash(symname(x), k);
+    if (fixp(x))
+        return abs(fixval(x)) % k;
+    if (charp(x))
+        return charval(x) % k;
+    if (stringp(x))
+        return hash(string(x), k);
+    return 0;
+}
+
+int match(cell a, cell b) {
+    int k;
+
+    if (a == b) {
+        return 1;
+    }
+    if (fixp(a) && fixp(b)) {
+        return fixval(a) == fixval(b);
+    }
+    if (charp(a) && charp(b)) {
+        return charval(a) == charval(b);
+    }
+    if (symbolp(a) && symbolp(b)) {
+        k = symlen(a);
+        if (symlen(b) != k) return 0;
+        return memcmp(symname(a), symname(b), k) == 0;
+    }
+    if (stringp(a) && stringp(b)) {
+        k = stringlen(a);
+        if (stringlen(b) != k) return 0;
+        return memcmp(string(a), string(b), k) == 0;
+    }
+    return 0;
+}
+
+void htgrow(cell d) {
+    int  nk, i, h, k;
+    cell nd, e, n;
+
+    k = htlen(d);
+    nk = 1 + htlen(d);
+    nd = mkht(nk);
+    protect(nd);
+    nk = htlen(nd);
+    for (i = 0; i < k; i++) {
+        for (e = htslots(d)[i]; e != NIL; e = cdr(e)) {
+            h = obhash(caar(e), nk);
+            n = cons(car(e), htslots(nd)[h]);
+            htslots(nd)[h] = n;
+        }
+    }
+    htdata(d) = htdata(nd);
+    unprot(1);
+}
+
+int htlookup(cell d, cell k) {
+    cell x;
+    int  h;
+
+    h = obhash(k, htlen(d));
+    x = htslots(d)[h];
+    while (x != NIL) {
+        if (match(caar(x), k)) return car(x);
+        x = cdr(x);
+    }
+    return UNDEF;
+}
+
+void htadd(cell d, cell k, cell v) {
+    cell e;
+    int  h;
+
+    Tmp = k;
+    protect(v);
+    protect(k);
+    Tmp = NIL;
+    if (htelts(d) >= htlen(d))
+        htgrow(d);
+    h = obhash(k, htlen(d));
+    e = cons(k, v);
+    e = cons(e, htslots(d)[h]);
+    htslots(d)[h] = e;
+    htelts(d)++;
+    unprot(2);
+}
+
+cell htrem(cell d, cell k) {
+    cell *x, *v;
+    int h;
+
+    h = obhash(k, htlen(d));
+    v = htslots(d);
+    x = &v[h];
+    while (*x != NIL) {
+        if (match(caar(*x), k)) {
+            *x = cdr(*x);
+            htelts(d)--;
+            break;
+        }
+        x = &cdr(*x);
+    }
+    return d;
+}
+
+/* The symbol table (SYMTAB) of a LSIP system is a collection of symbol
+ * atoms known to the system
+ */
 
 int main() { return 0; }
