@@ -1695,4 +1695,75 @@ cell symref(char *s) {
 
 /* 9. Some Useful List Functions */
 
+/* (do ((n n (cdr n))
+ *      (m m (cons (car n) m)))
+ *     ((null n) m))
+ * the following is the translation of this recursive algorithm
+ */
+
+/**
+ * reconc reverse its first argument n, and concatenates it to the
+ * second argument m.
+ */
+cell reconc(cell n, cell m) {
+    while (n != NIL) {
+        if (atomp(n))
+            error("reconc: dotted list", n);
+        m = cons(car(n), m);
+        n = cdr(n);
+    }
+    return m;
+}
+
+#define reverse(n) reconc((n), NIL)
+
+/**
+ * nreconc is the destructive version of reconc that mutates the first
+ * list n.
+ */
+cell nreconc(cell n, cell m) {
+    cell h;
+
+    while (n != NIL) {
+        if (atomp(n))
+            error("nreconc: dotted list", n);
+        h = cdr(n);
+        cdr(n) = m;
+        m = n;
+        n = h;
+    }
+    return m;
+}
+
+#define nreverse(n) nreconc((n), NIL)
+
+
+/* Why don't we define it as (reconc (reverse a) b) */
+cell conc(cell a, cell b) {
+    cell n;
+
+    a = reverse(a);
+    protect(a);
+    /* At htis point shouldn't we just call reconc */
+    n = b;
+    while (a != NIL) {
+        n = cons(car(a), n);
+        a = cdr(a);
+    }
+    unprot(1);
+    return n;
+}
+
+cell nconc(cell a, cell b) {
+    cell n;
+
+    n = a;
+    if (NIL == a)
+        return b;
+    while (cdr(a) != NIL)
+        a = cdr(a);
+    cdr(a) = b;
+    return n;
+}
+
 int main() { return 0; }
