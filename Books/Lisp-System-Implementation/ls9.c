@@ -1596,7 +1596,103 @@ cell htrem(cell d, cell k) {
 }
 
 /* The symbol table (SYMTAB) of a LSIP system is a collection of symbol
- * atoms known to the system
+ * atoms known to the system. The primary function of the symbol table
+ * is to provide symbol identity. So all things read by the reader
+ * gives us the same symbol
+ *
+ * It looks a little something like
+ *    Symhash             Symbols
+ * ------------           ------
+ * | (foo . 5) |\       0 |  …  |
+ * |     …     | \      1 |  …  |
+ * | (bar . 2) | —————→ 2 | bar |
+ * |     …     |   \  → 3 | baz |
+ * | (baz . 3) | ————/  4 |  …  |
+ * |     …     |    \—→ 5 | foo |
+ * ------------           ------
+ *
+ * Also useful for error reporting as symbols themselves will be lost
+ * during compilation but symbol table slot numbers are carried
+ * through.
  */
+
+cell Symhash = NIL;
+cell Symbols = NIL;
+
+/** Symptr points to the next free slot in the Symbols vector */
+cell Symptr = 0;
+
+/**
+ * mksym returns a new symbol, but does not intern it! Thus the symbol
+ * is not unique nor unambiguous. Only gensym creates uninterned
+ * symbols
+ */
+cell mksym(char *s, int k) {
+    cell n;
+    n = newvec(T_SYMBOL, k + 1);
+    strcpy((char *) symname(n), s);
+    return n;
+}
+
+
+/**
+ * findsym function looks up the symbol name s in the symbols table.
+ * If such a symbol exists it returns the unique atom representing the
+ * atom. Otherwise NIL is returned
+ */
+cell findsym(char *s) {
+    cell y;
+    y = mksym(s, strlen(s));
+    y = htlookup(Symhash, y);
+    if (y != UNDEF)
+        return car (y);
+    return NIL;
+}
+
+/**
+ * intern, interns the symbol y by adding it both to the hash table
+ * Symhash and the vector Symbols. It returns the interned symbol.
+ * When the next free slot (Symptr) is outside of Symbols vector, the
+ * function will extend the vector by CHUNKSIZE elements. Elements are
+ * copied as the vector pool can't grow.
+ */
+
+cell intern(cell y) {
+    cell n, *vn, *vs;
+    int  i, k;
+
+    protect(y);
+    htadd(Symhash, y, mkfix(Symptr));
+    unprot(1);
+    k = veclen(Symbols);
+    if (Symptr >= k) {
+        n  = mkvec(k + CHUNKSIZE);
+        vs = vector(Symbols);
+        vn = vector(n);
+        for (i = 0; i < k; i++)
+            vn[i] = vs[i];
+        Symbols = n;
+    }
+    vector(Symbols)[Symptr] = y;
+    Symptr++;
+    return y;
+}
+
+/**
+ * symref function returns a reference to an interned symbol with the
+ * name s. The symbol may not exist and may or may not be interened
+ * when symref is called
+ */
+cell symref(char *s) {
+    cell y, new;
+
+    y = findsym(s);
+    if (y != NIL)
+        return y;
+    new = mksym(s, strlen(s));
+    return intern(new);
+}
+
+/* 9. Some Useful List Functions */
 
 int main() { return 0; }
