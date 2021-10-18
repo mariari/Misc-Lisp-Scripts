@@ -2547,4 +2547,215 @@ void print(cell x) { prin(x); nl(); }
 
 /* 14. The Compiler */
 
+/*
+ *     ------------------------
+ *     |    Lisp Program      |
+ *     ------------------------
+ *              |
+ *     ------------------------
+ *     |       Reader         |
+ *     ------------------------
+ *              |
+ *     ------------------------
+ *     |     Syntax Tree      |
+ *     ------------------------
+ *              |
+ * -------------------------------
+ * |  ------------------------   |
+ * |  |    Syntax Analysis    |  |
+ * |  ------------------------   |
+ * |           |                 |
+ * |  ------------------------   |
+ * |  |   Closure Conversion  |  |
+ * |  ------------------------   |
+ * |           |                 |
+ * |  ------------------------   |
+ * |  |      Syntax Tree      |  |
+ * |  ------------------------   |
+ * |           |                 |
+ * |  ------------------------   |
+ * |  |     Code Generation   |  |
+ * |  ------------------------   |
+ * |       THE COMPILER          |
+ * -------------------------------
+ *              |
+ *     -------------------------
+ *     |    Bytecode Program   |
+ *     -------------------------
+ */
+
+/* We will be generating abstract machine code that will be interpreted
+ * by the abstract machine
+ *
+ * Since read has no idea about valid forms we preform analysis to
+ * make sure it's correct first
+ */
+
+/* 14.1 Syntax analysis */
+
+int length(cell n) {
+    int k;
+    for (k = 0; n != NIL; n = cdr(n))
+        k++;
+    return k;
+}
+
+/**
+ * ckargs makes sure that the special form x has at least min and at
+ * most max arguments. when max < 0, it signals no max arguments.
+ */
+void ckargs(cell x, int min, int max) {
+    int k;
+    char buf[100];
+
+    k = length(x)-1;
+    if (k < min || (k > max && max >= 0)) {
+        sprintf(buf, "%s: wrong number of arguments",
+                symname(car(x)));
+        error(buf, x);
+    }
+}
+
+/* Seems the entire comment infrastructure is gone now */
+
+int syncheck(cell x, int top);
+
+/**
+ * ckseq function performs syntax analysis on each element of the list
+ * x. the top argument indicates that syntax checking is currently
+ * being applied to a a form that appears at the top level of a
+ * program.
+ */
+int ckseq(cell x, int top) {
+    for (; pairp(x); x = cdr(x))
+        syncheck(car(x), top);
+    return 0;
+}
+
+/**
+ * ckapply makes sure that apply has at least two arguments.
+ */
+
+int ckapply(cell x) {
+    ckargs(x, 2, -1);
+    return 0;
+}
+
+int ckdef(cell x, int top) {
+    ckargs(x, 2, 2);
+    if (!symbolp(cadr(x)))
+        error("def: expected symbol", cadr(x));
+    if (!top) error("def: must be at top level", x);
+    return syncheck(caddr(x), 0);
+}
+
+int ckif(cell x) {
+    ckargs(x, 2, 3);
+    return ckseq(cdr(x), 0);
+}
+
+int ckifstar(cell x) {
+    ckargs(x, 2, 2);
+    return ckseq(cdr(x), 0);
+}
+
+int symlistp(cell x) {
+    cell p;
+
+    for (p = x; pairp(p); p = cdr(p)) {
+        if (!symbolp(car(p)))
+            return 0;
+    }
+    return symbolp(p) || NIL == p;
+}
+
+int memq(cell x, cell a) {
+    for (; a != NIL; a = cdr(a))
+        if (car(a) == x)
+            return a;
+    return NIL;
+}
+
+int uniqlistp(cell x) {
+    if (NIL == x)
+        return 1;
+    while (cdr(x) != NIL) {
+        if (memq(car(x), cdr(x)) != NIL)
+            return 0;
+        x = cdr(x);
+    }
+    return 1;
+}
+
+cell flatargs(cell a) {
+    cell n;
+
+    protect(n = NIL);
+    while (pairp(a)) {
+        n = cons(car(a), n);
+        car(Protected) = n;
+        a = cdr(a);
+    }
+    if (a != NIL) n = cons(a, n);
+    unprot(1);
+    return nreverse(n);
+}
+
+int cklambda(cell x) {
+    ckargs(x, 2, -1);
+    if (!symlistp(cadr(x)))
+        error("lambda: invalid formals", cadr(x));
+    if (!uniqlistp(flatargs(cadr(x))))
+        error("lambda: duplicate formal", cadr(x));
+    return ckseq(cddr(x), 0);
+}
+
+int ckmacro(cell x, int top) {
+    ckargs(x, 2, 2);
+    if (!symbolp(cadr(x)))
+        error("macro: expected symbol", cadr(x));
+    if (!top) error("macro: must be at top level", x);
+    return syncheck(caddr(x), 0);
+}
+
+int ckprog(cell x, int top) {
+    return ckseq(cdr(x), top);
+}
+
+int ckquote(cell x) {
+    ckargs(x, 1, 1);
+    return 0;
+}
+
+int cksetq(cell x) {
+    ckargs(x, 2, 2);
+    if (!symbolp(cadr(x)))
+        error("setq: expected symbol", cadr(x));
+    return ckseq(cddr(x), 0);
+}
+
+int syncheck(cell x, int top) {
+    cell p;
+
+    if (atomp(x)) return 0;
+    for (p = x; pairp(p); p = cdr(p))
+        ;
+    if (p != NIL)
+        error("dotted list in program", x);
+
+    if (car(x) == S_apply)  return ckapply(x);
+    if (car(x) == S_def)    return ckdef(x, top);
+    if (car(x) == S_if)     return ckif(x);
+    if (car(x) == S_ifstar) return ckifstar(x);
+    if (car(x) == S_lambda) return cklambda(x);
+    if (car(x) == S_macro)  return ckmacro(x, top);
+    if (car(x) == S_prog)   return ckprog(x, top);
+    if (car(x) == S_quote)  return ckquote(x);
+    if (car(x) == S_setq)   return cksetq(x);
+
+    return ckseq(x, top);
+}
+
+/* 14.2 Closure Conversion */
+
 int main() { return 0; }
