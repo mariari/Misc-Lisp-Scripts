@@ -1873,5 +1873,61 @@ int unlock_port(int port) {
     return 0;
 }
 
+/* 11. The Global Environment */
+
+/* The LISP9 System has two global environments that bind symbolic
+ * names to locations. One is the deep binding environment, which new
+ * bindings will be made and C functions will lookup values.
+ *
+ * The other is a shallow-binding environment which is used by
+ * compiled programs to lookup and modify values of variables
+ *
+ * Deep binding environments are an assoc-list that associates symbols
+ * with boxes. We get O(n) lookup but this is fine as it's in non
+ * critical spots.
+ *
+ * The run time environment, which is the shallow-binding with
+ * constant time access will be introduced later this chapter.
+ */
+
+cell Glob = NIL;
+
+/**
+ * bindnew creates a new variable by binding symbol v to a box
+ * containing the value a. It adds the new value in the head of Glob.
+ */
+
+void bindnew(cell v, cell a) {
+    cell n;
+    n = cons(a, NIL);
+    n = cons(v, n);
+    Glob = cons(n, Glob);
+}
+
+/**
+ * assq is almost equal to the scheme variant of the same name. It
+ * looks up an association with the key x in the assoc list a and
+ * returns it. If no such assoc exists it returns NIL. assq assumes
+ * that a is a proper association list.
+ */
+int assq(int x, cell a) {
+    for (; a != NIL; a = cdr(a))
+        if (caar(a) == x)
+            return car(a);
+    return NIL;
+}
+
+/** bindset stores the value a in the box associated with the symbol v
+ * in the deep-binding global environment. When no matching exists the
+ * function does nothing.
+ */
+void bindset(cell v, cell a) {
+    cell b = assq(v,Glob);
+    if (b != NIL)
+        cadr(b) = a;
+}
+
+/* 12. The Reader */
+
 
 int main() { return 0; }
