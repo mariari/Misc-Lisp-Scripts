@@ -1783,7 +1783,7 @@ int newport(void) {
         if (0 == n)
             gc();
     }
-    return -1
+    return -1;
 }
 
 /**
@@ -1928,6 +1928,437 @@ void bindset(cell v, cell a) {
 }
 
 /* 12. The Reader */
+
+/* S_apply  is bound to the symbol apply */
+
+/* This will be a normal recursive descent parser */
+
+/* Predefined symbols */
+cell S_apply, S_def, S_defmac, S_defun, S_errtag,
+    S_errval, S_if, S_ifstar, S_imagefile, S_labels, S_lambda,
+    S_macro, S_prog, S_quiet, S_quote, S_qquote, S_starstar,
+    S_splice, S_setq, S_start, S_unquote;
+
+
+/* These are the primitive functions in that they are predefined in C */
+cell P_abs, P_alphac, P_atom, P_bitop, P_caar, P_cadr, P_car,
+    P_catchstar, P_cdar, P_cddr, P_cdr, P_cequal, P_cgrtr, P_cgteq,
+    P_char, P_charp, P_charval, P_cless, P_close_port, P_clteq,
+    P_cmdline, P_conc, P_cons, P_constp, P_ctagp, P_delete, P_div,
+    P_downcase, P_dump_image, P_eofp, P_eq, P_equal, P_gc, P_error,
+    P_errport, P_eval, P_existsp, P_fixp, P_flush, P_format, P_funp,
+    P_gensym, P_grtr, P_gteq, P_inport, P_inportp, P_less,
+    P_liststr, P_listvec, P_load, P_lowerc, P_lteq, P_max, P_min,
+    P_minus, P_mkstr, P_mkvec, P_mx, P_mx1, P_nconc, P_nreconc,
+    P_not, P_null, P_numeric, P_numstr, P_obtab, P_open_infile,
+    P_open_outfile, P_outport, P_outportp, P_pair, P_peekc, P_plus,
+    P_prin, P_princ, P_quit, P_read, P_readc, P_reconc, P_rem,
+    P_rename, P_sconc, P_sequal, P_set_inport, P_set_outport,
+    P_setcar, P_setcdr, P_sfill, P_sgrtr, P_sgteq, P_siequal,
+    P_sigrtr, P_sigteq, P_siless, P_silteq, P_sless, P_slteq,
+    P_sref, P_sset, P_ssize, P_stringp, P_strlist, P_strnum,
+    P_substr, P_subvec, P_symbol, P_symbolp, P_symname, P_symtab,
+    P_syscmd, P_throwstar, P_times, P_untag, P_upcase, P_upperc,
+    P_veclist, P_vconc, P_vectorp, P_vfill, P_vref, P_vset, P_vsize,
+    P_whitec, P_writec;
+
+/* Used to denote canceling input */
+volatile int Intr;
+
+int Inlist = 0;
+int Quoting = 0;
+
+#define octalp(c) \
+    ('0' == (c) || '1' == (c) || '2' == (c) || '3' == (c) ||    \
+     '4' == (c) || '5' == (c) || '6' == (c) || '7' == (c))
+
+int octchar(char *s) {
+    int	v = 0;
+
+    if (!octalp(*s))
+        return -1;
+    while (octalp(*s)) {
+        v = 8*v + *s - '0';
+        s++;
+    }
+    return (*s || v > 255)? -1: v;
+}
+
+#define symbolic(c) \
+    (isalpha(c) || isdigit(c) || (c && strchr("!$%^&*-/_+=~.?<>:", c)))
+
+#define LP '('
+#define RP ')'
+
+int strcmp_ci(char *s1, char *s2) {
+    int c1, c2;
+
+    while (1) {
+        c1 = tolower((int) *s1++);
+        c2 = tolower((int) *s2++);
+        if (!c1 || !c2 || c1 != c2)
+            break;
+    }
+    return c1-c2;
+}
+
+char *Readerr = NULL;
+
+void rderror(char *s, cell x) {
+    if (NULL == Instr)
+        error(s, x);
+    Readerr = s;
+}
+
+cell rdchar(void) {
+    char name[TOKLEN+1];
+    int i, c, v;
+
+    c = readc();
+    name[0] = c;
+    c = readc();
+    for (i=1; i<TOKLEN; i++) {
+        if (Intr || Readerr)
+            return NIL;
+        if (!isalpha(c) && !isdigit(c))
+            break;
+        name[i] = c;
+        c = readc();
+    }
+    name[i] = 0;
+    rejectc(c);
+    if (TOKLEN == i)
+        rderror("char name too long",
+                mkstr(name, strlen(name)));
+    if (!strcmp_ci(name, "ht")) return mkchar(9);
+    if (!strcmp_ci(name, "nl")) return mkchar(10);
+    if (!strcmp_ci(name, "sp")) return mkchar(' ');
+    v = octchar(&name[1]);
+    if ('\\' == *name && v >= 0) return mkchar(v);
+    if (i != 1) rderror("bad character name",
+                       mkstr(name, strlen(name)));
+    return mkchar(name[0]);
+}
+
+cell xread2(void);
+
+cell rdlist(void) {
+    cell n, a, p;
+    cell new;
+    static char badpair[] = "malformed pair";
+
+    Inlist++;
+    n = xread2();
+    if (RPAREN == n) {
+        Inlist--;
+        return NIL;
+    }
+    p = NIL;
+    a = cons3(n, NIL, CONST_TAG);
+    protect(a);
+    while (n != RPAREN) {
+        if (Intr || Readerr) {
+            unprot(1);
+            return NIL;
+        }
+        if (EOFMARK == n)  {
+            unprot(1);
+            rderror("missing ')'", UNDEF);
+            return NIL;
+        }
+        else if (DOT == n) {
+            if (NIL == p) {
+                unprot(1);
+                rderror(badpair, UNDEF);
+                return NIL;
+            }
+            n = xread2();
+            cdr(p) = n;
+            if (RPAREN == n || xread2() != RPAREN) {
+                unprot(1);
+                rderror(badpair, UNDEF);
+                return NIL;
+            }
+            Inlist--;
+            return unprot(1);
+        }
+        car(a) = n;
+        p = a;
+        n = xread2();
+        if (n != RPAREN) {
+            Tmp = n;
+            new = cons3(NIL, NIL, CONST_TAG);
+            Tmp = NIL;
+            cdr(a) = new;
+            a = cdr(a);
+        }
+    }
+    Inlist--;
+    return unprot(1);
+}
+
+cell listvec(cell x, int veclit);
+
+cell rdvec(void) {
+    return listvec(rdlist(), 1);
+}
+
+int pos(int p, char *s) {
+    int i;
+
+    i = 0;
+    for (; *s; s++) {
+        if (p == *s)
+            return i;
+        i++;
+    }
+    return -1;
+}
+
+cell scanfix(char *s, int r, int of) {
+    int v, g, i;
+    char *p;
+    char d[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+
+    g = 1;
+    p = s;
+    if ('+' == *p) {
+        p++;
+    }
+    else if ('-' == *p) {
+        p++;
+        g = -1;
+    }
+    v = 0;
+    while (*p) {
+        i = pos(tolower(*p), d);
+        if (i < 0 || i >= r) return NIL;
+        if (	v > INT_MAX/r ||
+                (v > 0 && add_ovfl(v*r, i)) ||
+                (v < 0 && sub_ovfl(v*r, i)))
+            {
+                if (!of) return NIL;
+                rderror("fixnum too big", mkstr(s, strlen(s)));
+            }
+        else if (v < 0)
+            v = v*r - i;
+        else
+            v = v*r + i;
+        p++;
+        if (g) v *= g;
+        g = 0;
+    }
+    if (g) return NIL;
+    return mkfix(v);
+}
+
+cell rdsymfix(int c, int r, int sym) {
+    char name[TOKLEN+1];
+    int i;
+    cell n;
+
+    for (i=0; i<TOKLEN; i++) {
+        if (!symbolic(c))
+            break;
+        name[i] = tolower(c);
+        c = readc();
+    }
+    name[i] = 0;
+    rejectc(c);
+    if (TOKLEN == i) rderror("symbol or fixnum too long",
+                            mkstr(name, strlen(name)));
+    n = scanfix(name, r, 1);
+    if (n != NIL) return n;
+    if (!sym) rderror("invalid digits after #radixR",
+                      mkstr(name, strlen(name)));
+    if ('t' == name[0] && 0 == name[1])
+        return TRUE;
+    if (!strcmp(name, "nil"))
+        return NIL;
+    return symref(name);
+}
+
+cell rdfix(int c) {
+    int r;
+
+    r = 0;
+    while (isdigit(c)) {
+        r = r*10 + c - '0';
+        c = readc();
+    }
+    if (c != 'r') rderror("'R' expected after #radix", UNDEF);
+    if (r < 2 || r > 36) rderror("bad radix in #radixR", mkfix(r));
+    c = readc();
+    return rdsymfix(c, r, 0);
+}
+
+cell rdstr(void) {
+    char name[TOKLEN+1];
+    int i, j, c, u, v;
+    cell n;
+
+    c = readc();
+    u = 0;
+    for (i=0; i<TOKLEN; i++) {
+        if (Intr || Readerr) return NIL;
+        if ('"' == c) break;
+        if ('\n' == c) Line++;
+        if (EOF == c) rderror("EOF in string", UNDEF);
+        if ('\\' == c) {
+            c = readc();
+            if ('\\' == c || '"' == c) {
+                /**/
+            }
+            else if ('t' == c) {
+                c = '\t';
+            }
+            else if ('n' == c) {
+                c = '\n';
+            }
+            else if (octalp(c)) {
+                v = 0;
+                j = 0;
+                while (j < 3 && octalp(c)) {
+                    v = v * 8 + c-'0';
+                    c = readc();
+                    j++;
+                }
+                rejectc(c);
+                if (v > 255) rderror("invalid char", mkfix(v));
+                c = v;
+            }
+            else if (0 == u) {
+                u = c;
+            }
+        }
+        name[i] = c;
+        c = readc();
+    }
+    name[i] = 0;
+    if (u) rderror("unknown slash sequence", mkchar(u));
+    if (i >= TOKLEN) rderror("string too long", mkstr(name, i));
+    if (u) return NIL;
+    n = mkstr(name, i);
+    tag(n) |= CONST_TAG;
+    return n;
+}
+
+cell rdquote(cell q) {
+    cell n;
+
+    Quoting++;
+    n = xread2();
+    Quoting--;
+    return cons(q, cons(n, NIL));
+}
+
+cell meta(void) {
+    int c, cmd, i;
+    cell n, cmdsym;
+    char s[128];
+
+    cmd = tolower(readc());
+    c = readc();
+    while (' ' == c) c = readc();
+    i = 0;
+    while (c != '\n' && c != EOF) {
+        if (i < sizeof(s) - 6)
+            s[i++] = c;
+        c = readc();
+    }
+    rejectc(c);
+    s[i] = 0;
+    if ('l' == cmd) strcat(s, ".ls9");
+    n = mkstr(s, strlen(s));
+    n = 0 == i? NIL: cons(n, NIL);
+    protect(n);
+    switch (cmd) {
+    case 'c':	cmdsym = symref("syscmd"); break;
+    case 'h':	cmdsym = symref("help"); break;
+    case 'l':	cmdsym = P_load; break;
+    default: 	prints(",c = syscmd"); nl();
+        prints(",h = help"); nl();
+        prints(",l = load"); nl();
+        return NIL;
+    }
+    unprot(1);
+    return cons(cmdsym, n);
+}
+
+/* Comment is missing, but interesting to have comments as expression. */
+
+cell xread2(void) {
+    int	c;
+
+    c = readc();
+    while (1) {
+        while (' ' == c || '\t' == c || '\n' == c || '\r' == c) {
+            if (Intr || Readerr) return NIL;
+            if ('\n' == c) Line++;
+            c = readc();
+        }
+        if (c != ';') break;
+        while (c != '\n' && c != EOF)
+            c = readc();
+    }
+    if (Intr || Readerr) return NIL;
+    if (EOF == c) {
+        return EOFMARK;
+    }
+    else if ('#' == c) {
+        c = readc();
+        if ('\\' == c) return rdchar();
+        else if (LP == c) return rdvec();
+        else if (isdigit(c)) return rdfix(c);
+        else rderror("bad # syntax", mkchar(c));
+    }
+    else if ('"' == c) {
+        return rdstr();
+    }
+    else if (LP == c) {
+        return rdlist();
+    }
+    else if (RP == c) {
+        if (!Inlist) rderror("unexpected ')'", UNDEF);
+        return RPAREN;
+    }
+    else if ('\'' == c) {
+        return rdquote(S_quote);
+    }
+    else if ('`' == c || '@' == c) {
+        return rdquote(S_qquote);
+    }
+    else if (',' == c) {
+        if (!Inlist && !Quoting) return meta();
+        c = readc();
+        if ('@' == c) return rdquote(S_splice);
+        rejectc(c);
+        return rdquote(S_unquote);
+    }
+    else if ('.' == c) {
+        if (!Inlist) rderror("unexpected '.'", UNDEF);
+        return DOT;
+    }
+    else if (symbolic(c)) {
+        return rdsymfix(c, 10, 1);
+    }
+    else {
+        rderror("funny input character, code", mkfix(c));
+    }
+    return NIL;
+}
+
+cell xread(void) {
+    cell x;
+
+    Inlist = 0;
+    Quoting = 0;
+    Readerr = NULL;
+    x = xread2();
+    if (Intr) error("aborted", UNDEF);
+    return x;
+}
+
 
 
 int main() { return 0; }
