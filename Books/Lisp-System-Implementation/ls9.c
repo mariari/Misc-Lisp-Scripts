@@ -2359,6 +2359,192 @@ cell xread(void) {
     return x;
 }
 
+/* 13. The Printer */
 
+/* The Printer is the counterpart to the reader.  Not all lisp objects
+ * have an external representation. Though it will try even if it
+ * doesn't make sense to read.
+ */
+
+char *ntoa(int x, int r) {
+    static char buf[200];
+    int  i = 0, neg;
+    char *p = &buf[sizeof(buf)-1];
+    char d[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+
+    neg = x<0;
+    *p = 0;
+    while (x || 0 == i) {
+        i++;
+        p--;
+        *p = d[abs(x % r)];
+        x = x / r;
+    }
+    if (neg) {
+        p--;
+        *p = '-';
+    }
+    return p;
+}
+
+void prchar(int sl, cell x) {
+    if (sl) {
+        prints("#\\");
+        if (9 == charval(x)) prints("ht");
+        else if (10 == charval(x)) prints("nl");
+        else if (' ' == charval(x)) prints("sp");
+        else if (charval(x) < 32 || charval(x) > 126) {
+            prints("\\");
+            prints(ntoa(fixval(x), 8));
+        }
+        else writec(charval(x));
+    }
+    else {
+        writec(charval(x));
+    }
+}
+
+void prfix(cell x) {
+    prints(ntoa(fixval(x), 10));
+}
+
+void prstr(int sl, cell x) {
+    int i, c;
+
+    if (sl) {
+        writec('"');
+        for (i=0; i<stringlen(x)-1; i++) {
+            c = (byte) string(x)[i];
+            if ('"' == c)
+                prints("\\\"");
+            else if ('\\' == c)
+                prints("\\\\");
+            else if (10 == c)
+                prints("\\n");
+            else if (c < ' ' || c > 126) {
+                writec('\\');
+                if (octalp(string(x)[i+1])) {
+                    if (c < 100) writec('0');
+                    if (c < 10) writec('0');
+                }
+                prints(ntoa(c, 8));
+            }
+            else
+                writec(c);
+        }
+        writec('"');
+    }
+    else {
+        printb(string(x));
+    }
+}
+
+void prex(int sl, cell x, int d);
+
+void prlist(int sl, cell x, int d) {
+    writec(LP);
+    while (x != NIL && Plimit != 1) {
+        prex(sl, car(x), d+1);
+        x = cdr(x);
+        if (x != NIL) {
+            writec(' ');
+            if (atomp(x)) {
+                prints(". ");
+                prex(sl, x, d+1);
+                break;
+            }
+        }
+    }
+    writec(RP);
+}
+
+void prvec(int sl, cell x, int d) {
+    int i;
+
+    prints("#(");
+    for (i=0; i<veclen(x); i++) {
+        prex(sl, vector(x)[i], d+1);
+        if (i < veclen(x)-1) writec(' ');
+    }
+    writec(')');
+}
+
+void prport(int out, cell x) {
+    prints("#<");
+    prints(out? "out": "in");
+    prints("port ");
+    prints(ntoa(portno(x), 10));
+    prints(">");
+}
+
+void pruspec(cell x) {
+    prints("#<special object ");
+    prints(ntoa(x, 10));
+    prints(">");
+}
+
+void pruatom(cell x) {
+    prints("#<atom ");
+    prints(ntoa(car(x), 10));
+    prints(">");
+}
+
+#define quoted(x, q) \
+    (car(x) == (q) && cdr(x) != NIL && NIL == cddr(x))
+
+void prquote(int sl, cell x, int d) {
+    if (car(x) == S_quote) writec('\'');
+    else if (car(x) == S_qquote) writec('@');
+    else if (car(x) == S_unquote) writec(',');
+    else if (car(x) == S_splice) prints(",@");
+    prex(sl, cadr(x), d);
+}
+
+void prex(int sl, cell x, int d) {
+    if (d > PRDEPTH) {
+        prints("\n");
+        error("prin: nesting too deep", UNDEF);
+    }
+    if (Intr) {
+        Intr = 0;
+        error("interrupted", UNDEF);
+    }
+    if (NIL == x) prints("nil");
+    else if (TRUE == x) prints("t");
+    else if (EOFMARK == x) prints("#<eof>");
+    else if (UNDEF == x) prints("#<undef>");
+    else if (charp(x)) prchar(sl, x);
+    else if (fixp(x)) prfix(x);
+    else if (symbolp(x)) printb(symname(x));
+    else if (stringp(x)) prstr(sl, x);
+    else if (vectorp(x)) prvec(sl, x, d);
+    else if (closurep(x)) prints("#<function>");
+    else if (ctagp(x)) prints("#<catch tag>");
+    else if (inportp(x)) prport(0, x);
+    else if (outportp(x)) prport(1, x);
+    else if (specialp(x)) pruspec(x);
+    else if (atomp(x)) pruatom(x);
+    else if (quoted(x, S_quote)) prquote(sl, x, d);
+    else if (quoted(x, S_qquote)) prquote(sl, x, d);
+    else if (quoted(x, S_unquote)) prquote(sl, x, d);
+    else if (quoted(x, S_splice)) prquote(sl, x, d);
+    else prlist(sl, x, d);
+}
+
+void xprint(int sl, cell x) {
+    prex(sl, x, 0);
+    if (1 == Plimit) {
+        Plimit = 0;
+        prints("...");
+    }
+}
+
+void prin(cell x) { xprint(1, x); }
+
+void princ(cell x) { xprint(0, x); }
+
+void print(cell x) { prin(x); nl(); }
+
+/* 14. The Compiler */
 
 int main() { return 0; }
