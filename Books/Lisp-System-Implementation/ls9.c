@@ -1193,7 +1193,7 @@ void unmark_vecs(void) {
  * Since the data moves, nodes will have to update so it points to the
  * new address.
  *
- * After compacting hte pool, Freevec will point at the cell right
+ * After compacting the pool, Freevec will point at the cell right
  * after collected data.
  */
 
@@ -1262,7 +1262,7 @@ cell newvec(cell type, int size) {
 /* 7.6 GC Protection */
 
 /* When allocating complex structure of multiple nodes we often need to
- * protect a node while allocating different parts of hte structure
+ * protect a node while allocating different parts of the structure
  *
  * (cons (cons a b) (cons c d))
  *
@@ -2756,6 +2756,181 @@ int syncheck(cell x, int top) {
     return ckseq(x, top);
 }
 
+/* I feel like an ADT would make the above code pointless, if for some
+ * special forms, we bake in that it's correct size wise.
+ */
+
 /* 14.2 Closure Conversion */
+
+/* Good old closure!
+ * (defun (complement p)
+ *   (lambda (x) (not (p x))))
+ *
+ * As we know after we call complement the p is gone, but the lambda
+ * must remember the scope of it.
+ */
+
+/* In programming languages without closures, a function is merely an
+ * address in memory. Application of the function is performed by
+ * temporary transferring control to that address. It works the same
+ * in LISP but in addition the bindings that were in effect must
+ * continue to have such when the function is applied.
+ *
+ * The task of closure conversion is basically to replace all
+ * references to free variables in the function by references to a
+ * local environment that will be part of the data object representing
+ * a function. We will think of it like
+ *
+ * (lambda (z)
+ *  (z x y))
+ *   |
+ *   |
+ * (%closure (z)
+ *   #(<binding of x>
+ *     <binding of y>)
+ *  (z (%ref 0) (%ref 1)))
+ *
+ * given a vector v, (%ref n) becomes (vref v n)
+ *
+ * We must fill this vector at runtime
+ */
+
+/* 14.2.1 Building an Environment */
+
+/* If we look at
+ * (lambda (y) (lambda (z) (z x y)))
+ * x is free in the IOF (Immediate outer function).
+ * thus we can't in general replace the closure values right
+ * away. Thus it's important to have another step that replace bound
+ * variables in the closure as well
+ */
+
+/*
+ * (lambda (z)
+ *   (z x y))
+ *    |
+ *    |
+ * (%closure (z)
+ *   #(<binding of x>
+ *     <binding of y>)
+ *  ((%arg 0)   ; z
+ *   (%ref 0)   ; x
+ *   (%ref 1))) ; y
+ *
+ * the expression of the form (%arg n) now references the nth argument
+ * of the closure.
+ *
+ * Now that all variables can be identified using numeric indices, the
+ * compiler can build the initialization map or initmap of the
+ * closure. This map specifies a source slot for each binding of a
+ * free variable as well as its destination slot in the new local
+ * environment. It also specifies the type of slot from which the
+ * binding will be fetched:
+ * - Either from the environment (e)
+ * - Or from an argument slot (a) on the runtime stack
+ *
+ * Given that
+ * - the binding of x is in the environment slot 0 of the IOF
+ * - the binding of y is in argument slot 0 of the IOF
+ * the Init map would look like
+ * ((e 0 0)  ; env slot 0 --> slot 0
+ *  (a 0 1)) ; arg slot 0 --> slot 1
+ *
+ * Meaning that when (lambda (z) (z x y)) is being created,
+ *
+ * the first slot of it's local environment is populated from slot 0
+ * of the environment of the IOF.
+ *
+ * The second slot, slot 1, is being populated from argument 0 of the
+ * IOF
+ *
+ * (lambda (z)
+ *   (z x y))
+ *      |
+ *      |
+ * (%closure (z)
+ *   ((e 0 0) (a 0 1))
+ *   ((%arg 0) (%ref 0)
+ *             (%ref 1)))
+ *
+ * Now our closure is completely free of symbols and all references to
+ * values of variables are done via shallow bindings. Thus all lookups
+ * are O(1). Further the local environment itself has been replaced by
+ * instructions in the initmap that specify how to create the
+ * environment at run time.
+ *
+ * Because there are no symbolic references in the body of the
+ * closure, it can be translated to bytecode for an abstract. The
+ * Closure can be applied by making its local env the current env and
+ * transfer control
+ *
+ * The local envs are always being populated from the IOF:
+ *
+ * The variable x is bound in f, it shadows any variable named x in
+ * the outer. thus it's never fetched from outer.
+ *
+ * The variable that is free in f is either bound or free in the IOF
+ * of f, its binding will be fetched from the IOF.
+ *
+ * the binding of a variable that is free in both the IOF and IOF of
+ * the IOF already has been propagated from the IOF of the IOF to the
+ * IOF. Hence we just need to look at the IOF
+ *
+ * When there is no outer function it will be fetched from the top
+ * level environment
+ *
+ * For instance:
+ * (lambda (x)
+ *   (foo x x))
+ *     |
+ *     |
+ * (%closure (x)
+ *   ((e 6 0))
+ *   ((%ref 0) (arg 0)
+ *             (arg 0)))
+ *
+ * When the bindings are propagated form one env to the next they
+ * don't occupy the same slot per say.
+ *
+ * Time for big ascii diagrams
+ *
+ * (lambda (f g)       ; E1
+ *   (lambda (h)       ; E2
+ *     (f (lambda (x)  ; E3
+ *          (foo (g x) (h x))))))
+ *
+ * TOP Level                       LOCAL ENVIRONMENTS
+ * ---------
+ * | ...    |              E1               E2               E3
+ * | 5      |           ---------        --------        --------
+ * | 6 foo  | =========>| 0 foo | -   -->|0 f   |  ----> |0 foo |
+ * | 7      |           ---------  \-/-->|1 foo |-/ ---> |1 g   |
+ * ----------                   /---/  ->|2 g   |--/     |2 h   |
+ *                     ------  /  ----/  --------        --------
+ * Arguments ========> |0 f |--  /=====> --------        --------
+ *                     |1 g |----        |0 h   | ======>|0 x   |
+ *                     ------            --------        --------
+ *                     --------         ---------        --------
+ * Initmaps =========> |e 6 0 | =======>|a 0 0  | =====> |e 1 0 |
+ *                     --------         |e 0 1  |        |e 2 1 |
+ *                                      |a 1 2  |        |a 0 2 |
+ *                                      ---------        --------
+ * ---> denote show binding propagation
+ * ===> denotes changes in time
+ * Thus we get
+ * (%closure (f g)
+ *   ((e 6 0))
+ *   (%closure (h)
+ *     ((a 0 0)  ; f
+ *      (e 0 1)  ; foo
+ *      (a 1 2)) ; g
+ *     ((%ref 0) (%closure (x)
+ *                 ((e 1 0)  ; foo
+ *                  (e 2 1)  ; g
+ *                  (a 0 2)) ; h
+ *                 ((%ref 0) ((%ref 1) (%arg 0))
+ *                           ((%ref 2) (%arg 0)))))))
+ */
+
 
 int main() { return 0; }
