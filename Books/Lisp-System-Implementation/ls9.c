@@ -2900,7 +2900,7 @@ int syncheck(cell x, int top) {
  *          (foo (g x) (h x))))))
  *
  * TOP Level                       LOCAL ENVIRONMENTS
- * ---------
+ * ----------
  * | ...    |              E1               E2               E3
  * | 5      |           ---------        --------        --------
  * | 6 foo  | =========>| 0 foo | -   -->|0 f   |  ----> |0 foo |
@@ -2930,7 +2930,369 @@ int syncheck(cell x, int top) {
  *                  (a 0 2)) ; h
  *                 ((%ref 0) ((%ref 1) (%arg 0))
  *                           ((%ref 2) (%arg 0)))))))
+ *
+ * In the special of case of combinators, functions without free vars
+ * (lambda (x) x)
+ *
+ * We will at a later step convert Closures to combinators
  */
 
+/**
+ * set_union returns the union of the sets a and b.  Each set is
+ * represented by a list of unique symbols. Small lists so a list is
+ * used instead of a hash table.
+ */
+
+cell set_union(cell a, cell b) {
+    cell n;
+    a = reverse(a);
+    protect(a);
+    protect(n = b);
+    while (pairp(a)) {
+        if (memq(car(a), b) == NIL)
+            n = cons(car(a), n);
+        car(Protected) = n;
+        a = cdr(a);
+    }
+    if (a != NIL && memq(a, b) == NIL)
+        n = cons(a, n);
+    unprot(2);
+    return n;
+}
+
+/**
+ * returns true when the symbol x names a primitive function
+ */
+int subrp(cell x);
+
+/*
+ *     x            e     Result       Notes
+ * ------------------------------------------------
+ * | foo           nil    (foo)                     |
+ * | bar          (bar)    nil      bar is bound    |
+ * | (quote foo)   nil     nil                      |
+ * | (f 1 2)       nil     (f)     1,2 not symbols  |
+ * | (+ x y)       nil    (x y)    + is a primitive |
+ * | (lambda (x)   nil    (f g)    x is bound in λ  |
+ * |   (f (g x)))                                   |
+ * ------------------------------------------------
+ */
+
+/**
+ * freevars returns a list of free variables in the S-expression x
+ * given the bound variables listed in the environment e.
+ *
+ * Finding these variables are simple, but in the specific case
+ * discussed here many parts need to be considered.
+ *
+ * 1. if x is in e, it is bound. the result is NIL
+ * 2. if x is a symbol (not in e), it is free; the result is (x)
+ * 3. if x is an atom, but not a symbol, it is not a variable at all.
+ * 4. If x is an application of quote, the result is NIL.
+ *    - Quoted objects can never be free
+ * 5. if x is a comment result is NIL
+ * 6. if x is an application of apply, prog, if , if*, setq or an application prim
+ *   - the result is the union of the free vars in the cdr(x)
+ * 7. if x is an application of a def or macro, the result is the free vars in the cddr(x)
+ * 8. if x is a lambda, then the variables bound by it will be added to e
+ */
+cell freevars(cell x, cell e) {
+    cell n, u, a;
+    int lam;
+
+    lam = 0;
+    if (memq(x, e) != NIL) {
+        return NIL;
+    }
+    else if (symbolp(x)) {
+        return cons(x, NIL);
+    }
+    else if (!pairp(x)) {
+        return NIL;
+    }
+    else if (car(x) == S_quote) {
+        return NIL;
+    }
+    else if (car(x) == S_apply ||
+             car(x) == S_prog ||
+             car(x) == S_if ||
+             car(x) == S_ifstar ||
+             car(x) == S_setq
+             ) {
+        x = cdr(x);
+    }
+    else if (car(x) == S_def ||
+             car(x) == S_macro
+             ) {
+        x = cddr(x);
+    }
+    else if (subrp(car(x))) {
+        x = cdr(x);
+    }
+    else if (car(x) == S_lambda) {
+        protect(e);
+        a = flatargs(cadr(x));
+        protect(a);
+        n = set_union(a, e);
+        protect(n);
+        e = n;
+        x = cddr(x);
+        lam = 1;
+    }
+    protect(u = NIL);
+    while (pairp(x)) {
+        n = freevars(car(x), e);
+        protect(n);
+        u = set_union(u, n);
+        unprot(1);;
+        car(Protected) = u;
+        x = cdr(x);
+    }
+    n = unprot(1);
+    if (lam) e = unprot(3);
+    return n;
+}
+
+/* 14.2.3 Lambda Functions */
+
+/* This section deals with the transformation of S-expressions
+ * representing functions to S-expressions dealing with closures. It
+ * will also introduce new variables by adding their bindings to the
+ * top level environment.
+ */
+
+
+/**
+ * posq is like memq but returns the offset of x in a (or NIL). It is
+ * used to find the location (slot number) of a variable given its
+ * symbol.
+ */
+/*
+ * New symbols are always added to the end of the environment and the
+ * offset of a symbol in the environment equals the slot number that
+ * will be used to access the value of corresponding environment.
+ * Note that the env is still a list of symbols in this context.
+ */
+int posq(cell x, cell a) {
+    int n;
+
+    n = 0;
+    for (; a != NIL; a = cdr(a)) {
+        if (car(a) == x)
+            return n;
+        n++;
+    }
+    return NIL;
+}
+
+/* Closure conversion maintains two environments:
+ * - one containing bound variables (formal parameters)
+ * - one containing free variables in local environment
+ *
+ * The top level environment is just the outermost local environment
+ *
+ * Argument symbols are carried along in the variable a and
+ * environment symbols in the variable e. Where a contains only the
+ * arguments of the function currently being converted and e only
+ * contains the free variables of that function.
+ */
+
+/**
+ * I_a and I_e which are defined here, will be bound to the symbols
+ * "a" and "e" which are used to indicate the source vector in initmap
+ * entries
+ */
+cell I_a, I_e;
+
+/**
+ * initmap computes an initmap for the free variables fᵥ given the
+ * arguments a of the IOF and the environment e of the IOF.
+ */
+
+/* For instance for:
+ * fv = (x y)
+ * e  = (v w x)
+ * a  = (y)
+ * initmap would return:
+ * ((e 2 0 x) (a 0 1 y))
+ */
+
+cell initmap(cell fv, cell e, cell a) {
+    cell m, n, p;
+    int i, j;
+
+    protect(m = NIL);
+    i = 0;
+    while (fv != NIL) {
+        p = cons(car(fv), NIL);
+        protect(p);
+        n = mkfix(i);
+        p = cons(n, p);
+        car(Protected) = p;
+        if ((j = posq(car(fv), a)) != NIL) {
+            n = mkfix(j);
+            p = cons(n, p);
+            unprot(1);
+            /* We actually store the I_a itself */
+            p = cons(I_a, p);
+        }
+        else if ((j = posq(car(fv), e)) != NIL) {
+            n = mkfix(j);
+            p = cons(n, p);
+            unprot(1);
+            /* We actually store the I_e itself */
+            p = cons(I_e, p);
+        }
+        else {
+            error("undefined symbol", car(fv));
+        }
+        m = cons(p, m);
+        car(Protected) = m;
+        i++;
+        fv = cdr(fv);
+    }
+    return nreverse(unprot(1));
+}
+
+/**
+ * lastpair returns the last pair of the list x.
+ */
+cell lastpair(cell x) {
+    if (NIL == x)
+        return NIL;
+    while (cdr(x) != NIL)
+        x = cdr(x);
+    return x;
+}
+
+/**
+ * Env is bound to the top level environment Where the "Environment"
+ * still indicates a list of symbols without bindings.
+ */
+cell Env = NIL;
+
+/**
+ * The variable Envp always points to the last pair in Env. It is the
+ * place where new symbols will be added. Performance hack
+ */
+cell Envp = NIL;
+
+
+/*
+ * (lambda (x) (foo x))
+ *
+ *  the variable foo has not been defined before. the above expression
+ *  will do so. the symbol foo will be bound, yet undefined at this
+ *  point. Only a slot has been reserved for it.
+ *
+ * This is needed to support
+ * (defun (f x) (if (pair x) (g x)))
+ * (defun (g x) (f (cdr x)))
+ *
+ * during conversion of lambda functions, newvars will be used to
+ * pre-allocate environment slots
+ */
+
+/**
+ * newvar adds the symbol x to the top level environment. If it's
+ * already there it will not be added.
+ */
+
+void newvar(cell x) {
+    cell n;
+
+    if (memq(x, Env) != NIL)
+        return;
+    if (NIL == Envp)
+        Envp = lastpair(Env);
+    n = cons(x, NIL);
+    cdr(Envp) = n;
+    Envp = n;
+}
+
+/**
+ * newvars acts like newvar but adds many symbols at once.
+ */
+
+void newvars(cell x) {
+    while (x != NIL) {
+        newvar(car(x));
+        x = cdr(x);
+    }
+}
+
+cell cconv(cell x, cell e, cell a);
+
+/**
+ * mapconv maps closure conversion of the list x.
+ * (mapcar (lambda (x) (cconv x e a)) x)
+ * the cconv function performs the complete closure. It will be
+ * defined later
+ */
+cell mapconv(cell x, cell e, cell a) {
+    cell n, new;
+
+    protect(n = NIL);
+    while (pairp(x)) {
+        new = cconv(car(x), e, a);
+        n = cons(new, n);
+        car(Protected) = n;
+        x = cdr(x);
+    }
+    return nreverse(unprot(1));
+}
+
+/**
+ * I_closure is bound to the symbol %closure. It is used to indicate a
+ * closure in the S-expression returned by lamconv
+ */
+
+cell I_closure;
+
+/**
+ * lambconv converts an S-expression x, representing a lambda function
+ * to an S-expression representing a closure
+ */
+
+/*
+ * we can view this in lisp as
+ * (defun (lamconv x e a)
+ *    (let ((fv   (freevars x))
+ *          (args (flatargs (cadr x))))
+ *      (newvars fv)
+ *      `(%closure ,(cadr x)
+ *                 ,(initmap fv e a)
+ *                 ,@(mapconv (cddr x) fv args))))
+ *
+ * The C code has to do a lot of GC protections of the IR.
+ *
+ * Let us view an example:
+ * e = (g)
+ * a = (f)
+ * (lambda (x) (f (g x)))
+ * --------------------------------
+ * (%closure (x)
+ *   ((a 0 0 f) (e 0 1 g))
+ *   ((%ref 0) ((%ref 1) (%arg 0))))
+ */
+
+cell lamconv(cell x, cell e, cell a) {
+    cell cl, fv, args, m;
+
+    fv = freevars(x, NIL);
+    protect(fv);
+    newvars(fv);
+    args = flatargs(cadr(x));
+    protect(args);
+    m = initmap(fv, e, a);
+    protect(m);
+    cl = mapconv(cddr(x), fv, args);
+    /* Reconstruct the list! by consing to cl */
+    cl = cons(m, cl);
+    cl = cons(cadr(x), cl);
+    cl = cons(I_closure, cl);
+    unprot(3);
+    return cl;
+}
 
 int main() { return 0; }
