@@ -3295,4 +3295,202 @@ cell lamconv(cell x, cell e, cell a) {
     return cl;
 }
 
+/* 14.2.4 Lambda Lifting */
+/*
+ * Lambda lifting transforms any closures to combinators. This
+ * relieves pressure off the GC as no local environment has to be
+ * created. Application of a combinator can evaluate without
+ * allocating any memory at all.
+ *
+ * Functions being local or global is unrelated to being a combinator
+ * or not. Local functions can be combinators and top level functions
+ * can have free variables. That is why the focus will be on the
+ * "combinator" aspect.
+ *
+ * Normal example of
+ *  F := (lambda (x) (g (h x)))
+ * into
+ *  F' := (lambda (g h x) (g (h x)))
+ * Thus every time we see F we then write
+ * (F X) -----> (F' G H X)
+ *
+ * Such a transformation is out of the scope of this project, however
+ * there is an easier case to transform a lambda when it's being
+ * applied on the spot. Where only one modification and the
+ * transformation becomes simpler.
+ *
+ * ((lambda (x) (g (h x))) X)
+ * --------------------------------
+ * ((lambda (g h x) (g (h x))) G H X)
+ *
+ * Closure conversion will lambda-lift the variables of all variables
+ * of all pure functions that appear in the var positions of
+ * S-exrpessions. (pure means no setq here. As we all know, lambda
+ * lifting is unsafe in the face of mutation.)
+ */
+
+int contains(cell a, cell x) {
+    if (a == x)
+        return 1;
+    if (pairp(a) && (contains(car(a), x) || contains(cdr(a), x)))
+        return 1;
+    return 0;
+}
+
+/* An exrepssion x is liftable if it does not contain setq */
+
+/* This function would be quite easy to improve, even doesn't inline
+ * (quote setq)
+ */
+int liftable(cell x) {
+    return !contains(x, S_setq);
+}
+
+/**
+ * liftnames extracts the names of additional formal arguments that
+ * will be added to a lambda function from which free variables are
+ * being lifted. This runs over the freevariables data of m
+ *
+ * For example:
+ * ((a n 0 f) (e m 1 g) (e k 2 h))
+ * This function extracts
+ * (f g h)
+ */
+
+
+cell liftnames(cell m) {
+    #define name cadddr
+    cell a, n;
+
+    protect(a = NIL);
+    while (m != NIL) {
+        if (caar(m) == I_a) {
+            n = name(car(m));
+            a = cons(n, a);
+            car(Protected) = a;
+        }
+        m = cdr(m);
+    }
+    return nreverse(unprot(1));
+    #undef name
+}
+
+/** I_arg refers to %arg and I_ref as to %ref */
+cell I_arg, I_ref;
+
+cell liftargs(cell m) {
+    #define source cadr
+    cell a, n;
+
+    protect(a = NIL);
+    while (m != NIL) {
+        if (caar(m) == I_a) {
+            n = source(car(m));
+            n = cons(n, NIL);
+            n = cons(caar(m) == I_a? I_arg: I_ref, n);
+            a = cons(n, a);
+            car(Protected) = a;
+        }
+        m = cdr(m);
+    }
+    return nreverse(unprot(1));
+    #undef source
+}
+
+/* We derive the C papconv code from the following lisp
+(defun (appconv x e a)
+  (let ((fv (freevars (car x)))
+        (fn (car x))
+        (as (cdr x)))
+    (newvars fv)
+    (let ((m (initmap fv e a)))
+      @((%closure
+         ,(conc (liftnames m) (cadr fn))
+         nil
+         ,@(let ((cv (set-union
+                      (liftnames m)
+                      (flatargs (cadr fn)))))
+             (mapcar (lambda (x) (conv x e cv))
+                     (cddr fn)))
+         ,@(liftargs m)
+         ,@(mpacar (lambda (x) (conv x e a))
+                   as))))))
+ */
+
+/**
+ * appconv takes the lambda function application x, the current env e,
+ * and the argument list a. The C code is derived from the above code
+ * We follow this table
+ *
+ * | Variable | Meaning                                    |
+ * |----------+--------------------------------------------|
+ * | fn       | function being applied                     |
+ * | as       | arguments passed to fn                     |
+ * | fnargs   | formal arguments of fn (flattened)         |
+ * | m        | initmap of fn given e and a                |
+ * | n        | intermediate result                        |
+ * | lv       | variables lifted from fn                   |
+ * | vars     | formal argument list to of the closure     |
+ * | cv       | variables bound in the closure (flattened) |
+ */
+
+cell appconv(cell x, cell e, cell a) {
+    cell fn, as, fv, fnargs, m, n, lv, vars, cv;
+
+    fn = car(x);
+    as = cdr(x);
+    fv = freevars(fn, NIL);
+    protect(fv);
+    fnargs = flatargs(cadr(fn));
+    protect(fnargs);
+    newvars(fv);
+    m = initmap(fv, e, a);
+    protect(m);
+    as = mapconv(as, e, a);
+    protect(as);
+    n = liftargs(m);
+    as = nconc(n, as);
+    car(Protected) = as;
+    lv = liftnames(m);
+    protect(lv);
+    vars = conc(lv, cadr(fn));
+    protect(vars);
+    cv = set_union(lv, fnargs);
+    cadr(Protected) = cv;
+    fn = mapconv(cddr(fn), e, cv);
+    fn = cons(NIL, fn);
+    fn = cons(vars, fn);
+    fn = cons(I_closure, fn);
+    unprot(6);
+    return cons(fn, as);
+}
+
+/* 14.2.5 Global Definitions */
+
+/**
+ * defconv converts def forms as the following:
+ * (def v x) ⟶ (setq (%ref n v) x)
+ */
+cell defconv(cell x, cell e, cell a) {
+    cell n, m;
+
+    newvar(cadr(x));
+    n = cons(cconv(caddr(x), e, a), NIL);
+    protect(n);
+    m = mkfix(posq(cadr(x), e));
+    protect(m);
+    m = cons(I_ref, cons(m, cons(cadr(x), NIL)));
+    unprot(2);
+    return cons(S_setq, cons(m, n));
+}
+
+/* we are binding the name v to the location n. the binding is
+ * established in the deep binding env Glob, at compile time, but the
+ * value will be stored in the location n of the shallow-binding
+ * environment at run time. Ref takes a second argument namely to
+ * report errors when the function is undefined.
+ */
+
+/* 14.2.6 Exprssion Conversion */
+
 int main() { return 0; }
