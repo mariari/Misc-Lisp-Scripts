@@ -3639,7 +3639,7 @@ cell clsconv(cell x) {
  * - any number of closures
  * - a top level environment
  *
-
+ *
  * -------      ---------                 ---------------------
  * |     | <--> |  Acc  |                 |      Closure      |
  * |     |      ---------                 | ----------------  |
@@ -3670,6 +3670,68 @@ cell clsconv(cell x) {
  * ------------------------------------------------------------
  * |                   Top Level Enviornment                  |
  * ------------------------------------------------------------
+ *
+ * The LAM machine does not include any storage except for the
+ * Top Level Environment (TLE) and the Stack.
+ *
+ * Everything is either stored in the LTE, Stack or in one of the
+ * closures.
+ *
+ * The Symbol table and object table are implementation details not
+ * important when discussing the LAM
+ *
+ * The following Registers in the LAM:
+ * - Acc  (accumulator)         used for arguments and result values
+ * - Ep   (Environment Pointer) points to the current environment
+ * - Prog (program)             points to the current program fragment
+ * - Ip   (instruction pointer) points to the current instruction in prog
+ * - Sp   (stack pointer)       points to the top of the stack
+ * - Fp   (frame pointer)       points to the current stack frame
+ * - E0   (Base environment)    points to the top level environment
+ *
+ * All registers of LAM except Acc are used to refer to components of
+ * the machine.
+ *
+ * The Acc is the only general purpose register of the machine. It is
+ * used to exchange values with built-in operators. When an operator
+ * has one argument, it receives it in Acc register. When there are
+ * multiple arguments, the first one will be passed to Acc. It will
+ * also be returned through the Acc.
+ *
+ * The Ep always points to the environment of the closure whose
+ * program is currently evaluating. With no programs it'll be the TLE
+ * E0.
+ *
+ * The Program register always points to the program of closure that
+ * is it currently evaluating.
+ *
+ * When no closure is currently being evaluated, Prog points to a free
+ * program that is not contained in any closure. This is an
+ * implementation detail.
+ *
+ * The Instruction pointer, Ip, points to the next instruction to be
+ * interpreted inside of the Prog.
+ *
+ * The Stack pointer points to the element most recently pushed on the
+ * runtime stack (RTS)
+ *
+ * The Frame pointer points into the stack frame of the most recently
+ * applied function. More specifically it points to the argument
+ * passed to the function.
+ *
+ * A stack frame is built whenever a function is being applied to
+ * values. The following steps will be preformed:
+ * - arguments are pushed to the stack in reverse order
+ * - number of arguments is pushed to the stack
+ * - the env pointer is pushed to the stack
+ * - the return continuation is pushed to the stack
+ * - the frame pointer is pushed to the stack
+ * - the frame pointer is pointed to the first argument
+ *
+ * Closure has entry points. The entry point marks the first
+ * instruction that actually belongs to the code of the closure.
  */
+
+/* 14.3.2 The Instruction set of the LAM */
 
 int main() { return 0; }
