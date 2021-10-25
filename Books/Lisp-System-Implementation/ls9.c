@@ -3493,4 +3493,183 @@ cell defconv(cell x, cell e, cell a) {
 
 /* 14.2.6 Exprssion Conversion */
 
+/**
+ * cconv function performs the complete closure conversion of the
+ * S-expression x, given the local environment e and arguments
+ * a. initially, e will be bound to the top level environment and a
+ * will be empty. Both will be updated when cconv is called recursively
+ */
+
+/*
+ * cconv delegates the more complex cases to the above functions, but
+ * handles the simple cases by itself:
+ *
+ * apply, if, if*, prog, and setq - Will have their arguments closure
+ * converted
+ *
+ * same with cons, car, +, etc.
+ *
+ * symbols in a will be replaced with (%arg n)
+ * symbols in e will be replaced with (%ref n v)
+ *
+ * (macro v x) - will have their body x converted and otherwise be
+ * left unchanged. Macro names are bound in a separate environment
+ * that will be invisible at evaluation time.
+ *
+ * Function applications will be closure-converted by mapping the
+ * conversion over the function itself and all arguments.
+ */
+
+cell cconv(cell x, cell e, cell a) {
+    int n;
+
+    if (pairp(x) &&
+        (S_apply == car(x)  ||
+         S_if == car(x)     ||
+         S_ifstar == car(x) ||
+         S_prog == car(x)   ||
+         S_setq == car(x)   ||
+         subrp(car(x))))
+	{
+            return cons(car(x), mapconv(cdr(x), e, a));
+	}
+    if ((n = posq(x, a)) != NIL) {
+        return cons(I_arg, cons(mkfix(n), NIL));
+    }
+    if ((n = posq(x, e)) != NIL) {
+        Tmp = mkfix(n);
+        n = cons(I_ref, cons(Tmp, cons(x, NIL)));
+        Tmp = NIL;
+        return n;
+    }
+    if (symbolp(x)) {
+        error("undefined symbol", x);
+        return NIL;
+    }
+    if (atomp(x)) {
+        return x;
+    }
+    if (S_quote == car(x)) {
+        return x;
+    }
+    if (pairp(car(x)) &&
+        S_lambda == caar(x) &&
+        liftable(car(x)))
+	{
+            return appconv(x, e, a);
+	}
+    if (S_lambda == car(x)) {
+        return lamconv(x, e, a);
+    }
+    if (S_def == car(x)) {
+        return defconv(x, e, a);
+    }
+    if (S_macro == car(x)) {
+        return cons(car(x),
+                    cons(cadr(x),
+                         mapconv(cddr(x), e, a)));
+    }
+    return mapconv(x, e, a);
+}
+
+cell carof(cell a) {
+    cell n;
+
+    protect(n = NIL);
+    while (a != NIL) {
+        n = cons(caar(a), n);
+        car(Protected) = n;
+        a = cdr(a);
+    }
+    unprot(1);
+    return nreverse(n);
+}
+
+cell zipenv(cell vs, cell oe) {
+    cell n, b;
+
+    protect(n = NIL);
+    while (vs != NIL) {
+        if (NIL == oe) {
+            b = cons(car(vs), cons(UNDEF, NIL));
+        }
+        else {
+            b = car(oe);
+            oe = cdr(oe);
+        }
+        n = cons(b, n);
+        car(Protected) = n;
+        vs = cdr(vs);
+    }
+    return nreverse(unprot(1));
+}
+
+cell clsconv(cell x) {
+    cell n;
+
+    Env = carof(Glob);
+    Envp = NIL;
+    if (NIL == Env) Env = cons(UNDEF, NIL);
+    n = cconv(x, Env, NIL);
+    protect(n);
+    Glob = zipenv(Env, Glob);
+    return unprot(1);
+}
+
+/* 14.3 The Abstract Machine */
+
+/*
+ * Time for a derivative of the SECD machine
+ * This variant is driven by:
+ * - simplicity
+ * - efficiency
+ * - mimic hardware CPUs
+ *
+ * 1 and 2 are at conflicts with each other, so compromises have to be
+ * made. Goal 3 is to get fast native machine code.
+ */
+
+/* 14.3.1 the Components of the LAM */
+
+/*
+ * LISP9'S LAM consists of the following
+ * - an interpreter of LAM instructions (control)
+ * - a set of 7 registers
+ * - a combined control and data stack
+ * - any number of closures
+ * - a top level environment
+ *
+
+ * -------      ---------                 ---------------------
+ * |     | <--> |  Acc  |                 |      Closure      |
+ * |     |      ---------                 | ----------------  |
+ * |     |                          ----->| |  environment |  |
+ * |     |      ---------       ---/      | ----------------  |
+ * |     | <--> |  Ep   | -----/          | ----------------  |
+ * |     |      ---------             --->| |   program    |  |
+ * |  C  |                           /    | ----------------  |
+ * |  O  |      ---------        ---/     ---------^-----------
+ * |  N  | <--> | prog  | ------/                 /
+ * |  T  |      ---------                --------/
+ * |  R  |                              /
+ * |  O  |      ---------              /
+ * |  L  | <--> |   Ip  | ------------/
+ * |     |      ---------
+ * |     |      ---------      -----
+ * |     | <--> |   Sp  | ---> | S | ^
+ * |     |      ---------      | T | |
+ * |     |      ---------      | A | |    ---------------------
+ * |     | <--> |   Fp  | ---> | C | |    |      Closure      |
+ * |     |      ---------      | K | |    | ----------------  |
+ * |     |      ---------      -----      | |  environment |  |
+ * |     | <--> |   E0  |                 | ----------------  |
+ * |_____|      ---------                 | ----------------  |
+ *                  |                     | |   program    |  |
+ *                  |                     | ----------------  |
+ *                  V                     ---------------------
+ * ------------------------------------------------------------
+ * |                   Top Level Enviornment                  |
+ * ------------------------------------------------------------
+ */
+
 int main() { return 0; }
