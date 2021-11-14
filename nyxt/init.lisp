@@ -163,14 +163,14 @@ currently active buffer."
   "Dummy mode for the custom key bindings in `*custom-keymap*'."
   ((keymap-scheme (define-scheme "custom-mode"
                     scheme:emacs (list
-                                  "C-a" 'select-first
-                                  "C-e" 'select-last
-                                  "M-a" 'mark-all)
+                                  ;; "C-a" 'nyxt/prompt-buffer-mode:select-first
+                                  "C-e" 'nyxt/prompt-buffer-mode:select-last
+                                  "M-a" 'nyxt/prompt-buffer-mode:mark-all
+                                  )
                     scheme:cua   (list
-                                  "C-a" 'select-first
-                                  "C-e" 'select-last
-                                  "M-a" 'mark-all)))))
-
+                                  ;; "C-a" 'nyxt/prompt-buffer-mode:select-first
+                                  "C-e" 'nyxt/prompt-buffer-mode:select-last
+                                  "M-a" 'nyxt/prompt-buffer-mode:mark-all)))))
 
 
 (define-configuration nyxt/web-mode:search-buffer-source
