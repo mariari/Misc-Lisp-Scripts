@@ -1138,10 +1138,10 @@ cell cons3(cell pcar, cell pcdr, int ptag) {
  *                   /        \
  *                  /          \
  *                 /            v
- * -----------------------------------------------------
- * | Data …   | Link   | Size | Data …   | Link  | …  |
- * |          | /Index |      |          | Index | …  |
- * -----------------------------------------------------
+ * ------------------------------------------------------
+ * | Data …   | Link   | Size | Data …  | Link  | …  |
+ * |           | /Index |      |          | Index | …  |
+ * ------------------------------------------------------
  *                      Vector Pool
  *
  * Link : points back to the node of the vector object
@@ -1389,10 +1389,10 @@ cell mkstr(char *s, int k) {
  *                  /        \
  *                 /          \
  *                /            v
- * -----------------------------------------------------
- * | Data …   | Link   | Size | Data …   | Link  | …  |
- * |          | /Index |      |          | Index | …  |
- * -----------------------------------------------------
+ * ------------------------------------------------------
+ * | Data …  | Link   | Size | Data …   | Link  | …  |
+ * |          | /Index |      |           | Index | …  |
+ * ------------------------------------------------------
  *                 Vector Pool
  */
 
@@ -1602,14 +1602,14 @@ cell htrem(cell d, cell k) {
  *
  * It looks a little something like
  *    Symhash             Symbols
- * ------------           ------
- * | (foo . 5) |\       0 |  …  |
- * |     …     | \      1 |  …  |
- * | (bar . 2) | —————→ 2 | bar |
- * |     …     |   \  → 3 | baz |
- * | (baz . 3) | ————/  4 |  …  |
- * |     …     |    \—→ 5 | foo |
- * ------------           ------
+ * ------------           -------
+ * | (foo . 5) |\       0 | ... |
+ * |    ...    | \      1 | ... |
+ * | (bar . 2) |--\---> 2 | bar |
+ * |    ...    |  -\--> 3 | baz |
+ * | (baz . 3) |-/  \   4 | ... |
+ * |    ...    |     -> 5 | foo |
+ * ------------           -------
  *
  * Also useful for error reporting as symbols themselves will be lost
  * during compilation but symbol table slot numbers are carried
@@ -2967,7 +2967,7 @@ int subrp(cell x);
 
 /*
  *     x            e     Result       Notes
- * ------------------------------------------------
+ * --------------------------------------------------
  * | foo           nil    (foo)                     |
  * | bar          (bar)    nil      bar is bound    |
  * | (quote foo)   nil     nil                      |
@@ -2975,7 +2975,7 @@ int subrp(cell x);
  * | (+ x y)       nil    (x y)    + is a primitive |
  * | (lambda (x)   nil    (f g)    x is bound in λ  |
  * |   (f (g x)))                                   |
- * ------------------------------------------------
+ * --------------------------------------------------
  */
 
 /**
@@ -3640,15 +3640,15 @@ cell clsconv(cell x) {
  * - a top level environment
  *
  *
- * -------      ---------                 ---------------------
- * |     | <--> |  Acc  |                 |      Closure      |
- * |     |      ---------                 | ----------------  |
- * |     |                          ----->| |  environment |  |
- * |     |      ---------       ---/      | ----------------  |
- * |     | <--> |  Ep   | -----/          | ----------------  |
- * |     |      ---------             --->| |   program    |  |
- * |  C  |                           /    | ----------------  |
- * |  O  |      ---------        ---/     ---------^-----------
+ * -------      ---------                 --------------------
+ * |     | <--> |  Acc  |                 |      Closure     |
+ * |     |      ---------                 | ---------------- |
+ * |     |                          ----->| |  environment | |
+ * |     |      ---------       ---/      | ---------------- |
+ * |     | <--> |  Ep   | -----/          | ---------------- |
+ * |     |      ---------             --->| |   program    | |
+ * |  C  |                           /    | ---------------- |
+ * |  O  |      ---------        ---/     ---------^----------
  * |  N  | <--> | prog  | ------/                 /
  * |  T  |      ---------                --------/
  * |  R  |                              /
@@ -3658,18 +3658,18 @@ cell clsconv(cell x) {
  * |     |      ---------      -----
  * |     | <--> |   Sp  | ---> | S | ^
  * |     |      ---------      | T | |
- * |     |      ---------      | A | |    ---------------------
- * |     | <--> |   Fp  | ---> | C | |    |      Closure      |
- * |     |      ---------      | K | |    | ----------------  |
- * |     |      ---------      -----      | |  environment |  |
- * |     | <--> |   E0  |                 | ----------------  |
- * |_____|      ---------                 | ----------------  |
- *                  |                     | |   program    |  |
- *                  |                     | ----------------  |
- *                  V                     ---------------------
- * ------------------------------------------------------------
- * |                   Top Level Enviornment                  |
- * ------------------------------------------------------------
+ * |     |      ---------      | A | |    --------------------
+ * |     | <--> |   Fp  | ---> | C | |    |      Closure     |
+ * |     |      ---------      | K | |    | ---------------- |
+ * |     |      ---------      -----      | |  environment | |
+ * |     | <--> |   E0  |                 | ---------------- |
+ * |_____|      ---------                 | ---------------- |
+ *                  |                     | |   program    | |
+ *                  |                     | ---------------- |
+ *                  V                     --------------------
+ * -----------------------------------------------------------
+ * |                   Top Level Enviornment                 |
+ * -----------------------------------------------------------
  *
  * The LAM machine does not include any storage except for the
  * Top Level Environment (TLE) and the Stack.
@@ -3732,6 +3732,144 @@ cell clsconv(cell x) {
  * instruction that actually belongs to the code of the closure.
  */
 
-/* 14.3.2 The Instruction set of the LAM */
+/* Stack frame layout Fig 34
+ * ----------------
+ * |      Fp      |
+ * | Continuation |
+ * |      Ep      |
+ * |      n       |
+ * |  Argument 0  | <- New FP points here
+ * |     ...      |
+ * | Argument n-1 |
+ * ----------------
+ */
+
+/* 14.3.2 The Instruction Set of the LAM */
+
+/*
+ * A bunch of notation is being glossed over, but here are how many
+ * items are defined
+ *
+ * LOAD INSTRUCTIONS
+ *
+ *
+ * These instructions load values into the accumulator
+ *
+ * quote n m indicates quote instruction occupies 3 bytes. the
+ * instruction itself and two argument bites. It loads a literal
+ * object from the OBJTABLE
+ *
+ * quote n m: Acc <- OBTAB[256n + m]
+ *
+ * arg loads the (25n +m)^th argument from the current stack frame.
+ *
+ * arg n m: Acc <- S[[Fp - (256n + m)]]
+ *
+ * load the value from the (256n m+)^th binding of the current
+ * environment. the Value 256j +k points to the symbol table and is
+ * not used by LAM.
+ *
+ * ref n m j k: Acc <- Ep[[Fp - (256n + m)]]
+ *
+ *
+ * Store Instructions
+ *
+ *
+ * Store Acc in the (256n + m)^th argument binding of the current frame
+ *
+ * setarg n m: S[[Fp - (256n + m)]] <- Acc
+ *
+ * store acc in the (256n +m)^th binding of the current environment
+ *
+ * setref n m: Ep[[256n + m]] <- Acc
+ *
+ * Stack Instructions
+ *
+ * push a fresh box (location) containing Acc
+ *
+ * push: [Acc]↓
+ *
+ * push the value 256n + m without a surrounding box
+ *
+ * pushval n m: (256n + m)↓
+ *
+ * push the canonical "true" value
+ *
+ * pushtrue: T↓
+ *
+ * pop a value off hte stack and place it in Acc
+ *
+ * pop: Acc↑
+ *
+ * Pop a vlaue off the stack and forget it
+ *
+ * drop: Sp <- Sp - 1
+ *
+ *
+ * Jump and Branch Instructions
+ *
+ *
+ * Pass control to the (256n + m)^th byte of Prog.
+ *
+ * jmp  n m: Ip <- (256n + m)
+ *
+ * jump to the 256n + m if Acc is nil ("branch on false")
+ *
+ * brf n m: if Acc = nil; Ip <- (256n + m) end
+ *
+ * jump to the 256n + m if Acc is not nil ("branch on true")
+ *
+ * brt n m: if Acc ≠ nil; Ip <- (256n + m) end
+ *
+ * This instruction is defined informally
+ *
+ * halt: halt evaluation, result in Acc
+ *
+ *
+ * Function Application Instructions.
+ *
+ * These instructions will be involved in function application. The
+ * instructions that apply a function to arguments come in two
+ * flavor. a recursive one and a tail-recursive variants.
+ *
+ * normal: (apply, applis)
+ *
+ * tail-recursive: (tailapp, applist)
+ *
+ * the normal one will create a new stack frame while the tail
+ * recursive will be done in place saving a stack frame.
+ *
+ * The tail recursive is quite complex, so we will introduce the non
+ * recursive ones first.
+ *
+ * Apply the closure in Acc, to the arguments on the stack. The number
+ * of arguments is expected on the top of the stack at this point. The
+ * apply instruction itself will push Ep and the return continuation
+ * (Ip + 1, Prog). The frame pointer will be later be pushed by enter
+ * or entcol. Thereby completing the stack frame shown in fig 34. The
+ * instruction sets up a new current environment, program fragment and
+ * instruction pointer from teh closure in Acc, thus transferring
+ * control to the closure.
+ *
+ * apply:
+ *  Ep↓;
+ *  (Ip + 1, Porg)↓;
+ *  Ep   <- Cₑ(Acc);
+ *  Prog <- Cₚ(Acc);
+ *  Ip   <- Cₒ(Acc)
+ *
+ * In the partial stack frame present when enter is interpreted, the
+ * number of arguments on the stack is located in S[Sp - 2]. When this
+ * value is not equal to 256n + m, an error is signaled. When the
+ * number of arguments matches the operand of enter, Fp will be saved
+ * on the stack and then pointed at the first argument in the new
+ * stack frame.
+ *
+ * enter n m:
+ *  if S[Sp -2] ≠ 256n + m; error
+ *  else Fp↓;
+ *       Fp <- Sp - 4
+ *       end
+ */
 
 int main() { return 0; }
