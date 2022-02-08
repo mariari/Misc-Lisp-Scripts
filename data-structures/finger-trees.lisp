@@ -2,7 +2,6 @@
   (ql:quickload :trivia)
   (use-package 'trivia))
 
-
 ;; (declaim (optimize (speed 3) (space 0) (safety 0) (compilation-speed 0)))
 ;; here we are going to emulate the following Haskell Data Structure
 ;; data FingerTree a  = Empty
@@ -76,6 +75,7 @@
 ;; it's best to describe the structure with its type signature
 ;; data split f a = Split (f a) a (f a)
 
+
 (defparameter +empty-view+ (make-view))
 
 (defun finger-tree-p (tree)
@@ -121,9 +121,9 @@
                                 (f bar two))))
     (if three
         (make-node-3 :one one :two two :three three
-                     :measure (or measure (delay (f <> (delayed-node) (f bar three)))))
+                     :measure (or measure (lazy:delay (f <> (delayed-node) (f bar three)))))
         (make-node-2 :one one :two two
-                     :measure (or measure (delay (delayed-node)))))))
+                     :measure (or measure (lazy:delay (delayed-node)))))))
 
 (defun make-s-deep (&key measure (left (make-digit)) (spine :empty) (right (make-digit)))
   (make-deep :left left
@@ -131,7 +131,7 @@
              :right right
              :measure (if measure measure
                           (f <> (f <> (f bar left)
-                                      (f bar (force-eval spine)))
+                                      (f bar (lazy:force-eval spine)))
                         (f bar right)))))
 
 ;;;; Functions==========================================================================================================
@@ -250,8 +250,8 @@
      (make-split :left :empty :ele ele :right :empty))
 
     ((deep left spine right)
-     (let* ((value-left          (f <> current-iter (f bar left)))
-            (value-middle (delay (f <> value-left (f bar spine)))))
+     (let* ((value-left               (f <> current-iter (f bar left)))
+            (value-middle (lazy:delay (f <> value-left (f bar spine)))))
        (cond ((f measure-pred value-left)
               (let-match1 (split :left l :ele e :right r)
                           (split-digit measure-pred current-iter left)
@@ -259,7 +259,7 @@
                             :ele e
                             :right (deep-l r spine right))))
 
-             ((f measure-pred (force-and-update value-middle))
+             ((f measure-pred (lazy:force-and-update value-middle))
               (let-match* (((split :left lt :ele et :right rt) (split-tree measure-pred value-left spine))
                            ((split :left ld :ele ed :right rd) (split-digit measure-pred (f <> value-left (f bar lt)) et)))
                 (make-split :left (deep-r left lt ld)
@@ -489,7 +489,7 @@
 (defun finger-to-stream (tree)
   (let ((view (view-l tree)))
     (if (view-ele-l view)
-        (scons (view-ele-l view) (finger-to-stream (view-tree-l view)))
+        (lcons:scons (view-ele-l view) (finger-to-stream (view-tree-l view)))
         nil)))
 
 ;;;; Monoidic Instances of types========================================================================================
@@ -498,9 +498,9 @@
   (declare (ignore mempty-value))
   x)
 
-(defmethod bar ((x lazy) &optional mempty-value)
+(defmethod bar ((x lazy:lazy) &optional mempty-value)
   (declare (ignore mempty-value))
-  (bar (force x)))
+  (bar (lazy:force x)))
 
 (defmethod bar ((xs string) &optional mempty-value)
   (declare (ignore mempty-value))
@@ -517,14 +517,14 @@
 (defmethod <> ((x number) (y number))
   (+ x y))
 
-(defmethod <> ((x lazy) (y lazy))
-  (delay (f <> (force x) (force y))))
+(defmethod <> ((x lazy:lazy) (y lazy:lazy))
+  (lazy:delay (f <> (lazy:force x) (lazy:force y))))
 
-(defmethod <> ((x lazy) y)
-  (delay (f <> (force x) y)))
+(defmethod <> ((x lazy:lazy) y)
+  (lazy:delay (f <> (lazy:force x) y)))
 
-(defmethod <> (x (y lazy))
-  (delay (f <> x (force y))))
+(defmethod <> (x (y lazy:lazy))
+  (lazy:delay (f <> x (lazy:force y))))
 
 (defmethod <> ((x string) (y string))
   (concatenate 'string x y))
@@ -597,23 +597,24 @@
   (match xs
     (nil           (error "it requires at least 2 elements to be a node, not 0"))
     ((list _)      (error "it requires at least 2 elements to be a node, not 1"))
-    ((list a b)    (slist (make-s-node :one a :two b)))
-    ((list a b c)  (slist (make-s-node :one a :two b :three c)))
-    ((list* a b c) (scons (make-s-node :one a :two b)
-                          (nodes-l c)))))
+    ((list a b)    (lcons:slist (make-s-node :one a :two b)))
+    ((list a b c)  (lcons:slist (make-s-node :one a :two b :three c)))
+    ((list* a b c) (lcons:scons (make-s-node :one a :two b)
+                                (nodes-l c)))))
 
 (defun app3-l (tree1 xs tree2)
   "concatenate two current-iter trees using a middle list to store elements that will go between the branches"
   (match (list tree1 tree2)
-    ((list :empty _)       (lift-cons-l (make-strict xs) tree2))
-    ((list _ :empty)       (lift-cons-r (make-strict xs) tree1))
-    ((list (single ele) _) (cons-l ele (lift-cons-l (make-strict xs) tree2)))
-    ((list _ (single ele)) (cons-r ele (lift-cons-r (make-strict xs) tree1)))
+    ((list :empty _)       (lift-cons-l (lcons:make-strict xs) tree2))
+    ((list _ :empty)       (lift-cons-r (lcons:make-strict xs) tree1))
+    ((list (single ele) _) (cons-l ele (lift-cons-l (lcons:make-strict xs) tree2)))
+    ((list _ (single ele)) (cons-r ele (lift-cons-r (lcons:make-strict xs) tree1)))
     ((list (deep :left 1l :right 1r)
            (deep :left 2l :right 2r))
      (make-s-deep :left 1l
                 :spine (app3-l (deep-spine-l tree1)
-                              (nodes-l (sappend (sappend (to-list 1r) xs) (to-list 2l)))
+                              (nodes-l (lcons:sappend
+                                        (lcons:sappend (to-list 1r) xs) (to-list 2l)))
                               (deep-spine-l tree2))
                 :right 2r))))
 
