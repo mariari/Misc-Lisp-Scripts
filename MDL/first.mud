@@ -38,6 +38,7 @@
 <DEFINE FOLDR (F INIT XS)
   <COND (<EMPTY? .XS>
            .INIT)
+        ;; could have said <1 .XS> instead
         (T <.F <NTH .XS 1> <FOLDR .F .INIT <REST .XS>>>)>>
 
 <FOLDR ,+ 0 (1 2 3 4 5)>
