@@ -92,7 +92,7 @@
 ;; taken from http://cl-cookbook.sourceforge.net/os.html#accessing-command-line
 (defun my-command-line ()
   (or
-   #+SBCL sb-exit:*posix-argv*
+   #+SBCL sb-ext:*posix-argv*
    #+LISPWORKS system:*line-arguments-list*
    #+CMU extensions:*command-line-words*
    nil))
