@@ -8,8 +8,7 @@
   (:documentation "Random assortment of functions that make my life easier")
   (:use #:let-over-lambda)
   (:shadowing-import-from #:let-over-lambda #:when-match #:if-match)
-  (:use #:sb-ext
-        #:common-lisp
+  (:use #:common-lisp
         #:macros
         #:trivia)
   (:export :ls
@@ -93,7 +92,7 @@
 ;; taken from http://cl-cookbook.sourceforge.net/os.html#accessing-command-line
 (defun my-command-line ()
   (or
-   #+SBCL *posix-argv*
+   #+SBCL sb-exit:*posix-argv*
    #+LISPWORKS system:*line-arguments-list*
    #+CMU extensions:*command-line-words*
    nil))

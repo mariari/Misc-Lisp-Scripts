@@ -27,6 +27,14 @@
                        :name name
                        :finished nil))
 
+(defun mark-review (task)
+  (setf (finished task) :review)
+  task)
+
+(defun mark-developing (task)
+  (setf (finished task) :developing)
+  task)
+
 (defun mark-finished (task)
   (setf (finished task) t)
   task)
@@ -66,9 +74,16 @@
 (defparameter *allocate-on-stack*
   (make-task 'allocation-on-the-stack))
 
+(defparameter *recursive-adt*
+  (make-task 'recursive-adt
+             *list*))
+
 (defparameter *list*
   (make-task 'LIST
              (make-task 'list-operations)))
+
+(defparameter *borsch*
+  (make-task 'borsch))
 
 (defparameter *tasks*
   (make-task 'tasks
@@ -89,10 +104,14 @@
                                    *proper-image*
                                    *easy-image*)
                         (make-task 'declarations
-                                   (make-task 'sum-type-declaration
-                                              *list*)
-                                   (make-task 'record-type-declaration
-                                             *list*)
+                                   (mark-review
+                                    (make-task 'sum-type-declaration
+                                               *recursive-adt*
+                                               *borsch*))
+                                   (mark-review
+                                    (make-task 'record-type-declaration
+                                               *recursive-adt*
+                                               *borsch*))
                                    (make-task 'function-declaration)))
              (mark-finished
               (make-task 'llvm-data-types
@@ -104,7 +123,8 @@
                                     *array-ops*)))
              (make-task 'core-io-marking
                         *string-ops*
-                        *array-ops*)))
+                        *array-ops*)
+             (make-task 'tail-call-optimization)))
 
 ;;; the CLIM view class that corresponds to a list of members, one member
 ;;; per line of text in a CLIM application pane.
@@ -182,9 +202,12 @@
                                      (stream extended-output-stream)
                                      (view   show-view)
                                      &key)
-  (let ((color (if (finished object)
-                   +pale-violet-red+
-                   +alice-blue+)))
+  (let ((color
+          (case (finished object)
+            ((t)          +pale-violet-red+)
+            ((nil)        +alice-blue+)
+            ((:review)    +pink+)
+            ((:developing) +light-blue+))))
     (surrounding-output-with-border (stream :shape :rectangle
                                             :background color)
       (present-task stream object))))

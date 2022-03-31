@@ -1,7 +1,8 @@
 (defpackage #:struct
   (:documentation "Provides functions for struct definitions")
   (:use #:common-lisp)
-  (:export defstruct-l))
+  (:export defstruct-l
+           update-struct))
 
 (in-package :struct)
 
@@ -68,6 +69,16 @@
                                               (lol:flatten (mapcar (lambda (symb)
                                                                      (list (turn-into-key-word symb) symb))
                                                                    new-symbs))))))))))
+
+;; from https://stackoverflow.com/questions/38421721/returning-a-new-structure-with-fields-changed
+;; Note this is not portable for for def-struct types.
+(defun update-struct (struct &rest bindings)
+  (loop
+    with copy = (copy-structure struct)
+    for (slot value) on bindings by #'cddr
+    do (setf (slot-value copy slot) value)
+    finally (return copy)))
+
 (defun concat-s (&rest body)
   (apply #'concatenate 'string body))
 

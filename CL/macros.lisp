@@ -10,7 +10,6 @@
   (:use #:let-over-lambda)
   (:shadowing-import-from #:let-over-lambda #:when-match #:if-match)
   (:use #:trivia
-        #:sb-ext
         #:lol
         #:common-lisp)
   (:export #:once-only
