@@ -100,8 +100,8 @@ currently active buffer."
 (defun mdbgt-url (f)
   (labels ((append-mdbgt (url)
              (make-instance 'new-url-query
-                            :query (str:concat "!mdbgt " (query url))
-                            :engine (engine url))))
+                            :query (str:concat "https://www.mdbg.net/chinese/dictionary?page=worddict&wdrst=1&wdqb="
+                                               (query url)))))
     (custom-search-url :prompt-name "MDGBT search"
                        :search-form #'append-mdbgt
                        :buffer-load f)))
@@ -153,10 +153,14 @@ currently active buffer."
                                       "\\"  'jukuu-set-buffer
                                       "|"   'jukuu-new-buffer)
                     scheme:emacs     (list
-                                      "; x" 'mpv-launch
-                                      "X"   'mpv-url
-                                      "x"   'mpv-here
-                                      "y f"  'nyxt/web-mode:copy-hint-url)
+                                      "C-x ; x" 'mpv-launch
+                                      "C-x X"   'mpv-url
+                                      "C-x x"   'mpv-here
+                                      "C-x y f" 'nyxt/web-mode:copy-hint-url
+                                      "C-x P"   'mdbgt-new-buffer
+                                      "C-x p"   'mdbgt-set-buffer
+                                      "C-x \\"  'jukuu-set-buffer
+                                      "C-x |"   'jukuu-new-buffer)
                     scheme:cua       (list)))))
 
 (define-mode prompt-buffer-extra-keys ()
@@ -164,13 +168,14 @@ currently active buffer."
   ((keymap-scheme (define-scheme "custom-mode"
                     scheme:emacs (list
                                   ;; "C-a" 'nyxt/prompt-buffer-mode:select-first
-                                  "C-e" 'nyxt/prompt-buffer-mode:select-last
-                                  "M-a" 'nyxt/prompt-buffer-mode:mark-all
+                                  ;; "C-e" 'nyxt/prompt-buffer-mode:select-last
+                                  ;; "M-a" 'nyxt/prompt-buffer-mode:mark-all
                                   )
                     scheme:cua   (list
                                   ;; "C-a" 'nyxt/prompt-buffer-mode:select-first
-                                  "C-e" 'nyxt/prompt-buffer-mode:select-last
-                                  "M-a" 'nyxt/prompt-buffer-mode:mark-all)))))
+                                  ;; "C-e" 'nyxt/prompt-buffer-mode:select-last
+                                  ;; "M-a" 'nyxt/prompt-buffer-mode:mark-all
+                                  )))))
 
 
 (define-configuration nyxt/web-mode:search-buffer-source
@@ -182,7 +187,7 @@ currently active buffer."
 
 (define-configuration (buffer web-buffer)
   ((default-modes
-    (list* 'custom-bind-mode 'vi-normal-mode 'blocker-mode %slot-default%))))
+    (list* 'emacs-mode 'custom-bind-mode 'blocker-mode %slot-default%))))
 
 (define-configuration prompt-buffer
   ((default-modes (list* 'prompt-buffer-extra-keys 'emacs-mode 'prompt-buffer-mode nil))))
