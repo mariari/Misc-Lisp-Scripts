@@ -22,16 +22,14 @@
          (max-length (isqrt (* 2 (length bytes))))
          (collection (make-array amount
                                  :element-type '(unsigned-byte 8)
-                                 :initial-element 0))
-         (current-collection-location 0))
+                                 :initial-element 0
+                                 :fill-pointer 0)))
     (loop
       (let* ((count (min amount max-length))
              ;; Here we start the summation at 1 less. n(n -1) / 2
              (start (ash (* count (1- count)) -1)))
         (dotimes (i count)
-          (setf (aref collection current-collection-location)
-                (aref bytes (+ start i)))
-          (incf current-collection-location)))
+          (vector-push (aref bytes (+ start i)) collection)))
       (if (> amount max-length)
           (decf amount max-length)
           (return collection)))))
