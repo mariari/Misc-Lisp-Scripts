@@ -1,8 +1,9 @@
 #-quicklisp
-(let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp"
-                                       (user-homedir-pathname))))
-  (when (probe-file quicklisp-init)
-    (load quicklisp-init)))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp"
+                                         (user-homedir-pathname))))
+    (when (probe-file quicklisp-init)
+      (load quicklisp-init))))
 
 (ql:quickload :slynk)
 
@@ -26,23 +27,22 @@ before running this command."
 (defun execute-mpv (link)
   (uiop:launch-program (list "mpv" link) :ignore-error-status t))
 
-(define-command mpv-launch (&key annotate-visible-only-p)
+(define-command mpv-launch ()
   "Show a set of element hints, and go to the user inputted one in the
 currently active buffer."
-  (nyxt/web-mode::query-hints
+  (nyxt/hint-mode:query-hints
    "open video in mpv"
    (lambda (hint)
      (let ((hint (if (listp hint) (car hint) hint)))
        (echo "~A" hint)
        (case (type-of hint)
-         (nyxt/web-mode::link-hint
+         (nyxt/dom:a-element
           (echo "MPV launched with ~a" (url hint))
           (execute-mpv (quri:render-uri (url hint))))
          (t
           (echo "failed to launch mpv")
           (print (type-of hint))
-          (print hint)))))
-   :annotate-visible-only-p annotate-visible-only-p))
+          (print hint)))))))
 
 (define-command mpv-here ()
   "executes mpv in the current buffer"
@@ -64,16 +64,16 @@ currently active buffer."
                (echo "MPV launched with ~a" url)
                (execute-mpv url-string))))
       (prompt
-       :prompt        (format nil "Launch mpv on")
-       :input         (if prefill-current-url-p
-                          (quri:render-uri (url (current-buffer))) "")
-       :sources       (list
-                       (make-instance 'prompter:raw-source
-                                      :name "New URL"
-                                      :actions (list (make-unmapped-command func)))
-                       (make-instance 'global-history-source
-                                      :actions (list (make-unmapped-command func))))
-       :history      history))))
+       :prompt (format nil "Launch mpv on")
+       :input (if prefill-current-url-p
+                  (quri:render-uri (url (current-buffer))) "")
+       :sources (list
+                 (make-instance 'prompter:raw-source
+                                :name "New URL"
+                                :actions (list #'func))
+                 (make-instance 'global-history-source
+                                :actions (list #'func)))
+       :history history))))
 
 
 
@@ -85,18 +85,19 @@ currently active buffer."
                             (prompt-name "")
                             (search-form #'identity)
                             (buffer-load #'new-buffer-load))
-  (labels ((url-function (url)
+  (labels ((url-function (urls)
              ;; url is of type new-url-query
-             (funcall buffer-load (funcall search-form url))))
+             (let ((url (car urls)))
+               (format t "~A" url)
+               (funcall buffer-load (funcall search-form url)))))
     (let ((history (set-url-history *browser*)))
       (pushnew-url-history history (url (current-buffer)))
       (prompt
        :prompt prompt-name
        :input ""
        :history history
-       :sources (list (make-instance 'new-url-or-search-source
-                                     :name (concatenate 'string "new " prompt-name)
-                                     :actions (list (make-unmapped-command url-function))))))))
+       :sources (url-sources (current-buffer) (list #'url-function))))))
+
 (defun mdbgt-url (f)
   (labels ((append-mdbgt (url)
              (make-instance 'new-url-query
@@ -131,66 +132,67 @@ currently active buffer."
   "Prompt for a URL and set it in a new focused buffer."
   (mdbgt-url #'new-buffer-load))
 
-
-
 ;; not used
-;; (defvar *custom-keymap* (make-keymap "custom"))
+(defvar *custom-keymap* (make-keymap "custom"))
 
-;; (define-key *custom-keymap*
-;;   ";x" 'mpv-launch)
-
-
-(define-mode custom-bind-mode ()
-  "Dummy mode for the custom key bindings in `*custom-keymap*'."
-  ((keymap-scheme (define-scheme "custom-mode"
-                    scheme:vi-normal (list
-                                      "; x" 'mpv-launch
-                                      "X"   'mpv-url
-                                      "x"   'mpv-here
-                                      "y f" 'nyxt/web-mode:copy-hint-url
-                                      "P"   'mdbgt-new-buffer
-                                      "p"   'mdbgt-set-buffer
-                                      "\\"  'jukuu-set-buffer
-                                      "|"   'jukuu-new-buffer)
-                    scheme:emacs     (list
-                                      "C-x ; x" 'mpv-launch
-                                      "C-x X"   'mpv-url
-                                      "C-x x"   'mpv-here
-                                      "C-x y f" 'nyxt/web-mode:copy-hint-url
-                                      "C-x P"   'mdbgt-new-buffer
-                                      "C-x p"   'mdbgt-set-buffer
-                                      "C-x \\"  'jukuu-set-buffer
-                                      "C-x |"   'jukuu-new-buffer)
-                    scheme:cua       (list)))))
-
-(define-mode prompt-buffer-extra-keys ()
-  "Dummy mode for the custom key bindings in `*custom-keymap*'."
-  ((keymap-scheme (define-scheme "custom-mode"
-                    scheme:emacs (list
-                                  ;; "C-a" 'nyxt/prompt-buffer-mode:select-first
-                                  ;; "C-e" 'nyxt/prompt-buffer-mode:select-last
-                                  ;; "M-a" 'nyxt/prompt-buffer-mode:mark-all
-                                  )
-                    scheme:cua   (list
-                                  ;; "C-a" 'nyxt/prompt-buffer-mode:select-first
-                                  ;; "C-e" 'nyxt/prompt-buffer-mode:select-last
-                                  ;; "M-a" 'nyxt/prompt-buffer-mode:mark-all
-                                  )))))
+(define-key *custom-keymap*
+  ";x" 'mpv-launch)
 
 
-(define-configuration nyxt/web-mode:search-buffer-source
-  ((nyxt/web-mode:minimum-search-length 1)))
+;; (define-mode custom-bind-mode ()
+;;   "Dummy mode for the custom key bindings in `*custom-keymap*'."
+;;   ((keymap-scheme (define-scheme "custom-mode"
+;;                     scheme:vi-normal (list
+;;                                       "; x" 'mpv-launch
+;;                                       "X"   'mpv-url
+;;                                       "x"   'mpv-here
+;;                                       "y f" 'nyxt/web-mode:copy-hint-url
+;;                                       "P"   'mdbgt-new-buffer
+;;                                       "p"   'mdbgt-set-buffer
+;;                                       "\\"  'jukuu-set-buffer
+;;                                       "|"   'jukuu-new-buffer)
+;;                     scheme:emacs     (list
+;;                                       "C-x ; x" 'mpv-launch
+;;                                       "C-x X"   'mpv-url
+;;                                       "C-x x"   'mpv-here
+;;                                       "C-x y f" 'nyxt/web-mode:copy-hint-url
+;;                                       "C-x P"   'mdbgt-new-buffer
+;;                                       "C-x p"   'mdbgt-set-buffer
+;;                                       "C-x \\"  'jukuu-set-buffer
+;;                                       "C-x |"   'jukuu-new-buffer)
+;;                     scheme:cua       (list)))))
+
+;; (define-mode prompt-buffer-extra-keys ()
+;;   "Dummy mode for the custom key bindings in `*custom-keymap*'."
+;;   ((keymap-scheme (define-scheme "custom-mode"
+;;                     scheme:emacs (list
+;;                                   ;; "C-a" 'nyxt/prompt-buffer-mode:select-first
+;;                                   ;; "C-e" 'nyxt/prompt-buffer-mode:select-last
+;;                                   ;; "M-a" 'nyxt/prompt-buffer-mode:mark-all
+;;                                   )
+;;                     scheme:cua   (list
+;;                                   ;; "C-a" 'nyxt/prompt-buffer-mode:select-first
+;;                                   ;; "C-e" 'nyxt/prompt-buffer-mode:select-last
+;;                                   ;; "M-a" 'nyxt/prompt-buffer-mode:mark-all
+;;                                   )))))
+
+
+(define-configuration nyxt/search-buffer-mode:search-buffer-source
+  ((nyxt/search-buffer-mode:minimum-search-length 1)))
+
+(define-configuration buffer
+  ((default-modes %slot-default%)))
 
 (define-configuration browser
-  ((external-editor-program
-    "emacs")))
+    ((default-modes (list* 'prompt-buffer-extra-keys 'emacs-mode 'prompt-buffer-mode %slot-default%))
+      (external-editor-program "emacs")))
+
+(defmethod customize-instance ((buffer web-buffer) &key)
+  (nyxt/emacs-mode:emacs-mode :buffer buffer))
 
 (define-configuration (buffer web-buffer)
   ((default-modes
-    (list* 'emacs-mode 'custom-bind-mode 'blocker-mode %slot-default%))))
-
-(define-configuration prompt-buffer
-  ((default-modes (list* 'prompt-buffer-extra-keys 'emacs-mode 'prompt-buffer-mode nil))))
+    (list* 'emacs-mode 'custom-bind-mode %slot-default%))))
 
 ;;;; Presentation
 
