@@ -55,25 +55,30 @@ currently active buffer."
   (let ((history (set-url-history *browser*)))
     (when history
       (containers:insert-item history (url (current-buffer))))
-    (flet ((func (url)
-             (let ((url-string
-                     (cond ((typep url 'history-entry) (render-url (url url)))
-                           ((stringp url)              url)
-                           ((valid-url-p url)          (render-url url))
-                           (t                          url))))
+    (flet ((func (urls)
+             (let* ((url (car urls))
+                    (url-string
+                      (cond ((typep url 'history-entry) (render-url (url url)))
+                            ((stringp url)              url)
+                            ((valid-url-p url)          (render-url url))
+                            (t                          url))))
                (echo "MPV launched with ~a" url)
                (execute-mpv url-string))))
       (prompt
        :prompt (format nil "Launch mpv on")
        :input (if prefill-current-url-p
                   (quri:render-uri (url (current-buffer))) "")
-       :sources (list
-                 (make-instance 'prompter:raw-source
-                                :name "New URL"
-                                :actions (list #'func))
-                 (make-instance 'global-history-source
-                                :actions (list #'func)))
+       :sources
+       (url-sources-no-suggestions (current-buffer) (list #'func))
        :history history))))
+
+
+(defmethod url-sources-no-suggestions ((buffer buffer) return-actions)
+  (append
+   (list (make-instance 'new-url-or-search-source :return-actions return-actions :filter-postprocessor #'identity)
+         (make-instance 'global-history-source :return-actions return-actions)
+         (make-instance 'search-engine-url-source :return-actions return-actions))
+   (mappend (rcurry #'url-sources return-actions) (modes buffer))))
 
 
 
@@ -88,7 +93,6 @@ currently active buffer."
   (labels ((url-function (urls)
              ;; url is of type new-url-query
              (let ((url (car urls)))
-               (format t "~A" url)
                (funcall buffer-load (funcall search-form url)))))
     (let ((history (set-url-history *browser*)))
       (pushnew-url-history history (url (current-buffer)))
@@ -192,7 +196,9 @@ currently active buffer."
 
 (define-configuration (buffer web-buffer)
   ((default-modes
-    (list* 'emacs-mode 'custom-bind-mode %slot-default%))))
+    ;; 'custom-bind-mode
+    (list* ;; 'emacs-mode
+     %slot-default%))))
 
 ;;;; Presentation
 
