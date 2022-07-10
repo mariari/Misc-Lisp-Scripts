@@ -69,7 +69,7 @@ currently active buffer."
                       (cond ((typep url 'history-entry) (render-url (url url)))
                             ((stringp url)              url)
                             ((valid-url-p url)          (render-url url))
-                            (t                          url))))
+                            (t                          (render-url (url url))))))
                (echo "MPV launched with ~a" url)
                (execute-mpv url-string))))
       (prompt
@@ -206,8 +206,9 @@ currently active buffer."
    ))
 
 (define-configuration browser
-    ((default-modes (list* 'prompt-buffer-extra-keys 'emacs-mode 'prompt-buffer-mode %slot-default%))
-      (external-editor-program "emacs")))
+  ((default-modes (list* 'prompt-buffer-extra-keys 'emacs-mode 'prompt-buffer-mode %slot-default%))
+   (external-editor-program "emacs")
+   (session-restore-prompt :always-restore)))
 
 (defmethod customize-instance ((buffer web-buffer) &key)
   (nyxt/emacs-mode:emacs-mode :buffer buffer))
