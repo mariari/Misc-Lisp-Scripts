@@ -18,7 +18,7 @@ Warning: This allows Nyxt to be controlled remotely, that is, to
 execute arbitrary code with the privileges of the user running Nyxt.
 Make sure you understand the security risks associated with this
 before running this command."
-      (slynk:create-server :port slynk-port :dont-close t)
+    (slynk:create-server :port slynk-port :dont-close t)
       (echo "Slynk server started at port ~a" slynk-port)))
 
 
@@ -199,16 +199,11 @@ currently active buffer."
 (define-configuration nyxt/search-buffer-mode:search-buffer-source
   ((nyxt/search-buffer-mode:minimum-search-length 1)))
 
-(define-configuration buffer
-  ((default-modes %slot-default%)
-   ;; (override-map (define-keyscheme-map *custom-keymap*
-   ;;                 ))
-   ))
-
 (define-configuration browser
-  ((default-modes (list* 'prompt-buffer-extra-keys 'emacs-mode 'prompt-buffer-mode %slot-default%))
+  ((default-modes (list* 'custom-bind-mode 'prompt-buffer-extra-keys 'emacs-mode 'prompt-buffer-mode %slot-default%))
    (external-editor-program "emacs")
-   (session-restore-prompt :always-restore)))
+   ;; (session-restore-prompt :always-restore)
+   ))
 
 (defmethod customize-instance ((buffer web-buffer) &key)
   (nyxt/emacs-mode:emacs-mode :buffer buffer))
@@ -217,6 +212,9 @@ currently active buffer."
   ((default-modes
     ;; 'custom-bind-mode
     (list* 'custom-bind-mode %slot-default%))))
+
+(define-configuration document-buffer
+  ((scroll-distance 50)))
 
 ;;;; Presentation
 
