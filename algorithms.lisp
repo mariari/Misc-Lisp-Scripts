@@ -96,8 +96,8 @@
              (byts-comp h (mvfold (lambda (bytes-compressed h array-chunk)
                                     (let ((chunk (select:select 2d-msg array-chunk t)))
                                       (values
-                                       (+ bytes-compressed 128)
-                                       (compress h chunk bytes-compressed :final nil))))
+                                       #1=(+ bytes-compressed 128)
+                                       (compress h chunk #1# :final nil))))
                                   (alexandria:iota (1- m-rows))
                                   0 h))
              (total-bytes (+ left-over byts-comp)))
