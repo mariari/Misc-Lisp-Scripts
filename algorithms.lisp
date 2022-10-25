@@ -155,7 +155,7 @@ message value of `mx'`my', mutating the array at the four given indexs"
 (defun proper-endian (arr)
   "turns the output into the proper endian"
   (apply #'concatenate 'string
-         (map 'list (lambda (x) (format nil "~{~(~X~)~}"
+         (map 'list (lambda (x) (format nil "~{~(~2,'0X~)~}"
                                     (coerce
                                      (cl-intbytes:int->octets x 8)
                                      'list)))
@@ -224,8 +224,10 @@ message value of `mx'`my', mutating the array at the four given indexs"
 (in-suite algorithm.tests)
 
 (test blake2b-512-expected
-  (string= "a8add4bdddfd93e4877d2746e62817b116364a1fa7bc148d95090bc7333b3673f82401cf7aa2e4cb1ecd90296e3f14cb5413f8ed77be73045b13914cdcd6a918"
-           (blake2 "The quick brown fox jumps over the lazy dog")))
+  (is (string= "a8add4bdddfd93e4877d2746e62817b116364a1fa7bc148d95090bc7333b3673f82401cf7aa2e4cb1ecd90296e3f14cb5413f8ed77be73045b13914cdcd6a918"
+               (blake2 "The quick brown fox jumps over the lazy dog")))
+  (is (string= "4b5a2e2e3efc44b602fde09133e3b197ba552a468e1c077552043a9db5f900d345b888fc71482a557cba3cbe1120083cc55c74276b9389de8f31c91bd5f069ac"
+               (blake2 "1080p 1987 1991 1993 1998 2004 2006 2007 2014 2015 2016 320 3ds 4k 720 [as] adultswim album alcohol analog anne-clark arthouse bartending"))))
 
 
 (defun run-tests ()
