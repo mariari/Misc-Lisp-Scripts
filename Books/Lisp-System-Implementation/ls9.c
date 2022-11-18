@@ -1922,7 +1922,7 @@ int assq(int x, cell a) {
  * function does nothing.
  */
 void bindset(cell v, cell a) {
-    cell b = assq(v,Glob);
+    cell b = assq(v, Glob);
     if (b != NIL)
         cadr(b) = a;
 }
@@ -3871,5 +3871,13 @@ cell clsconv(cell x) {
  *       Fp <- Sp - 4
  *       end
  */
+
+
+cell Obhash = NIL,
+     Obarray = NIL,
+     Obmap = NIL;
+
+int Obptr = 0;
+
 
 int main() { return 0; }
