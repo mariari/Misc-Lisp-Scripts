@@ -52,9 +52,9 @@ currently active buffer."
 ;; TODO ∷ figure out how to make text spawn if things fail
 (defmethod url-sources-no-suggestions ((buffer buffer) return-actions)
   (append
-   (list (make-instance 'new-url-or-search-source :return-actions return-actions :filter-postprocessor #'identity)
-         (make-instance 'global-history-source :return-actions return-actions)
-         (make-instance 'search-engine-url-source :return-actions return-actions))
+   (list (make-instance 'new-url-or-search-source :actions-on-return return-actions :filter-postprocessor #'identity)
+         (make-instance 'global-history-source :actions-on-return return-actions)
+         (make-instance 'search-engine-url-source :actions-on-return return-actions))
    (mappend (rcurry #'url-sources return-actions) (modes buffer))))
 
 
@@ -151,12 +151,37 @@ currently active buffer."
   "C-x \\"  'jukuu-set-buffer
   "C-x |"   'jukuu-new-buffer)
 
-(define-mode custom-bind-mode ()
-  "Dummy mode for the custom key bindings in `*custom-keymap*'."
-  ((keyscheme-map (keymaps:make-keyscheme-map
-                   nyxt/keyscheme:cua       *custom-keymap*
-                   nyxt/keyscheme:emacs     *custom-keymap*
-                   nyxt/keyscheme:vi-normal *custom-keymap*))))
+(define-mode custom-bind-mode (nyxt/keyscheme-mode:keyscheme-mode)
+  "custom bindings"
+  ((glyph "Γ")
+   (keyscheme-map
+    (define-keyscheme-map "input-edit-mode" ()
+      ;; TODO: Add VI-normal?
+      keyscheme:emacs
+      (list
+       "C-x ; x" 'mpv-launch
+       "C-x X"   'mpv-url
+       "C-x x"   'mpv-here
+       ;; "C-x y f" 'nyxt/web-mode:copy-hint-url
+       "C-x P"   'mdbgt-new-buffer
+       "C-x p"   'mdbgt-set-buffer
+       "C-x \\"  'jukuu-set-buffer
+       "C-x |"   'jukuu-new-buffer ))
+
+    ;; (keymaps:make-keyscheme-map
+    ;;  nyxt/keyscheme:cua       *custom-keymap*
+    ;;  nyxt/keyscheme:emacs     *custom-keymap*
+    ;;  nyxt/keyscheme:vi-normal *custom-keymap*)
+    )
+   (keyscheme keyscheme:emacs)
+   ))
+
+;; (define-mode custom-bind-mode ()
+;;   "Dummy mode for the custom key bindings in `*custom-keymap*'."
+;;   ((keyscheme-map (keymaps:make-keyscheme-map
+;;                    nyxt/keyscheme:cua       *custom-keymap*
+;;                    nyxt/keyscheme:emacs     *custom-keymap*
+;;                    nyxt/keyscheme:vi-normal *custom-keymap*))))
 
 ;; (define-mode custom-bind-mode ()
 ;;   "Dummy mode for the custom key bindings in `*custom-keymap*'."
@@ -199,19 +224,25 @@ currently active buffer."
 (define-configuration nyxt/search-buffer-mode:search-buffer-source
   ((nyxt/search-buffer-mode:minimum-search-length 1)))
 
+(define-configuration (buffer web-buffer)
+  ((default-modes
+    (list* 'custom-bind-mode 'nyxt/emacs-mode:emacs-mode %slot-default%))))
+;; (define-configuration buffer
+;;   ((default-modes
+;;     (list* 'custom-bind-mode 'nyxt/emacs-mode:emacs-mode %slot-default%))))
+
+;; (define-configuration (buffer web-buffer)
+;;   ((default-modes
+;;     ;; 'custom-bind-mode
+;;     (list* 'custom-bind-mode %slot-default%))))
+
 (define-configuration browser
-  ((default-modes (list* 'custom-bind-mode 'prompt-buffer-extra-keys 'emacs-mode 'prompt-buffer-mode %slot-default%))
-   (external-editor-program "emacs")
+  ((external-editor-program "emacs")
    ;; (session-restore-prompt :always-restore)
    ))
 
 (defmethod customize-instance ((buffer web-buffer) &key)
   (nyxt/emacs-mode:emacs-mode :buffer buffer))
-
-(define-configuration (buffer web-buffer)
-  ((default-modes
-    ;; 'custom-bind-mode
-    (list* 'custom-bind-mode %slot-default%))))
 
 (define-configuration document-buffer
   ((scroll-distance 50)))
