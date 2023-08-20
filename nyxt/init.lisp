@@ -27,10 +27,10 @@ before running this command."
 (defun execute-mpv (link)
   (uiop:launch-program (list "mpv" link) :ignore-error-status t))
 
-(define-command mpv-launch ()
+(define-command-global mpv-launch ()
   "Show a set of element hints, and go to the user inputted one in the
 currently active buffer."
-  (nyxt/hint-mode:query-hints
+  (nyxt/mode/hint:query-hints
    "open video in mpv"
    (lambda (hint)
      (let ((hint (if (listp hint) (car hint) hint)))
@@ -44,7 +44,7 @@ currently active buffer."
           (print (type-of hint))
           (print hint)))))))
 
-(define-command mpv-here ()
+(define-command-global mpv-here ()
   "executes mpv in the current buffer"
   (execute-mpv (quri:render-uri (url (current-buffer)))))
 
@@ -151,7 +151,10 @@ currently active buffer."
   "C-x \\"  'jukuu-set-buffer
   "C-x |"   'jukuu-new-buffer)
 
-(define-mode custom-bind-mode (nyxt/keyscheme-mode:keyscheme-mode)
+(defvar *custom*
+  (nkeymaps:make-keyscheme "custom" nkeymaps:emacs))
+
+(define-mode custom-bind-mode (nyxt/mode/keyscheme:keyscheme-mode)
   "custom bindings"
   ((glyph "Γ")
    (keyscheme-map
@@ -173,8 +176,7 @@ currently active buffer."
     ;;  nyxt/keyscheme:emacs     *custom-keymap*
     ;;  nyxt/keyscheme:vi-normal *custom-keymap*)
     )
-   (keyscheme keyscheme:emacs)
-   ))
+   (keyscheme keyscheme:emacs)))
 
 ;; (define-mode custom-bind-mode ()
 ;;   "Dummy mode for the custom key bindings in `*custom-keymap*'."
@@ -221,12 +223,13 @@ currently active buffer."
 ;;                                   )))))
 
 
-(define-configuration nyxt/search-buffer-mode:search-buffer-source
-  ((nyxt/search-buffer-mode:minimum-search-length 1)))
+
+;; (define-configuration nyxt/mode/search-buffer:search-buffer-source
+;;   ((nyxt/search-buffer-mode:minimum-search-length 1)))
 
 (define-configuration (buffer web-buffer)
   ((default-modes
-    (list* 'custom-bind-mode 'nyxt/emacs-mode:emacs-mode %slot-default%))))
+    (pushnew 'custom-bind-mode %slot-default%))))
 ;; (define-configuration buffer
 ;;   ((default-modes
 ;;     (list* 'custom-bind-mode 'nyxt/emacs-mode:emacs-mode %slot-default%))))
@@ -241,8 +244,8 @@ currently active buffer."
    ;; (session-restore-prompt :always-restore)
    ))
 
-(defmethod customize-instance ((buffer web-buffer) &key)
-  (nyxt/emacs-mode:emacs-mode :buffer buffer))
+;; (defmethod customize-instance ((buffer web-buffer) &key)
+;;   (nyxt/emacs-mode:emacs-mode :buffer buffer))
 
 (define-configuration document-buffer
   ((scroll-distance 50)))
