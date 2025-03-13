@@ -89,14 +89,17 @@
                            :logic #'obj-resource-logic
                            :label 'built-in-class))
 
-(-> verify (resource instance t) boolean)
-(defun verify (resource instance any)
+(-> verify (resource instance boolean) boolean)
+(defun verify (resource instance consumed?)
   ;; time for the fun
   (assure boolean
     (funcall (logic resource)
              (resource->obj resource)
              instance
-             any)))
+             ;; we pass consumed? because we don't reify creation into
+             ;; the model, thus it has to be done in an hamfisted
+             ;; manner
+             consumed?)))
 
 (-> resource->obj (resource) t)
 (defun resource->obj (x)
@@ -217,7 +220,7 @@
 (defun verify-compliance-unit (compliance)
   (let ((instances (instances compliance)))
     (every (lambda (instance)
-             (verify (tag instance) instance t))
+             (verify (tag instance) instance (consumed-p instance)))
            instances)))
 
 ;; How to deal with signed movements?
