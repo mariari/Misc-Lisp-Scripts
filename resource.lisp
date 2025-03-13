@@ -1,5 +1,5 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (ql:quickload '(:serapeum ironclad)))
+  (ql:quickload '(:serapeum :ironclad :trivial-utf-8)))
 
 (defpackage #:rmv2
   (:documentation "A resource machine implementation and exploration")
@@ -220,7 +220,48 @@
              (verify (tag instance) instance t))
            instances)))
 
-;; (defvar *known-verification-functions* (make-hash-table))
+;; How to deal with signed movements?
+;; Namely we have to sign over the transfer
+;; (transfer foo y)
+
+;; this puts a constraint that we sign over the current operation can
+;; we get environment? so I'm signing over transfer.... we can change
+;; semantics to make this.
+
+(defparameter *current-environment* nil)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Ownership scaffolding
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defvar *my-key* (ironclad:generate-key-pair :ed25519))
+
+(defclass ownership-mixin ()
+  ((owner :initarg :owner :accessor owner :type ironclad:ed25519-public-key)))
+
+(defmethod set-owner ((obj ownership-mixin) (key ed25519-private-key))
+  (setf (owner obj)
+        (ironclad:make-public-key :ed25519
+                                  :y (ironclad:ed25519-public-key
+                                      (ironclad:ed25519-key-x key)))))
+(defmethod set-owner ((obj ownership-mixin) (key ed25519-public-key))
+  (setf (owner obj) key))
+
+(defclass owned-number (counted-integer ownership-mixin) ())
+
+(-> owned (integer t) owned-number)
+(defun owned (x key)
+  (let ((number (make-instance 'owned-number :data x)))
+    (set-owner number key)
+    number))
+
+(-> sign-symbol-name (symbol ed25519-private-key) t)
+(defun sign-symbol-name (symbol key)
+  (ironclad:sign-message
+   key
+   (apply #'concatenate '(simple-array (unsigned-byte 8) (*))
+          (map 'list #'trivial-utf-8:string-to-utf-8-bytes
+               (uiop:reify-symbol symbol)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Example Invocations
@@ -234,7 +275,6 @@
 ;; ("hi")
 ;; RMV2> (verify *x* (make-instance 'instance) 3)
 ;; NIL
-
 ;; RMV2>
 ;; (verify-compliance-unit
 ;;  (transact (add (counted 6)
@@ -242,7 +282,6 @@
 ;;                 (counted 5)
 ;;                 (mk-integer 12))))
 ;; T
-
 ;; RMV2>
 ;; (defparameter *transaction* (transact (add (counted 6)
 ;;                                            (add (counted 20) (counted 122))
@@ -251,10 +290,9 @@
 ;; *TRANSACTION*
 ;; RMV2> (defparameter *add* (car (instances *transaction*)))
 ;; *ADD*
-
 ;; RMV2> (setf (consumed *add*) (cons (car (consumed *add*)) (consumed *add*)))
-
 ;; RMV2> (verify-compliance-unit *transaction*)
+;; RMV2> (verify-compliance-unit (transact (+ 1 2 3 4)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Generalized helpers
@@ -277,7 +315,6 @@
 (define-generic-print instance)
 (define-generic-print compliance-unit)
 (define-generic-print integer-obj)
-(define-generic-print counted-integer)
 
 (defun list-to-class (class list)
   ;; Should we make a prototype or do an instance like this I'm
