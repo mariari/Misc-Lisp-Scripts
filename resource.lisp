@@ -1,7 +1,10 @@
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (ql:quickload '(:serapeum ironclad)))
+
 (defpackage #:rmv2
   (:documentation "A resource machine implementation and exploration")
   (:shadow :@)
-  (:use #:common-lisp #:serapeum))
+  (:use #:common-lisp #:serapeum #:ironclad))
 
 (in-package #:rmv2)
 
