@@ -239,6 +239,7 @@
 
 (defvar *my-key* (ironclad:generate-key-pair :ed25519))
 
+;; We need to make an around method to have verification work
 (defclass ownership-mixin ()
   ((owner :initarg :owner :accessor owner :type ironclad:ed25519-public-key)))
 
@@ -262,10 +263,22 @@
 (defun sign-symbol-name (symbol key)
   (ironclad:sign-message
    key
-   (apply #'concatenate '(simple-array (unsigned-byte 8) (*))
-          (map 'list #'trivial-utf-8:string-to-utf-8-bytes
+   (apply #'concatenate
+          '(simple-array (unsigned-byte 8) (*))
+          (map 'list
+               #'trivial-utf-8:string-to-utf-8-bytes
                (uiop:reify-symbol symbol)))))
 
+(-> transfer (ownership-mixin ed25519-public-key) ownership-mixin)
+(defun transfer (token new-owner)
+  (let ((new-token (copy-instance token)))
+    (setf (owner new-token) new-owner)
+    new-token))
+
+(defmethod obj-resource-logic :around ((obj ownership-mixin) (instance instance) consumed?)
+  (if consumed?
+      (and t (call-next-method))
+      (call-next-method)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Example Invocations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
