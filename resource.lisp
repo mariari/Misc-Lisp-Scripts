@@ -392,10 +392,7 @@
   (:documentation "Compares objects with pointwise equality. This is a
                    much weaker form of equality comparison than
                    STANDARD-OBJECT EQUALP, which does the much
-                   stronger pointer quality")
-  (:method ((obj1 standard-object) (obj2 standard-object))
-    "for non pointwise objects, compute the standard equalp"
-    (equalp obj1 obj2)))
+                   stronger pointer quality"))
 
 (defgeneric to-pointwise-list (obj)
   (:documentation "Turns a given object into a pointwise LIST. listing
@@ -417,6 +414,11 @@
   (c2mop:class-direct-slots (class-of object)))
 
 (defmethod obj-equalp ((obj1 pointwise-mixin) (obj2 pointwise-mixin))
+  (and (c2mop:subclassp (type-of obj1) (type-of obj2))
+       (obj-equalp (to-pointwise-list obj1)
+                   (to-pointwise-list obj2))))
+
+(defmethod obj-equalp ((obj1 standard-object) (obj2 standard-object))
   (and (c2mop:subclassp (type-of obj1) (type-of obj2))
        (obj-equalp (to-pointwise-list obj1)
                    (to-pointwise-list obj2))))
