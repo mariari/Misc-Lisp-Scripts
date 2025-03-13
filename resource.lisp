@@ -67,21 +67,24 @@
   (:documentation "I run the resource obj-resource-logic for a given type"))
 
 ;; We need our mapping to a resource
-(-> obj->resource (standard-object) resource)
-(defun obj->resource (x)
+(defmethod obj->resource ((x standard-object))
   (let ((class (class-of x)))
-    (values
-     (make-instance
-      'resource
-      :data (instance-values x)
-      :logic #'obj-resource-logic
-      ;; Label is a reference to the slot values that we need to refer
-      ;; to, however since we recreate the value and the data is
-      ;; available Ill elide this detail, what we want is to basically
-      ;; have a reference to the specific class values in some way
-      ;; which can change, not sure what this looks like. However we
-      ;; can always retrieve the class this way
-      :label class))))
+    (make-instance
+     'resource
+     :data (instance-values x)
+     :logic #'obj-resource-logic
+     ;; Label is a reference to the slot values that we need to refer
+     ;; to, however since we recreate the value and the data is
+     ;; available Ill elide this detail, what we want is to basically
+     ;; have a reference to the specific class values in some way
+     ;; which can change, not sure what this looks like. However we
+     ;; can always retrieve the class this way
+     :label class)))
+
+(defmethod obj->resource ((x number))
+  (make-instance 'resource :data (list x)
+                           :logic #'obj-resource-logic
+                           :label 'built-in-class))
 
 (-> verify (resource instance t) boolean)
 (defun verify (resource instance any)
@@ -92,11 +95,14 @@
              instance
              any)))
 
-(-> resource->obj (resource) standard-object)
+(-> resource->obj (resource) t)
 (defun resource->obj (x)
-  (values
-   (list-to-class (c2mop:ensure-finalized (label x))
-                  (data x))))
+  (case (label x)
+    (built-in-class
+     (car (data x)))
+    (t
+     (list-to-class (c2mop:ensure-finalized (label x))
+                    (data x)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Example Resources
@@ -124,6 +130,9 @@
 (defmethod obj-resource-logic ((object integer-obj) (instance instance) any)
   ;; We can ignore the instance as our constraint is very simple
   (integerp (data object)))
+
+(defmethod obj-resource-logic ((object integer) (instance instance) any)
+  t)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Methods as resources
@@ -205,9 +214,7 @@
 (defun verify-compliance-unit (compliance)
   (let ((instances (instances compliance)))
     (every (lambda (instance)
-             (verify (tag instance)
-                     instance
-                     t))
+             (verify (tag instance) instance t))
            instances)))
 
 ;; (defvar *known-verification-functions* (make-hash-table))
